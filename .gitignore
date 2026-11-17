@@ -1,0 +1,21 @@
+node_modules/
+.next/
+dist/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Secrets: never commit keys
+.env
+.env.*
+!.env.example
+
+.DS_Store
+.vercel/
+.superpowers/
+
+# Foundry (Phase 4)
+contracts/out/
+contracts/cache/
+contracts/broadcast/

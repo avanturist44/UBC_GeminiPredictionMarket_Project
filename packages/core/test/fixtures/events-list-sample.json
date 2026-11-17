@@ -1,0 +1,1859 @@
+{
+  "data": [
+    {
+      "id": "462596",
+      "title": "Mississippi State vs UCF",
+      "slug": "mississippi-state-vs-ucf",
+      "type": "categorical",
+      "category": "Sports",
+      "ticker": "NCAAM-2611180000-MSST-UCF-M",
+      "status": "active",
+      "createdAt": "2026-11-15T00:08:12.616Z",
+      "contracts": [
+        {
+          "id": "462596-1151057",
+          "label": "Mississippi State",
+          "description": {
+            "data": {},
+            "content": [
+              {
+                "data": {},
+                "marks": [],
+                "value": "This market resolves to Yes if Mississippi State wins the men's college basketball game between Mississippi State and UCF originally scheduled for November 17, 2026 at 7:00 PM ET. Otherwise, it resolves to No. The Underlying is the official result of the specified sporting event. Source Agencies, in order, are the league governing the event, ESPN, Fox Sports, and the broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules.](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Win-Lose_Classdocx_893b1bbb-20f3-490c-81bb-650735bfb0f4.pdf)",
+                "nodeType": "text"
+              }
+            ],
+            "nodeType": "document"
+          },
+          "prices": {
+            "buy": {
+              "yes": "0.52",
+              "no": "0.49"
+            },
+            "sell": {
+              "yes": "0.51",
+              "no": "0.48"
+            },
+            "bestBid": "0.51",
+            "bestAsk": "0.52"
+          },
+          "status": "active",
+          "createdAt": "2026-11-15T00:08:12.616Z",
+          "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Win-Lose_Classdocx_893b1bbb-20f3-490c-81bb-650735bfb0f4.pdf",
+          "ticker": "MSST",
+          "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-M-MSST",
+          "marketState": "open",
+          "abbreviatedName": "MSST",
+          "color": "#660000",
+          "imageUrl": "https://assets.gemini.com/predictions/images/MississippiState_fd484570-e9e7-42c1-a90c-70d4d0fcbd47.png",
+          "expiryDate": "2026-11-20T00:00:00.000Z",
+          "effectiveDate": "2026-11-15T00:00:07.000Z",
+          "sortOrder": 1,
+          "sportsSide": "away",
+          "teamId": "a1ba4b89-d97c-44e2-835f-79ad3ccaa5ae",
+          "isCombo": false,
+          "quantityIncrement": "0.01",
+          "quantityMinimum": "0.01",
+          "priceIncrement": "0.01",
+          "quoteAssetPrecision": 2,
+          "priceMinimum": "0.01"
+        },
+        {
+          "id": "462596-1151059",
+          "label": "UCF",
+          "description": {
+            "data": {},
+            "content": [
+              {
+                "data": {},
+                "marks": [],
+                "value": "This market resolves to Yes if UCF wins the men's college basketball game between UCF and Mississippi State originally scheduled for November 17, 2026 at 7:00 PM ET. Otherwise, it resolves to No. The Underlying is the official result of the specified sporting event. Source Agencies, in order, are the league governing the event, ESPN, Fox Sports, and the broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules.](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Win-Lose_Classdocx_893b1bbb-20f3-490c-81bb-650735bfb0f4.pdf)",
+                "nodeType": "text"
+              }
+            ],
+            "nodeType": "document"
+          },
+          "prices": {
+            "buy": {
+              "yes": "0.49",
+              "no": "0.52"
+            },
+            "sell": {
+              "yes": "0.48",
+              "no": "0.51"
+            },
+            "bestBid": "0.48",
+            "bestAsk": "0.49",
+            "lastTradePrice": "0.5"
+          },
+          "status": "active",
+          "createdAt": "2026-11-15T00:08:12.616Z",
+          "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Win-Lose_Classdocx_893b1bbb-20f3-490c-81bb-650735bfb0f4.pdf",
+          "ticker": "UCF",
+          "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-M-UCF",
+          "marketState": "open",
+          "abbreviatedName": "UCF",
+          "color": "#000000",
+          "imageUrl": "https://assets.gemini.com/predictions/images/UCF_a6d155e8-cbe7-4779-9cc7-f79b444b1cda.png",
+          "expiryDate": "2026-11-20T00:00:00.000Z",
+          "effectiveDate": "2026-11-15T00:00:07.000Z",
+          "sortOrder": 2,
+          "sportsSide": "home",
+          "teamId": "054c3e85-0552-4549-b123-7e84af6e7b6c",
+          "isCombo": false,
+          "quantityIncrement": "0.01",
+          "quantityMinimum": "0.01",
+          "priceIncrement": "0.01",
+          "quoteAssetPrecision": 2,
+          "priceMinimum": "0.01"
+        }
+      ],
+      "effectiveDate": "2026-11-15T00:08:12.616Z",
+      "isLive": false,
+      "participants": [
+        {
+          "id": "812",
+          "name": "UCF Knights",
+          "abbreviation": "UCF",
+          "side": "home"
+        },
+        {
+          "id": "697",
+          "name": "Mississippi State Bulldogs",
+          "abbreviation": "MSST",
+          "side": "away"
+        }
+      ],
+      "description": "Mississippi State vs UCF",
+      "imageUrl": "https://assets.gemini.com/predictions/images/bb_f53a7e9b-c0fc-4a5c-a011-d0bf655f8263.avif",
+      "volume": "1031.88",
+      "volume24h": "1031.88",
+      "tags": [
+        "College Basketball"
+      ],
+      "expiryDate": "2026-11-20T00:00:00.000Z",
+      "startTime": "2026-11-18T00:00:00.000Z",
+      "termsLink": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Win-Lose_Classdocx_893b1bbb-20f3-490c-81bb-650735bfb0f4.pdf",
+      "subcategory": {
+        "id": 15,
+        "slug": "sports_college-basketball",
+        "name": "College Basketball",
+        "path": [
+          "Sports",
+          "College Basketball"
+        ]
+      },
+      "socialImageUrl": "https://assets.gemini.com/predictions/images/Card_Carousel__40__b3388226-c9ca-43be-9611-88185341baf0.png",
+      "events": [
+        {
+          "id": "471558",
+          "title": "Mississippi State vs UCF: Total Points",
+          "slug": "mississippi-state-vs-ucf-total-points",
+          "type": "categorical",
+          "category": "Sports",
+          "ticker": "NCAAM-2611180000-MSST-UCF-T",
+          "status": "active",
+          "createdAt": "2026-11-16T23:27:18.274Z",
+          "contracts": [
+            {
+              "id": "471558-1179088",
+              "label": "More than 151.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 151.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {
+                  "yes": "0.59",
+                  "no": "0.46"
+                },
+                "sell": {
+                  "yes": "0.54",
+                  "no": "0.41"
+                },
+                "bestBid": "0.54",
+                "bestAsk": "0.59"
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O151",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O151",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 10,
+              "strike": {
+                "type": "over",
+                "value": "151.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179091",
+              "label": "More than 152.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 152.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {
+                  "yes": "0.57",
+                  "no": "0.47"
+                },
+                "sell": {
+                  "yes": "0.53",
+                  "no": "0.43"
+                },
+                "bestBid": "0.53",
+                "bestAsk": "0.57"
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O152",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O152",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 11,
+              "strike": {
+                "type": "over",
+                "value": "152.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179105",
+              "label": "More than 153.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 153.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {
+                  "yes": "0.53",
+                  "no": "0.49"
+                },
+                "sell": {
+                  "yes": "0.51",
+                  "no": "0.47"
+                },
+                "bestBid": "0.51",
+                "bestAsk": "0.53"
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O153",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O153",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 18,
+              "strike": {
+                "type": "over",
+                "value": "153.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179093",
+              "label": "More than 154.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 154.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {
+                  "yes": "0.51",
+                  "no": "0.54"
+                },
+                "sell": {
+                  "yes": "0.46",
+                  "no": "0.49"
+                },
+                "bestBid": "0.46",
+                "bestAsk": "0.51"
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O154",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O154",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 12,
+              "strike": {
+                "type": "over",
+                "value": "154.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179082",
+              "label": "More than 155.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 155.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {
+                  "yes": "0.48",
+                  "no": "0.56"
+                },
+                "sell": {
+                  "yes": "0.44",
+                  "no": "0.52"
+                },
+                "bestBid": "0.44",
+                "bestAsk": "0.48"
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O155",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O155",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 7,
+              "strike": {
+                "type": "over",
+                "value": "155.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179069",
+              "label": "More than 132.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 132.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {},
+                "sell": {}
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O132",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O132",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 0,
+              "strike": {
+                "type": "over",
+                "value": "132.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179070",
+              "label": "More than 163.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 163.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {},
+                "sell": {}
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O163",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O163",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 1,
+              "strike": {
+                "type": "over",
+                "value": "163.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179072",
+              "label": "More than 128.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 128.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {},
+                "sell": {}
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O128",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O128",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 2,
+              "strike": {
+                "type": "over",
+                "value": "128.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179074",
+              "label": "More than 160.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 160.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {},
+                "sell": {}
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O160",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O160",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 3,
+              "strike": {
+                "type": "over",
+                "value": "160.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179076",
+              "label": "More than 140.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 140.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {},
+                "sell": {}
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O140",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O140",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 4,
+              "strike": {
+                "type": "over",
+                "value": "140.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179078",
+              "label": "More than 143.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 143.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {},
+                "sell": {}
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O143",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O143",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 5,
+              "strike": {
+                "type": "over",
+                "value": "143.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179080",
+              "label": "More than 136.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 136.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {},
+                "sell": {}
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O136",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O136",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 6,
+              "strike": {
+                "type": "over",
+                "value": "136.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179084",
+              "label": "More than 170.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 170.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {},
+                "sell": {}
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O170",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O170",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 8,
+              "strike": {
+                "type": "over",
+                "value": "170.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179086",
+              "label": "More than 146.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 146.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {},
+                "sell": {}
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O146",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O146",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 9,
+              "strike": {
+                "type": "over",
+                "value": "146.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179095",
+              "label": "More than 149.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 149.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {},
+                "sell": {}
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O149",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O149",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 13,
+              "strike": {
+                "type": "over",
+                "value": "149.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179097",
+              "label": "More than 157.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 157.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {},
+                "sell": {}
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O157",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O157",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 14,
+              "strike": {
+                "type": "over",
+                "value": "157.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179099",
+              "label": "More than 174.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 174.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {},
+                "sell": {}
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O174",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O174",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 15,
+              "strike": {
+                "type": "over",
+                "value": "174.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179101",
+              "label": "More than 166.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 166.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {},
+                "sell": {}
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O166",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O166",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 16,
+              "strike": {
+                "type": "over",
+                "value": "166.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            },
+            {
+              "id": "471558-1179103",
+              "label": "More than 178.5 points scored",
+              "description": {
+                "data": {},
+                "content": [
+                  {
+                    "data": {},
+                    "marks": [],
+                    "value": "This market resolves to Yes if Mississippi State and UCF collectively score over 178.5 total points in the men's college basketball game between Mississippi State and UCF scheduled for 2026-11-17 at 6:00 p.m. CT. Otherwise, it resolves to No. The Underlying is the total points scored by both teams for the specified game. Source Agencies, in order, are the league governing the event (NCAA), ESPN, Fox Sports, and the official broadcast partner of the event. If the Expiration Value cannot be determined on the Expiration Date (including because the event is cancelled or a team forfeits, withdraws, or is disqualified), the Exchange may determine payouts pursuant to the Market Outcome Review Process. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf).",
+                    "nodeType": "text"
+                  }
+                ],
+                "nodeType": "document"
+              },
+              "prices": {
+                "buy": {},
+                "sell": {}
+              },
+              "status": "active",
+              "createdAt": "2026-11-16T23:27:18.274Z",
+              "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+              "ticker": "O178",
+              "instrumentSymbol": "GEMI-NCAAM-2611180000-MSST-UCF-T-O178",
+              "marketState": "open",
+              "color": "#0f9ee7",
+              "imageUrl": "https://assets.gemini.com/predictions/images/Basketball_48baed80-84ab-4004-aba2-ed1eb5c4e2c9.png",
+              "expiryDate": "2026-11-20T00:00:00.000Z",
+              "effectiveDate": "2026-11-15T00:00:07.000Z",
+              "sortOrder": 17,
+              "strike": {
+                "type": "over",
+                "value": "178.5"
+              },
+              "isCombo": false,
+              "quantityIncrement": "0.01",
+              "quantityMinimum": "0.01",
+              "priceIncrement": "0.01",
+              "quoteAssetPrecision": 2,
+              "priceMinimum": "0.01"
+            }
+          ],
+          "effectiveDate": "2026-11-16T23:27:18.274Z",
+          "isLive": false,
+          "participants": [
+            {
+              "id": "812",
+              "name": "UCF Knights",
+              "abbreviation": "UCF",
+              "side": "home"
+            },
+            {
+              "id": "697",
+              "name": "Mississippi State Bulldogs",
+              "abbreviation": "MSST",
+              "side": "away"
+            }
+          ],
+          "description": "How many points will be scored?",
+          "imageUrl": "https://assets.gemini.com/predictions/images/bb_f53a7e9b-c0fc-4a5c-a011-d0bf655f8263.avif",
+          "volume": "0",
+          "volume24h": "0",
+          "tags": [
+            "College Basketball"
+          ],
+          "expiryDate": "2026-11-20T00:00:00.000Z",
+          "startTime": "2026-11-18T00:00:00.000Z",
+          "termsLink": "https://assets.gemini.com/predictions/terms_and_conditions/Terms_and_Conditions_NCAA_MB_Total_Points_Classdocx_23430a8d-338c-4d9e-95bb-4b68b6a233d1.pdf",
+          "subcategory": {
+            "id": 15,
+            "slug": "sports_college-basketball",
+            "name": "College Basketball",
+            "path": [
+              "Sports",
+              "College Basketball"
+            ]
+          },
+          "socialImageUrl": "https://assets.gemini.com/predictions/images/Card_Carousel__40__b3388226-c9ca-43be-9611-88185341baf0.png",
+          "featuredImageUrl": "https://assets.gemini.com/predictions/images/Card_Carousel__40__b3388226-c9ca-43be-9611-88185341baf0.avif",
+          "template": "sports-total",
+          "gameId": "247208c8-a2bb-4597-822a-9dbd52393e6c",
+          "sourceDetails": {
+            "agency": "statscore-rest-api",
+            "index": "Basketball"
+          },
+          "volumeDelta24hPct": "0",
+          "sportsMarket": {
+            "sport": "basketball",
+            "type": "total",
+            "subject": "contest",
+            "scope": {
+              "type": "full_contest"
+            },
+            "metric": "points"
+          }
+        }
+      ],
+      "template": "sports-game",
+      "gameId": "247208c8-a2bb-4597-822a-9dbd52393e6c",
+      "eventTags": [
+        {
+          "id": 7353,
+          "name": "Big 12",
+          "slug": "big-12"
+        },
+        {
+          "id": 2,
+          "name": "Games",
+          "slug": "games"
+        },
+        {
+          "id": 26167,
+          "name": "Mississippi State Bulldogs",
+          "slug": "mississippi-state-bulldogs"
+        },
+        {
+          "id": 7355,
+          "name": "SEC",
+          "slug": "sec"
+        },
+        {
+          "id": 26035,
+          "name": "UCF Knights",
+          "slug": "ucf-knights"
+        }
+      ],
+      "sourceDetails": {
+        "agency": "statscore-rest-api",
+        "index": "Basketball"
+      },
+      "volumeDelta24hPct": "0",
+      "sportsMarket": {
+        "sport": "basketball",
+        "type": "moneyline",
+        "subject": "contest",
+        "scope": {
+          "type": "full_contest"
+        },
+        "team": {
+          "symbol": "UCF",
+          "name": "UCF Knights",
+          "externalIds": {
+            "sportradarId": "054c3e85-0552-4549-b123-7e84af6e7b6c"
+          }
+        }
+      }
+    },
+    {
+      "id": "471097",
+      "title": "Oil (Brent) price on November 17?",
+      "slug": "oil-brent-price-on-november-17",
+      "type": "categorical",
+      "category": "Commodities",
+      "ticker": "BRENT2611172200",
+      "status": "active",
+      "createdAt": "2026-11-16T20:56:56.184Z",
+      "contracts": [
+        {
+          "id": "471097-1178188",
+          "label": "$87 or above",
+          "description": {
+            "data": {},
+            "content": [
+              {
+                "data": {},
+                "marks": [],
+                "value": "If the price of Oil (Brent) is $87 or above on November 17, 2026 at 5pm ET, this market will resolve to Yes. Otherwise, it will resolve to No. If no eligible trade occurs during the contract window, this contract will resolve based on the most recent traded price prior. Outcome verified against the KK_RFR_BRENTOILUSDC index. This index provides a 60 second average of the [BRENTOIL-USDC](https://app.hyperliquid.xyz/trade/xyz:BRENTOIL) price. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/brent_oil_facb4f65-1d38-4473-9ab0-af5e5f6a6f7c.pdf).",
+                "nodeType": "text"
+              }
+            ],
+            "nodeType": "document"
+          },
+          "prices": {
+            "buy": {
+              "yes": "0.88",
+              "no": "0.16"
+            },
+            "sell": {
+              "yes": "0.84",
+              "no": "0.12"
+            },
+            "bestBid": "0.84",
+            "bestAsk": "0.88",
+            "lastTradePrice": "0.85"
+          },
+          "status": "active",
+          "createdAt": "2026-11-16T20:56:56.184Z",
+          "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/brent_oil_facb4f65-1d38-4473-9ab0-af5e5f6a6f7c.pdf",
+          "ticker": "HI87",
+          "instrumentSymbol": "GEMI-BRENT2611172200-HI87",
+          "marketState": "open",
+          "abbreviatedName": ">$87",
+          "color": "#4CAF50",
+          "expiryDate": "2026-11-17T22:00:00.000Z",
+          "effectiveDate": "2026-11-16T21:00:00.000Z",
+          "sortOrder": 5,
+          "strike": {
+            "type": "above",
+            "value": "87"
+          },
+          "isCombo": false,
+          "quantityIncrement": "0.01",
+          "quantityMinimum": "0.01",
+          "priceIncrement": "0.01",
+          "quoteAssetPrecision": 2,
+          "priceMinimum": "0.01"
+        },
+        {
+          "id": "471097-1177859",
+          "label": "$88 or above",
+          "description": {
+            "data": {},
+            "content": [
+              {
+                "data": {},
+                "marks": [],
+                "value": "If the price of Oil (Brent) is $88 or above on November 17, 2026 at 5pm ET, this market will resolve to Yes. Otherwise, it will resolve to No. If no eligible trade occurs during the contract window, this contract will resolve based on the most recent traded price prior. Outcome verified against the KK_RFR_BRENTOILUSDC index. This index provides a 60 second average of the [BRENTOIL-USDC](https://app.hyperliquid.xyz/trade/xyz:BRENTOIL) price. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/brent_oil_facb4f65-1d38-4473-9ab0-af5e5f6a6f7c.pdf).",
+                "nodeType": "text"
+              }
+            ],
+            "nodeType": "document"
+          },
+          "prices": {
+            "buy": {
+              "yes": "0.73",
+              "no": "0.31"
+            },
+            "sell": {
+              "yes": "0.69",
+              "no": "0.27"
+            },
+            "bestBid": "0.69",
+            "bestAsk": "0.73",
+            "lastTradePrice": "0.77"
+          },
+          "status": "active",
+          "createdAt": "2026-11-16T20:56:56.184Z",
+          "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/brent_oil_facb4f65-1d38-4473-9ab0-af5e5f6a6f7c.pdf",
+          "ticker": "HI88",
+          "instrumentSymbol": "GEMI-BRENT2611172200-HI88",
+          "marketState": "open",
+          "abbreviatedName": ">$88",
+          "color": "#4CAF50",
+          "expiryDate": "2026-11-17T22:00:00.000Z",
+          "effectiveDate": "2026-11-16T21:00:00.000Z",
+          "sortOrder": 0,
+          "strike": {
+            "type": "above",
+            "value": "88"
+          },
+          "isCombo": false,
+          "quantityIncrement": "0.01",
+          "quantityMinimum": "0.01",
+          "priceIncrement": "0.01",
+          "quoteAssetPrecision": 2,
+          "priceMinimum": "0.01"
+        },
+        {
+          "id": "471097-1177861",
+          "label": "$89 or above",
+          "description": {
+            "data": {},
+            "content": [
+              {
+                "data": {},
+                "marks": [],
+                "value": "If the price of Oil (Brent) is $89 or above on November 17, 2026 at 5pm ET, this market will resolve to Yes. Otherwise, it will resolve to No. If no eligible trade occurs during the contract window, this contract will resolve based on the most recent traded price prior. Outcome verified against the KK_RFR_BRENTOILUSDC index. This index provides a 60 second average of the [BRENTOIL-USDC](https://app.hyperliquid.xyz/trade/xyz:BRENTOIL) price. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/brent_oil_facb4f65-1d38-4473-9ab0-af5e5f6a6f7c.pdf).",
+                "nodeType": "text"
+              }
+            ],
+            "nodeType": "document"
+          },
+          "prices": {
+            "buy": {
+              "yes": "0.58",
+              "no": "0.46"
+            },
+            "sell": {
+              "yes": "0.54",
+              "no": "0.42"
+            },
+            "bestBid": "0.54",
+            "bestAsk": "0.58",
+            "lastTradePrice": "0.58"
+          },
+          "status": "active",
+          "createdAt": "2026-11-16T20:56:56.184Z",
+          "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/brent_oil_facb4f65-1d38-4473-9ab0-af5e5f6a6f7c.pdf",
+          "ticker": "HI89",
+          "instrumentSymbol": "GEMI-BRENT2611172200-HI89",
+          "marketState": "open",
+          "abbreviatedName": ">$89",
+          "color": "#4CAF50",
+          "expiryDate": "2026-11-17T22:00:00.000Z",
+          "effectiveDate": "2026-11-16T21:00:00.000Z",
+          "sortOrder": 1,
+          "strike": {
+            "type": "above",
+            "value": "89"
+          },
+          "isCombo": false,
+          "quantityIncrement": "0.01",
+          "quantityMinimum": "0.01",
+          "priceIncrement": "0.01",
+          "quoteAssetPrecision": 2,
+          "priceMinimum": "0.01"
+        },
+        {
+          "id": "471097-1177865",
+          "label": "$90 or above",
+          "description": {
+            "data": {},
+            "content": [
+              {
+                "data": {},
+                "marks": [],
+                "value": "If the price of Oil (Brent) is $90 or above on November 17, 2026 at 5pm ET, this market will resolve to Yes. Otherwise, it will resolve to No. If no eligible trade occurs during the contract window, this contract will resolve based on the most recent traded price prior. Outcome verified against the KK_RFR_BRENTOILUSDC index. This index provides a 60 second average of the [BRENTOIL-USDC](https://app.hyperliquid.xyz/trade/xyz:BRENTOIL) price. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/brent_oil_facb4f65-1d38-4473-9ab0-af5e5f6a6f7c.pdf).",
+                "nodeType": "text"
+              }
+            ],
+            "nodeType": "document"
+          },
+          "prices": {
+            "buy": {
+              "yes": "0.36",
+              "no": "0.67"
+            },
+            "sell": {
+              "yes": "0.33",
+              "no": "0.64"
+            },
+            "bestBid": "0.33",
+            "bestAsk": "0.36",
+            "lastTradePrice": "0.46"
+          },
+          "status": "active",
+          "createdAt": "2026-11-16T20:56:56.184Z",
+          "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/brent_oil_facb4f65-1d38-4473-9ab0-af5e5f6a6f7c.pdf",
+          "ticker": "HI90",
+          "instrumentSymbol": "GEMI-BRENT2611172200-HI90",
+          "marketState": "open",
+          "abbreviatedName": ">$90",
+          "color": "#4CAF50",
+          "expiryDate": "2026-11-17T22:00:00.000Z",
+          "effectiveDate": "2026-11-16T21:00:00.000Z",
+          "sortOrder": 2,
+          "strike": {
+            "type": "above",
+            "value": "90"
+          },
+          "isCombo": false,
+          "quantityIncrement": "0.01",
+          "quantityMinimum": "0.01",
+          "priceIncrement": "0.01",
+          "quoteAssetPrecision": 2,
+          "priceMinimum": "0.01"
+        },
+        {
+          "id": "471097-1177869",
+          "label": "$91 or above",
+          "description": {
+            "data": {},
+            "content": [
+              {
+                "data": {},
+                "marks": [],
+                "value": "If the price of Oil (Brent) is $91 or above on November 17, 2026 at 5pm ET, this market will resolve to Yes. Otherwise, it will resolve to No. If no eligible trade occurs during the contract window, this contract will resolve based on the most recent traded price prior. Outcome verified against the KK_RFR_BRENTOILUSDC index. This index provides a 60 second average of the [BRENTOIL-USDC](https://app.hyperliquid.xyz/trade/xyz:BRENTOIL) price. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/brent_oil_facb4f65-1d38-4473-9ab0-af5e5f6a6f7c.pdf).",
+                "nodeType": "text"
+              }
+            ],
+            "nodeType": "document"
+          },
+          "prices": {
+            "buy": {
+              "yes": "0.22",
+              "no": "0.82"
+            },
+            "sell": {
+              "yes": "0.18",
+              "no": "0.78"
+            },
+            "bestBid": "0.18",
+            "bestAsk": "0.22",
+            "lastTradePrice": "0.21"
+          },
+          "status": "active",
+          "createdAt": "2026-11-16T20:56:56.184Z",
+          "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/brent_oil_facb4f65-1d38-4473-9ab0-af5e5f6a6f7c.pdf",
+          "ticker": "HI91",
+          "instrumentSymbol": "GEMI-BRENT2611172200-HI91",
+          "marketState": "open",
+          "abbreviatedName": ">$91",
+          "color": "#4CAF50",
+          "expiryDate": "2026-11-17T22:00:00.000Z",
+          "effectiveDate": "2026-11-16T21:00:00.000Z",
+          "sortOrder": 3,
+          "strike": {
+            "type": "above",
+            "value": "91"
+          },
+          "isCombo": false,
+          "quantityIncrement": "0.01",
+          "quantityMinimum": "0.01",
+          "priceIncrement": "0.01",
+          "quoteAssetPrecision": 2,
+          "priceMinimum": "0.01"
+        },
+        {
+          "id": "471097-1177873",
+          "label": "$92 or above",
+          "description": {
+            "data": {},
+            "content": [
+              {
+                "data": {},
+                "marks": [],
+                "value": "If the price of Oil (Brent) is $92 or above on November 17, 2026 at 5pm ET, this market will resolve to Yes. Otherwise, it will resolve to No. If no eligible trade occurs during the contract window, this contract will resolve based on the most recent traded price prior. Outcome verified against the KK_RFR_BRENTOILUSDC index. This index provides a 60 second average of the [BRENTOIL-USDC](https://app.hyperliquid.xyz/trade/xyz:BRENTOIL) price. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/brent_oil_facb4f65-1d38-4473-9ab0-af5e5f6a6f7c.pdf).",
+                "nodeType": "text"
+              }
+            ],
+            "nodeType": "document"
+          },
+          "prices": {
+            "buy": {
+              "yes": "0.09",
+              "no": "0.96"
+            },
+            "sell": {
+              "yes": "0.04",
+              "no": "0.91"
+            },
+            "bestBid": "0.04",
+            "bestAsk": "0.09",
+            "lastTradePrice": "0.07"
+          },
+          "status": "active",
+          "createdAt": "2026-11-16T20:56:56.184Z",
+          "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/brent_oil_facb4f65-1d38-4473-9ab0-af5e5f6a6f7c.pdf",
+          "ticker": "HI92",
+          "instrumentSymbol": "GEMI-BRENT2611172200-HI92",
+          "marketState": "open",
+          "abbreviatedName": ">$92",
+          "color": "#4CAF50",
+          "expiryDate": "2026-11-17T22:00:00.000Z",
+          "effectiveDate": "2026-11-16T21:00:00.000Z",
+          "sortOrder": 4,
+          "strike": {
+            "type": "above",
+            "value": "92"
+          },
+          "isCombo": false,
+          "quantityIncrement": "0.01",
+          "quantityMinimum": "0.01",
+          "priceIncrement": "0.01",
+          "quoteAssetPrecision": 2,
+          "priceMinimum": "0.01"
+        }
+      ],
+      "effectiveDate": "2026-11-16T20:56:56.184Z",
+      "isLive": true,
+      "participants": [],
+      "description": "Interval Brent price prediction event expiring on November 17, 2026 at 5pm ET",
+      "imageUrl": "https://assets.gemini.com/predictions/images/oil_thumb_b051e146-0bb8-480e-9a08-14ebbc9aa70c.avif",
+      "series": "BRENT",
+      "volume": "4578.4",
+      "volume24h": "4578.4",
+      "tags": [
+        "Oil (Brent)"
+      ],
+      "expiryDate": "2026-11-17T22:00:00.000Z",
+      "termsLink": "https://assets.gemini.com/predictions/terms_and_conditions/brent_oil_facb4f65-1d38-4473-9ab0-af5e5f6a6f7c.pdf",
+      "subcategory": {
+        "id": 122,
+        "slug": "commodities_oil-(brent)",
+        "name": "Oil (Brent)",
+        "path": [
+          "Commodities",
+          "Oil (Brent)"
+        ]
+      },
+      "socialImageUrl": "https://assets.gemini.com/predictions/images/oil_thumb_1f27f368-ddc9-4d44-9133-86ff93838bba.png",
+      "template": "prices-ladder",
+      "eventTags": [
+        {
+          "id": 14,
+          "name": "Daily",
+          "slug": "daily"
+        },
+        {
+          "id": 18,
+          "name": "Reference",
+          "slug": "reference"
+        }
+      ],
+      "sourceDetails": {
+        "agency": "kaiko-equities",
+        "index": "KK_RFR_BRENTOILUSDC"
+      },
+      "volumeDelta24hPct": "0"
+    },
+    {
+      "id": "470237",
+      "title": "Highest temperature in NYC on November 17, 2026?",
+      "slug": "highest-temperature-in-nyc-on-november-17-2026",
+      "type": "categorical",
+      "category": "Weather",
+      "ticker": "WXHIGH-NYC-2611180459",
+      "status": "active",
+      "createdAt": "2026-11-16T14:01:23.832Z",
+      "contracts": [
+        {
+          "id": "470237-1175403",
+          "label": "57°F to 58°F",
+          "description": {
+            "data": {},
+            "content": [
+              {
+                "data": {},
+                "marks": [],
+                "value": "This market will resolve based on the highest temperature recorded at Central Park NY, NY on November 17, 2026. The resolution source for this market will be the National Weather Service (\"NWS\") Climatological Report (Daily) for Central Park NY, NY.\n\nSpecifically, this contract will resolve to Yes if the highest temperature recorded at Central Park NY on November 17, 2026, as reported in the first published version of the applicable NWS Climatological Report (Daily), satisfies the temperature range specified in this contract. Otherwise, this contract will resolve to No. The Expiration Value shall be the maximum temperature for November 17, 2026 as documented by the NWS. If the Expiration Value cannot be determined by the latest Expiration Date, the contract will resolve to No. Each temperature range listed for this event is mutually exclusive, and only one contract will resolve to Yes. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Weather_Terms_and_Conditions_67323dd4-5775-48d5-bea0-c33d672d1f74.pdf).",
+                "nodeType": "text"
+              }
+            ],
+            "nodeType": "document"
+          },
+          "prices": {
+            "buy": {
+              "yes": "0.65",
+              "no": "0.4"
+            },
+            "sell": {
+              "yes": "0.6",
+              "no": "0.35"
+            },
+            "bestBid": "0.6",
+            "bestAsk": "0.65"
+          },
+          "status": "active",
+          "createdAt": "2026-11-16T14:01:23.832Z",
+          "termsAndConditionsUrl": "",
+          "ticker": "57TO58",
+          "instrumentSymbol": "GEMI-WXHIGH-NYC-2611180459-57TO58",
+          "marketState": "open",
+          "abbreviatedName": "57° to 58°",
+          "color": "#4CAF50",
+          "expiryDate": "2026-11-18T04:59:59.000Z",
+          "effectiveDate": "2026-11-16T14:59:59.000Z",
+          "sortOrder": 3,
+          "isCombo": false,
+          "quantityIncrement": "0.01",
+          "quantityMinimum": "0.01",
+          "priceIncrement": "0.01",
+          "quoteAssetPrecision": 2,
+          "priceMinimum": "0.01"
+        },
+        {
+          "id": "470237-1175402",
+          "label": "55°F to 56°F",
+          "description": {
+            "data": {},
+            "content": [
+              {
+                "data": {},
+                "marks": [],
+                "value": "This market will resolve based on the highest temperature recorded at Central Park NY, NY on November 17, 2026. The resolution source for this market will be the National Weather Service (\"NWS\") Climatological Report (Daily) for Central Park NY, NY.\n\nSpecifically, this contract will resolve to Yes if the highest temperature recorded at Central Park NY on November 17, 2026, as reported in the first published version of the applicable NWS Climatological Report (Daily), satisfies the temperature range specified in this contract. Otherwise, this contract will resolve to No. The Expiration Value shall be the maximum temperature for November 17, 2026 as documented by the NWS. If the Expiration Value cannot be determined by the latest Expiration Date, the contract will resolve to No. Each temperature range listed for this event is mutually exclusive, and only one contract will resolve to Yes. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Weather_Terms_and_Conditions_67323dd4-5775-48d5-bea0-c33d672d1f74.pdf).",
+                "nodeType": "text"
+              }
+            ],
+            "nodeType": "document"
+          },
+          "prices": {
+            "buy": {
+              "yes": "0.26",
+              "no": "0.77"
+            },
+            "sell": {
+              "yes": "0.23",
+              "no": "0.74"
+            },
+            "bestBid": "0.23",
+            "bestAsk": "0.26"
+          },
+          "status": "active",
+          "createdAt": "2026-11-16T14:01:23.832Z",
+          "termsAndConditionsUrl": "",
+          "ticker": "55TO56",
+          "instrumentSymbol": "GEMI-WXHIGH-NYC-2611180459-55TO56",
+          "marketState": "open",
+          "abbreviatedName": "55° to 56°",
+          "color": "#4CAF50",
+          "expiryDate": "2026-11-18T04:59:59.000Z",
+          "effectiveDate": "2026-11-16T14:59:59.000Z",
+          "sortOrder": 2,
+          "isCombo": false,
+          "quantityIncrement": "0.01",
+          "quantityMinimum": "0.01",
+          "priceIncrement": "0.01",
+          "quoteAssetPrecision": 2,
+          "priceMinimum": "0.01"
+        },
+        {
+          "id": "470237-1175404",
+          "label": "59°F to 60°F",
+          "description": {
+            "data": {},
+            "content": [
+              {
+                "data": {},
+                "marks": [],
+                "value": "This market will resolve based on the highest temperature recorded at Central Park NY, NY on November 17, 2026. The resolution source for this market will be the National Weather Service (\"NWS\") Climatological Report (Daily) for Central Park NY, NY.\n\nSpecifically, this contract will resolve to Yes if the highest temperature recorded at Central Park NY on November 17, 2026, as reported in the first published version of the applicable NWS Climatological Report (Daily), satisfies the temperature range specified in this contract. Otherwise, this contract will resolve to No. The Expiration Value shall be the maximum temperature for November 17, 2026 as documented by the NWS. If the Expiration Value cannot be determined by the latest Expiration Date, the contract will resolve to No. Each temperature range listed for this event is mutually exclusive, and only one contract will resolve to Yes. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Weather_Terms_and_Conditions_67323dd4-5775-48d5-bea0-c33d672d1f74.pdf).",
+                "nodeType": "text"
+              }
+            ],
+            "nodeType": "document"
+          },
+          "prices": {
+            "buy": {
+              "yes": "0.15",
+              "no": "0.9"
+            },
+            "sell": {
+              "yes": "0.1",
+              "no": "0.85"
+            },
+            "bestBid": "0.1",
+            "bestAsk": "0.15"
+          },
+          "status": "active",
+          "createdAt": "2026-11-16T14:01:23.832Z",
+          "termsAndConditionsUrl": "",
+          "ticker": "59TO60",
+          "instrumentSymbol": "GEMI-WXHIGH-NYC-2611180459-59TO60",
+          "marketState": "open",
+          "abbreviatedName": "59° to 60°",
+          "color": "#4CAF50",
+          "expiryDate": "2026-11-18T04:59:59.000Z",
+          "effectiveDate": "2026-11-16T14:59:59.000Z",
+          "sortOrder": 4,
+          "isCombo": false,
+          "quantityIncrement": "0.01",
+          "quantityMinimum": "0.01",
+          "priceIncrement": "0.01",
+          "quoteAssetPrecision": 2,
+          "priceMinimum": "0.01"
+        },
+        {
+          "id": "470237-1175401",
+          "label": "54°F or below",
+          "description": {
+            "data": {},
+            "content": [
+              {
+                "data": {},
+                "marks": [],
+                "value": "This market will resolve based on the highest temperature recorded at Central Park NY, NY on November 17, 2026. The resolution source for this market will be the National Weather Service (\"NWS\") Climatological Report (Daily) for Central Park NY, NY.\n\nSpecifically, this contract will resolve to Yes if the highest temperature recorded at Central Park NY on November 17, 2026, as reported in the first published version of the applicable NWS Climatological Report (Daily), satisfies the temperature range specified in this contract. Otherwise, this contract will resolve to No. The Expiration Value shall be the maximum temperature for November 17, 2026 as documented by the NWS. If the Expiration Value cannot be determined by the latest Expiration Date, the contract will resolve to No. Each temperature range listed for this event is mutually exclusive, and only one contract will resolve to Yes. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Weather_Terms_and_Conditions_67323dd4-5775-48d5-bea0-c33d672d1f74.pdf).",
+                "nodeType": "text"
+              }
+            ],
+            "nodeType": "document"
+          },
+          "prices": {
+            "buy": {
+              "yes": "0.02"
+            },
+            "sell": {
+              "no": "0.98"
+            },
+            "bestAsk": "0.02"
+          },
+          "status": "active",
+          "createdAt": "2026-11-16T14:01:23.832Z",
+          "termsAndConditionsUrl": "",
+          "ticker": "LO54",
+          "instrumentSymbol": "GEMI-WXHIGH-NYC-2611180459-LO54",
+          "marketState": "open",
+          "abbreviatedName": "54° or below",
+          "color": "#4CAF50",
+          "expiryDate": "2026-11-18T04:59:59.000Z",
+          "effectiveDate": "2026-11-16T14:59:59.000Z",
+          "sortOrder": 1,
+          "strike": {
+            "type": "below",
+            "value": "54"
+          },
+          "isCombo": false,
+          "quantityIncrement": "0.01",
+          "quantityMinimum": "0.01",
+          "priceIncrement": "0.01",
+          "quoteAssetPrecision": 2,
+          "priceMinimum": "0.01"
+        },
+        {
+          "id": "470237-1175405",
+          "label": "61°F to 62°F",
+          "description": {
+            "data": {},
+            "content": [
+              {
+                "data": {},
+                "marks": [],
+                "value": "This market will resolve based on the highest temperature recorded at Central Park NY, NY on November 17, 2026. The resolution source for this market will be the National Weather Service (\"NWS\") Climatological Report (Daily) for Central Park NY, NY.\n\nSpecifically, this contract will resolve to Yes if the highest temperature recorded at Central Park NY on November 17, 2026, as reported in the first published version of the applicable NWS Climatological Report (Daily), satisfies the temperature range specified in this contract. Otherwise, this contract will resolve to No. The Expiration Value shall be the maximum temperature for November 17, 2026 as documented by the NWS. If the Expiration Value cannot be determined by the latest Expiration Date, the contract will resolve to No. Each temperature range listed for this event is mutually exclusive, and only one contract will resolve to Yes. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Weather_Terms_and_Conditions_67323dd4-5775-48d5-bea0-c33d672d1f74.pdf).",
+                "nodeType": "text"
+              }
+            ],
+            "nodeType": "document"
+          },
+          "prices": {
+            "buy": {
+              "yes": "0.01"
+            },
+            "sell": {
+              "no": "0.99"
+            },
+            "bestAsk": "0.01"
+          },
+          "status": "active",
+          "createdAt": "2026-11-16T14:01:23.832Z",
+          "termsAndConditionsUrl": "",
+          "ticker": "61TO62",
+          "instrumentSymbol": "GEMI-WXHIGH-NYC-2611180459-61TO62",
+          "marketState": "open",
+          "abbreviatedName": "61° to 62°",
+          "color": "#4CAF50",
+          "expiryDate": "2026-11-18T04:59:59.000Z",
+          "effectiveDate": "2026-11-16T14:59:59.000Z",
+          "sortOrder": 5,
+          "isCombo": false,
+          "quantityIncrement": "0.01",
+          "quantityMinimum": "0.01",
+          "priceIncrement": "0.01",
+          "quoteAssetPrecision": 2,
+          "priceMinimum": "0.01"
+        },
+        {
+          "id": "470237-1175406",
+          "label": "63°F or above",
+          "description": {
+            "data": {},
+            "content": [
+              {
+                "data": {},
+                "marks": [],
+                "value": "This market will resolve based on the highest temperature recorded at Central Park NY, NY on November 17, 2026. The resolution source for this market will be the National Weather Service (\"NWS\") Climatological Report (Daily) for Central Park NY, NY.\n\nSpecifically, this contract will resolve to Yes if the highest temperature recorded at Central Park NY on November 17, 2026, as reported in the first published version of the applicable NWS Climatological Report (Daily), satisfies the temperature range specified in this contract. Otherwise, this contract will resolve to No. The Expiration Value shall be the maximum temperature for November 17, 2026 as documented by the NWS. If the Expiration Value cannot be determined by the latest Expiration Date, the contract will resolve to No. Each temperature range listed for this event is mutually exclusive, and only one contract will resolve to Yes. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/Weather_Terms_and_Conditions_67323dd4-5775-48d5-bea0-c33d672d1f74.pdf).",
+                "nodeType": "text"
+              }
+            ],
+            "nodeType": "document"
+          },
+          "prices": {
+            "buy": {
+              "yes": "0.01"
+            },
+            "sell": {
+              "no": "0.99"
+            },
+            "bestAsk": "0.01"
+          },
+          "status": "active",
+          "createdAt": "2026-11-16T14:01:23.832Z",
+          "termsAndConditionsUrl": "",
+          "ticker": "HI63",
+          "instrumentSymbol": "GEMI-WXHIGH-NYC-2611180459-HI63",
+          "marketState": "open",
+          "abbreviatedName": "63° or above",
+          "color": "#4CAF50",
+          "expiryDate": "2026-11-18T04:59:59.000Z",
+          "effectiveDate": "2026-11-16T14:59:59.000Z",
+          "sortOrder": 6,
+          "strike": {
+            "type": "above",
+            "value": "63"
+          },
+          "isCombo": false,
+          "quantityIncrement": "0.01",
+          "quantityMinimum": "0.01",
+          "priceIncrement": "0.01",
+          "quoteAssetPrecision": 2,
+          "priceMinimum": "0.01"
+        }
+      ],
+      "effectiveDate": "2026-11-16T14:01:23.832Z",
+      "isLive": false,
+      "participants": [],
+      "description": "Highest temperature in NYC on November 17, 2026?",
+      "imageUrl": "https://assets.gemini.com/predictions/images/NYC_4dead40f-fcfa-4dd1-ad8d-f2cf4f950a7a.avif",
+      "series": "WXHIGH",
+      "volume": "0",
+      "volume24h": "0",
+      "tags": [
+        "Daily Temperature"
+      ],
+      "expiryDate": "2026-11-18T04:59:59.000Z",
+      "termsLink": "",
+      "subcategory": {
+        "id": 153,
+        "slug": "weather_daily-temperature",
+        "name": "Daily Temperature",
+        "path": [
+          "Weather",
+          "Daily Temperature"
+        ]
+      },
+      "socialImageUrl": "https://assets.gemini.com/predictions/images/nyc_bc75e1ea-9fcc-4712-8cc0-ad1c6976c8de.png",
+      "eventTags": [
+        {
+          "id": 23,
+          "name": "NYC",
+          "slug": "nyc"
+        }
+      ],
+      "volumeDelta24hPct": "0"
+    },
+    {
+      "id": "472964",
+      "title": "XRP price today at 2:35am EST",
+      "slug": "xrp-price-today-at-235am-est",
+      "type": "binary",
+      "category": "Crypto",
+      "ticker": "XRP05M2611170735",
+      "status": "active",
+      "createdAt": "2026-11-17T06:27:06.653Z",
+      "contracts": [
+        {
+          "id": "472964-1186361",
+          "label": "Up",
+          "description": {
+            "data": {},
+            "content": [
+              {
+                "data": {},
+                "marks": [],
+                "value": "If the price of XRP is greater than or equal to the price specified in the title on November 17, 2026 at 2:35am ET, this market will resolve to Yes. Otherwise, it will resolve to No. If no eligible trade occurs during the contract window, this contract will resolve based on the most recent traded price prior. Outcome verified against the LS-LRRR-XRPUSD index. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/xrp_68683757-6484-4a53-8a7f-7d9afc5b1747.pdf).",
+                "nodeType": "text"
+              }
+            ],
+            "nodeType": "document"
+          },
+          "prices": {
+            "buy": {
+              "yes": "0.51",
+              "no": "0.51"
+            },
+            "sell": {
+              "yes": "0.49",
+              "no": "0.49"
+            },
+            "bestBid": "0.49",
+            "bestAsk": "0.51"
+          },
+          "status": "active",
+          "createdAt": "2026-11-17T06:27:06.653Z",
+          "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/xrp_68683757-6484-4a53-8a7f-7d9afc5b1747.pdf",
+          "ticker": "UP",
+          "instrumentSymbol": "GEMI-XRP05M2611170735-UP",
+          "marketState": "open",
+          "abbreviatedName": "Up",
+          "color": "#4CAF50",
+          "expiryDate": "2026-11-17T07:35:00.000Z",
+          "effectiveDate": "2026-11-17T07:30:00.000Z",
+          "sortOrder": 0,
+          "strike": {
+            "type": "reference",
+            "availableAt": "2026-11-17T07:30:00.000Z"
+          },
+          "source": "LS-LRRR-XRPUSD",
+          "isCombo": false,
+          "quantityIncrement": "0.01",
+          "quantityMinimum": "0.01",
+          "priceIncrement": "0.01",
+          "quoteAssetPrecision": 2,
+          "priceMinimum": "0.01"
+        }
+      ],
+      "effectiveDate": "2026-11-17T06:27:06.653Z",
+      "isLive": true,
+      "participants": [],
+      "description": "Interval XRP price prediction event expiring on November 17, 2026 at 2:35am ET",
+      "imageUrl": "https://assets.gemini.com/predictions/images/xrp_df628348-77d6-4859-bbd6-fdf14bb8b482.avif",
+      "series": "XRP05M",
+      "volume": "0",
+      "volume24h": "0",
+      "tags": [
+        "XRP"
+      ],
+      "expiryDate": "2026-11-17T07:35:00.000Z",
+      "startTime": "2026-11-17T07:30:00.000Z",
+      "termsLink": "https://assets.gemini.com/predictions/terms_and_conditions/xrp_68683757-6484-4a53-8a7f-7d9afc5b1747.pdf",
+      "subcategory": {
+        "id": 34,
+        "slug": "crypto_xrp",
+        "name": "XRP",
+        "path": [
+          "Crypto",
+          "XRP"
+        ]
+      },
+      "socialImageUrl": "https://assets.gemini.com/predictions/images/xrp_43a62a7f-d135-4b0c-83ec-8b0e59109f6f.png",
+      "template": "crypto-up-down",
+      "eventTags": [
+        {
+          "id": 11,
+          "name": "Five Minute",
+          "slug": "five-minute"
+        },
+        {
+          "id": 19,
+          "name": "Up Down",
+          "slug": "up-down"
+        }
+      ],
+      "source": "LS-LRRR-XRPUSD",
+      "sourceDetails": {
+        "agency": "lukka",
+        "index": "LS-LRRR-XRPUSD"
+      },
+      "volumeDelta24hPct": "0"
+    }
+  ],
+  "pagination": {
+    "limit": 500,
+    "offset": 0,
+    "total": 1000
+  }
+}

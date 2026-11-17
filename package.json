@@ -1,0 +1,29 @@
+{
+  "name": "thesis-market",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=22.4.0"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter @thesis/web dev",
+    "dev:worker": "pnpm --filter @thesis/worker dev",
+    "build:web": "pnpm --filter @thesis/web build",
+    "start:worker": "pnpm --filter @thesis/worker start",
+    "db:generate": "pnpm --filter @thesis/db generate",
+    "db:migrate": "pnpm --filter @thesis/db migrate",
+    "verify:gemini": "tsx scripts/verify-gemini.ts",
+    "test": "vitest run",
+    "typecheck": "pnpm -r typecheck && tsc -p scripts/tsconfig.json"
+  },
+  "devDependencies": {
+    "@gemini-markets/sdk": "0.1.1",
+    "@thesis/core": "workspace:*",
+    "@types/node": "^22.19.0",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0",
+    "ws": "^8.23.0"
+  }
+}

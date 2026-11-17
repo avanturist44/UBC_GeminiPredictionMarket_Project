@@ -1,0 +1,561 @@
+{
+  "id": "471110",
+  "title": "BTC price on November 17",
+  "slug": "btc-price-on-november-17",
+  "type": "categorical",
+  "category": "Crypto",
+  "ticker": "BTC2611172200",
+  "status": "active",
+  "createdAt": "2026-11-16T20:57:43.912Z",
+  "contracts": [
+    {
+      "id": "471110-1183562",
+      "label": "$63,750 or above",
+      "description": {
+        "data": {},
+        "content": [
+          {
+            "data": {},
+            "marks": [],
+            "value": "If the price of Bitcoin (BTC) is $63,750 or above on November 17, 2026 at 5pm ET, this market will resolve to Yes. Otherwise, it will resolve to No. If no eligible trade occurs during the contract window, this contract will resolve based on the most recent traded price prior. Outcome verified against the LS-LRRR-XBTUSD index. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf).",
+            "nodeType": "text"
+          }
+        ],
+        "nodeType": "document"
+      },
+      "prices": {
+        "buy": {
+          "yes": "0.79",
+          "no": "0.25"
+        },
+        "sell": {
+          "yes": "0.75",
+          "no": "0.21"
+        },
+        "bestBid": "0.75",
+        "bestAsk": "0.79"
+      },
+      "status": "active",
+      "createdAt": "2026-11-16T20:57:43.912Z",
+      "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf",
+      "ticker": "HI63750",
+      "instrumentSymbol": "GEMI-BTC2611172200-HI63750",
+      "marketState": "open",
+      "abbreviatedName": ">$63,750",
+      "color": "#4CAF50",
+      "expiryDate": "2026-11-17T22:00:00.000Z",
+      "effectiveDate": "2026-11-16T21:00:00.000Z",
+      "sortOrder": 9,
+      "strike": {
+        "type": "above",
+        "value": "63750"
+      },
+      "source": "LS-LRRR-XBTUSD",
+      "isCombo": false,
+      "quantityIncrement": "0.01",
+      "quantityMinimum": "0.01",
+      "priceIncrement": "0.01",
+      "quoteAssetPrecision": 2,
+      "priceMinimum": "0.01"
+    },
+    {
+      "id": "471110-1181757",
+      "label": "$64,000 or above",
+      "description": {
+        "data": {},
+        "content": [
+          {
+            "data": {},
+            "marks": [],
+            "value": "If the price of Bitcoin (BTC) is $64,000 or above on November 17, 2026 at 5pm ET, this market will resolve to Yes. Otherwise, it will resolve to No. If no eligible trade occurs during the contract window, this contract will resolve based on the most recent traded price prior. Outcome verified against the LS-LRRR-XBTUSD index. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf).",
+            "nodeType": "text"
+          }
+        ],
+        "nodeType": "document"
+      },
+      "prices": {
+        "buy": {
+          "yes": "0.72",
+          "no": "0.31"
+        },
+        "sell": {
+          "yes": "0.69",
+          "no": "0.28"
+        },
+        "bestBid": "0.69",
+        "bestAsk": "0.72"
+      },
+      "status": "active",
+      "createdAt": "2026-11-16T20:57:43.912Z",
+      "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf",
+      "ticker": "HI64000",
+      "instrumentSymbol": "GEMI-BTC2611172200-HI64000",
+      "marketState": "open",
+      "abbreviatedName": ">$64,000",
+      "color": "#4CAF50",
+      "expiryDate": "2026-11-17T22:00:00.000Z",
+      "effectiveDate": "2026-11-16T21:00:00.000Z",
+      "sortOrder": 8,
+      "strike": {
+        "type": "above",
+        "value": "64000"
+      },
+      "source": "LS-LRRR-XBTUSD",
+      "isCombo": false,
+      "quantityIncrement": "0.01",
+      "quantityMinimum": "0.01",
+      "priceIncrement": "0.01",
+      "quoteAssetPrecision": 2,
+      "priceMinimum": "0.01"
+    },
+    {
+      "id": "471110-1177903",
+      "label": "$64,250 or above",
+      "description": {
+        "data": {},
+        "content": [
+          {
+            "data": {},
+            "marks": [],
+            "value": "If the price of Bitcoin (BTC) is $64,250 or above on November 17, 2026 at 5pm ET, this market will resolve to Yes. Otherwise, it will resolve to No. If no eligible trade occurs during the contract window, this contract will resolve based on the most recent traded price prior. Outcome verified against the LS-LRRR-XBTUSD index. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf).",
+            "nodeType": "text"
+          }
+        ],
+        "nodeType": "document"
+      },
+      "prices": {
+        "buy": {
+          "yes": "0.65",
+          "no": "0.38"
+        },
+        "sell": {
+          "yes": "0.62",
+          "no": "0.35"
+        },
+        "bestBid": "0.62",
+        "bestAsk": "0.65",
+        "lastTradePrice": "0.56"
+      },
+      "status": "active",
+      "createdAt": "2026-11-16T20:57:43.912Z",
+      "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf",
+      "ticker": "HI64250",
+      "instrumentSymbol": "GEMI-BTC2611172200-HI64250",
+      "marketState": "open",
+      "abbreviatedName": ">$64,250",
+      "color": "#4CAF50",
+      "expiryDate": "2026-11-17T22:00:00.000Z",
+      "effectiveDate": "2026-11-16T21:00:00.000Z",
+      "sortOrder": 0,
+      "strike": {
+        "type": "above",
+        "value": "64250"
+      },
+      "source": "LS-LRRR-XBTUSD",
+      "isCombo": false,
+      "quantityIncrement": "0.01",
+      "quantityMinimum": "0.01",
+      "priceIncrement": "0.01",
+      "quoteAssetPrecision": 2,
+      "priceMinimum": "0.01"
+    },
+    {
+      "id": "471110-1177906",
+      "label": "$64,500 or above",
+      "description": {
+        "data": {},
+        "content": [
+          {
+            "data": {},
+            "marks": [],
+            "value": "If the price of Bitcoin (BTC) is $64,500 or above on November 17, 2026 at 5pm ET, this market will resolve to Yes. Otherwise, it will resolve to No. If no eligible trade occurs during the contract window, this contract will resolve based on the most recent traded price prior. Outcome verified against the LS-LRRR-XBTUSD index. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf).",
+            "nodeType": "text"
+          }
+        ],
+        "nodeType": "document"
+      },
+      "prices": {
+        "buy": {
+          "yes": "0.57",
+          "no": "0.46"
+        },
+        "sell": {
+          "yes": "0.54",
+          "no": "0.43"
+        },
+        "bestBid": "0.54",
+        "bestAsk": "0.57"
+      },
+      "status": "active",
+      "createdAt": "2026-11-16T20:57:43.912Z",
+      "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf",
+      "ticker": "HI64500",
+      "instrumentSymbol": "GEMI-BTC2611172200-HI64500",
+      "marketState": "open",
+      "abbreviatedName": ">$64,500",
+      "color": "#4CAF50",
+      "expiryDate": "2026-11-17T22:00:00.000Z",
+      "effectiveDate": "2026-11-16T21:00:00.000Z",
+      "sortOrder": 1,
+      "strike": {
+        "type": "above",
+        "value": "64500"
+      },
+      "source": "LS-LRRR-XBTUSD",
+      "isCombo": false,
+      "quantityIncrement": "0.01",
+      "quantityMinimum": "0.01",
+      "priceIncrement": "0.01",
+      "quoteAssetPrecision": 2,
+      "priceMinimum": "0.01"
+    },
+    {
+      "id": "471110-1177908",
+      "label": "$64,750 or above",
+      "description": {
+        "data": {},
+        "content": [
+          {
+            "data": {},
+            "marks": [],
+            "value": "If the price of Bitcoin (BTC) is $64,750 or above on November 17, 2026 at 5pm ET, this market will resolve to Yes. Otherwise, it will resolve to No. If no eligible trade occurs during the contract window, this contract will resolve based on the most recent traded price prior. Outcome verified against the LS-LRRR-XBTUSD index. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf).",
+            "nodeType": "text"
+          }
+        ],
+        "nodeType": "document"
+      },
+      "prices": {
+        "buy": {
+          "yes": "0.5",
+          "no": "0.54"
+        },
+        "sell": {
+          "yes": "0.46",
+          "no": "0.5"
+        },
+        "bestBid": "0.46",
+        "bestAsk": "0.5",
+        "lastTradePrice": "0.49"
+      },
+      "status": "active",
+      "createdAt": "2026-11-16T20:57:43.912Z",
+      "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf",
+      "ticker": "HI64750",
+      "instrumentSymbol": "GEMI-BTC2611172200-HI64750",
+      "marketState": "open",
+      "abbreviatedName": ">$64,750",
+      "color": "#4CAF50",
+      "expiryDate": "2026-11-17T22:00:00.000Z",
+      "effectiveDate": "2026-11-16T21:00:00.000Z",
+      "sortOrder": 2,
+      "strike": {
+        "type": "above",
+        "value": "64750"
+      },
+      "source": "LS-LRRR-XBTUSD",
+      "isCombo": false,
+      "quantityIncrement": "0.01",
+      "quantityMinimum": "0.01",
+      "priceIncrement": "0.01",
+      "quoteAssetPrecision": 2,
+      "priceMinimum": "0.01"
+    },
+    {
+      "id": "471110-1177909",
+      "label": "$65,000 or above",
+      "description": {
+        "data": {},
+        "content": [
+          {
+            "data": {},
+            "marks": [],
+            "value": "If the price of Bitcoin (BTC) is $65,000 or above on November 17, 2026 at 5pm ET, this market will resolve to Yes. Otherwise, it will resolve to No. If no eligible trade occurs during the contract window, this contract will resolve based on the most recent traded price prior. Outcome verified against the LS-LRRR-XBTUSD index. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf).",
+            "nodeType": "text"
+          }
+        ],
+        "nodeType": "document"
+      },
+      "prices": {
+        "buy": {
+          "yes": "0.42",
+          "no": "0.62"
+        },
+        "sell": {
+          "yes": "0.38",
+          "no": "0.58"
+        },
+        "bestBid": "0.38",
+        "bestAsk": "0.42",
+        "lastTradePrice": "0.51"
+      },
+      "status": "active",
+      "createdAt": "2026-11-16T20:57:43.912Z",
+      "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf",
+      "ticker": "HI65000",
+      "instrumentSymbol": "GEMI-BTC2611172200-HI65000",
+      "marketState": "open",
+      "abbreviatedName": ">$65,000",
+      "color": "#4CAF50",
+      "expiryDate": "2026-11-17T22:00:00.000Z",
+      "effectiveDate": "2026-11-16T21:00:00.000Z",
+      "sortOrder": 3,
+      "strike": {
+        "type": "above",
+        "value": "65000"
+      },
+      "source": "LS-LRRR-XBTUSD",
+      "isCombo": false,
+      "quantityIncrement": "0.01",
+      "quantityMinimum": "0.01",
+      "priceIncrement": "0.01",
+      "quoteAssetPrecision": 2,
+      "priceMinimum": "0.01"
+    },
+    {
+      "id": "471110-1177910",
+      "label": "$65,250 or above",
+      "description": {
+        "data": {},
+        "content": [
+          {
+            "data": {},
+            "marks": [],
+            "value": "If the price of Bitcoin (BTC) is $65,250 or above on November 17, 2026 at 5pm ET, this market will resolve to Yes. Otherwise, it will resolve to No. If no eligible trade occurs during the contract window, this contract will resolve based on the most recent traded price prior. Outcome verified against the LS-LRRR-XBTUSD index. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf).",
+            "nodeType": "text"
+          }
+        ],
+        "nodeType": "document"
+      },
+      "prices": {
+        "buy": {
+          "yes": "0.34",
+          "no": "0.69"
+        },
+        "sell": {
+          "yes": "0.31",
+          "no": "0.66"
+        },
+        "bestBid": "0.31",
+        "bestAsk": "0.34"
+      },
+      "status": "active",
+      "createdAt": "2026-11-16T20:57:43.912Z",
+      "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf",
+      "ticker": "HI65250",
+      "instrumentSymbol": "GEMI-BTC2611172200-HI65250",
+      "marketState": "open",
+      "abbreviatedName": ">$65,250",
+      "color": "#4CAF50",
+      "expiryDate": "2026-11-17T22:00:00.000Z",
+      "effectiveDate": "2026-11-16T21:00:00.000Z",
+      "sortOrder": 4,
+      "strike": {
+        "type": "above",
+        "value": "65250"
+      },
+      "source": "LS-LRRR-XBTUSD",
+      "isCombo": false,
+      "quantityIncrement": "0.01",
+      "quantityMinimum": "0.01",
+      "priceIncrement": "0.01",
+      "quoteAssetPrecision": 2,
+      "priceMinimum": "0.01"
+    },
+    {
+      "id": "471110-1177911",
+      "label": "$65,500 or above",
+      "description": {
+        "data": {},
+        "content": [
+          {
+            "data": {},
+            "marks": [],
+            "value": "If the price of Bitcoin (BTC) is $65,500 or above on November 17, 2026 at 5pm ET, this market will resolve to Yes. Otherwise, it will resolve to No. If no eligible trade occurs during the contract window, this contract will resolve based on the most recent traded price prior. Outcome verified against the LS-LRRR-XBTUSD index. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf).",
+            "nodeType": "text"
+          }
+        ],
+        "nodeType": "document"
+      },
+      "prices": {
+        "buy": {
+          "yes": "0.27",
+          "no": "0.76"
+        },
+        "sell": {
+          "yes": "0.24",
+          "no": "0.73"
+        },
+        "bestBid": "0.24",
+        "bestAsk": "0.27",
+        "lastTradePrice": "0.28"
+      },
+      "status": "active",
+      "createdAt": "2026-11-16T20:57:43.912Z",
+      "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf",
+      "ticker": "HI65500",
+      "instrumentSymbol": "GEMI-BTC2611172200-HI65500",
+      "marketState": "open",
+      "abbreviatedName": ">$65,500",
+      "color": "#4CAF50",
+      "expiryDate": "2026-11-17T22:00:00.000Z",
+      "effectiveDate": "2026-11-16T21:00:00.000Z",
+      "sortOrder": 5,
+      "strike": {
+        "type": "above",
+        "value": "65500"
+      },
+      "source": "LS-LRRR-XBTUSD",
+      "isCombo": false,
+      "quantityIncrement": "0.01",
+      "quantityMinimum": "0.01",
+      "priceIncrement": "0.01",
+      "quoteAssetPrecision": 2,
+      "priceMinimum": "0.01"
+    },
+    {
+      "id": "471110-1178115",
+      "label": "$65,750 or above",
+      "description": {
+        "data": {},
+        "content": [
+          {
+            "data": {},
+            "marks": [],
+            "value": "If the price of Bitcoin (BTC) is $65,750 or above on November 17, 2026 at 5pm ET, this market will resolve to Yes. Otherwise, it will resolve to No. If no eligible trade occurs during the contract window, this contract will resolve based on the most recent traded price prior. Outcome verified against the LS-LRRR-XBTUSD index. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf).",
+            "nodeType": "text"
+          }
+        ],
+        "nodeType": "document"
+      },
+      "prices": {
+        "buy": {
+          "yes": "0.23",
+          "no": "0.83"
+        },
+        "sell": {
+          "yes": "0.17",
+          "no": "0.77"
+        },
+        "bestBid": "0.17",
+        "bestAsk": "0.23",
+        "lastTradePrice": "0.26"
+      },
+      "status": "active",
+      "createdAt": "2026-11-16T20:57:43.912Z",
+      "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf",
+      "ticker": "HI65750",
+      "instrumentSymbol": "GEMI-BTC2611172200-HI65750",
+      "marketState": "open",
+      "abbreviatedName": ">$65,750",
+      "color": "#4CAF50",
+      "expiryDate": "2026-11-17T22:00:00.000Z",
+      "effectiveDate": "2026-11-16T21:00:00.000Z",
+      "sortOrder": 6,
+      "strike": {
+        "type": "above",
+        "value": "65750"
+      },
+      "source": "LS-LRRR-XBTUSD",
+      "isCombo": false,
+      "quantityIncrement": "0.01",
+      "quantityMinimum": "0.01",
+      "priceIncrement": "0.01",
+      "quoteAssetPrecision": 2,
+      "priceMinimum": "0.01"
+    },
+    {
+      "id": "471110-1178360",
+      "label": "$66,000 or above",
+      "description": {
+        "data": {},
+        "content": [
+          {
+            "data": {},
+            "marks": [],
+            "value": "If the price of Bitcoin (BTC) is $66,000 or above on November 17, 2026 at 5pm ET, this market will resolve to Yes. Otherwise, it will resolve to No. If no eligible trade occurs during the contract window, this contract will resolve based on the most recent traded price prior. Outcome verified against the LS-LRRR-XBTUSD index. View the [full rules](https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf).",
+            "nodeType": "text"
+          }
+        ],
+        "nodeType": "document"
+      },
+      "prices": {
+        "buy": {
+          "yes": "0.18",
+          "no": "0.87"
+        },
+        "sell": {
+          "yes": "0.13",
+          "no": "0.82"
+        },
+        "bestBid": "0.13",
+        "bestAsk": "0.18",
+        "lastTradePrice": "0.2"
+      },
+      "status": "active",
+      "createdAt": "2026-11-16T20:57:43.912Z",
+      "termsAndConditionsUrl": "https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf",
+      "ticker": "HI66000",
+      "instrumentSymbol": "GEMI-BTC2611172200-HI66000",
+      "marketState": "open",
+      "abbreviatedName": ">$66,000",
+      "color": "#4CAF50",
+      "expiryDate": "2026-11-17T22:00:00.000Z",
+      "effectiveDate": "2026-11-16T21:00:00.000Z",
+      "sortOrder": 7,
+      "strike": {
+        "type": "above",
+        "value": "66000"
+      },
+      "source": "LS-LRRR-XBTUSD",
+      "isCombo": false,
+      "quantityIncrement": "0.01",
+      "quantityMinimum": "0.01",
+      "priceIncrement": "0.01",
+      "quoteAssetPrecision": 2,
+      "priceMinimum": "0.01"
+    }
+  ],
+  "effectiveDate": "2026-11-16T20:57:43.912Z",
+  "isLive": true,
+  "participants": [],
+  "description": "Interval BTC price prediction event expiring on November 17, 2026 at 5pm ET",
+  "imageUrl": "https://assets.gemini.com/predictions/images/btc_ace6c0f4-f500-4b7d-a66c-a3ea5ea1d9e9.avif",
+  "series": "BTC1H",
+  "volume": "268.01",
+  "volume24h": "268.01",
+  "tags": [
+    "Bitcoin"
+  ],
+  "expiryDate": "2026-11-17T22:00:00.000Z",
+  "startTime": "2026-11-16T21:00:00.000Z",
+  "termsLink": "https://assets.gemini.com/predictions/terms_and_conditions/btc_398860b3-ea2f-47a7-b167-a8c6ad03d6d7.pdf",
+  "subcategory": {
+    "id": 32,
+    "slug": "crypto_bitcoin",
+    "name": "Bitcoin",
+    "path": [
+      "Crypto",
+      "Bitcoin"
+    ]
+  },
+  "socialImageUrl": "https://assets.gemini.com/predictions/images/btc_29510bf2-83f3-4d5e-beec-2d09f473347c.png",
+  "template": "prices-ladder",
+  "eventTags": [
+    {
+      "id": 14,
+      "name": "Daily",
+      "slug": "daily"
+    },
+    {
+      "id": 18,
+      "name": "Reference",
+      "slug": "reference"
+    }
+  ],
+  "source": "LS-LRRR-XBTUSD",
+  "sourceDetails": {
+    "agency": "lukka",
+    "index": "LS-LRRR-XBTUSD"
+  },
+  "volumeDelta24hPct": "0"
+}

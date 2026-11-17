@@ -1,0 +1,80 @@
+{
+  "id": "4020",
+  "title": "Recession this year?",
+  "slug": "recession-this-year",
+  "type": "binary",
+  "category": "Economics",
+  "ticker": "RECESSION26",
+  "status": "active",
+  "createdAt": "2026-03-04T11:44:22.359Z",
+  "contracts": [
+    {
+      "id": "4020-32750",
+      "label": "Yes",
+      "description": {
+        "data": {},
+        "content": [
+          {
+            "data": {},
+            "marks": [],
+            "value": "If there are two consecutive quarters of negative U.S. GDP growth in 2025 or 2026, according to the Bureau of Economic Analysis, then the market resolves to Yes. Outcome verified from Bureau of Economic Analysis.\n\nThe market will close at the sooner of the occurrence of the event or 8:25 AM ET on the morning of the expected release of the Advance Estimate of 2026 Q4 GDP. The market will expire at the sooner of the occurrence of the event or the first 10:00 AM ET after the release of the Advance Estimate of 2026 Q4 GDP.\n\nRead the full contract [terms & conditions](https://cdn.builder.io/o/assets%2F1b77ce3a269a43e985e77f3d65f715ba%2F88cf4719632f4bf989b4c8e284d69090?alt=media&token=9f4eae20-a249-48f8-904e-dce7733a7893&apiKey=1b77ce3a269a43e985e77f3d65f715ba).",
+            "nodeType": "text"
+          }
+        ],
+        "nodeType": "document"
+      },
+      "prices": {
+        "buy": {
+          "yes": "0.04",
+          "no": "0.96"
+        },
+        "sell": {
+          "yes": "0.04",
+          "no": "0.96"
+        },
+        "bestAsk": "0.04",
+        "lastTradePrice": "0.04"
+      },
+      "status": "active",
+      "createdAt": "2026-03-04T11:44:22.359Z",
+      "termsAndConditionsUrl": "",
+      "ticker": "2026",
+      "instrumentSymbol": "GEMI-RECESSION26-2026",
+      "marketState": "open",
+      "color": "#0f9ee7",
+      "expiryDate": "2027-02-01T04:59:00.000Z",
+      "effectiveDate": "2026-03-04T10:00:00.000Z",
+      "sortOrder": 1,
+      "isCombo": false,
+      "quantityIncrement": "1",
+      "quantityMinimum": "1",
+      "priceIncrement": "0.01",
+      "quoteAssetPrecision": 2,
+      "priceMinimum": "0.01"
+    }
+  ],
+  "effectiveDate": "2026-03-04T11:44:22.359Z",
+  "isLive": false,
+  "participants": [],
+  "description": "Recession this year?",
+  "imageUrl": "https://assets.gemini.com/predictions/images/Employment_9cab8716-365f-40c3-82dc-da49ffa05e13.avif",
+  "volume": "121026",
+  "volume24h": "0",
+  "tags": [
+    "Macro Indicators"
+  ],
+  "expiryDate": "2027-02-01T04:59:00.000Z",
+  "termsLink": "",
+  "subcategory": {
+    "id": 101,
+    "slug": "economics_macro-indicators",
+    "name": "Macro Indicators",
+    "path": [
+      "Economics",
+      "Macro Indicators"
+    ]
+  },
+  "socialImageUrl": "https://assets.gemini.com/predictions/images/Meta_Image__17__77ba04b4-e688-438d-81c6-e59536557acd.png",
+  "featuredImageUrl": "https://assets.gemini.com/predictions/images/Meta_Image__17__ebb6ee8d-a1d7-4df5-9046-4cc70063193c.avif",
+  "volumeDelta24hPct": "0"
+}
