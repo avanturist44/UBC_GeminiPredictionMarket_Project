@@ -14,10 +14,12 @@
     "db:generate": "pnpm --filter @thesis/db generate",
     "db:migrate": "pnpm --filter @thesis/db migrate",
     "verify:gemini": "tsx scripts/verify-gemini.ts",
+    "circle:setup": "tsx scripts/circle-setup.ts",
     "test": "vitest run",
     "typecheck": "pnpm -r typecheck && tsc -p scripts/tsconfig.json"
   },
   "devDependencies": {
+    "@circle-fin/developer-controlled-wallets": "10.8.1",
     "@gemini-markets/sdk": "0.1.1",
     "@thesis/core": "workspace:*",
     "@types/node": "^22.19.0",

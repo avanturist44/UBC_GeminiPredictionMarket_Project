@@ -49,7 +49,26 @@ const sandbox = createGeminiPublicClient({ baseUrl: SANDBOX_REST, logger: quiet 
 const short15 = (asset: string, count: number) =>
   rollingEventTickers({ prefix: `${asset}15M`, periodMinutes: 15, offsetMinutes: 0, count }, new Date());
 
-const describeError = (error: unknown) => (error instanceof Error ? error.message : String(error));
+/**
+ * The message plus whatever the Gemini SDK's errors say about the cause. "HTTP 400" alone
+ * does not say which call failed or why. Only named fields are read, never headers.
+ */
+function describeError(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const extra = error as Error & {
+    reason?: unknown;
+    code?: unknown;
+    serverCode?: unknown;
+    category?: unknown;
+    operationContext?: unknown;
+  };
+  const parts = [`${error.name}: ${error.message}`];
+  for (const key of ['reason', 'code', 'serverCode', 'category', 'operationContext'] as const) {
+    const value = extra[key];
+    if (value !== undefined) parts.push(`${key}=${typeof value === 'string' ? value : JSON.stringify(value)}`);
+  }
+  return parts.join('; ');
+}
 
 async function sandboxEvents(): Promise<Result> {
   const list = await sandbox.listEvents({ status: 'active', limit: 500 });
@@ -452,7 +471,12 @@ async function sandboxOrder(): Promise<Result> {
     return { item, question, status: 'needs a person', detail: 'Set GEMINI_SANDBOX_API_KEY and GEMINI_SANDBOX_API_SECRET (Trader role) in .env.' };
   }
   // The environment is fixed here on purpose. There is no production order path in this repo.
-  const gemini = await createClient({ env: 'sandbox', auth: new HmacAuth({ apiKey, apiSecret }) });
+  const gemini = await createClient({
+    env: 'sandbox',
+    // The sandbox key is created with "Uses a time based nonce", so the nonce is epoch
+    // seconds. The SDK's default (millisecond counter) is rejected by such a key.
+    auth: new HmacAuth({ apiKey, apiSecret, nonceMode: 'time-based' }),
+  });
   const terms = await gemini.predictions.getPredictionMarketsTermsStatus();
   if (!terms.hasAcceptedLatest) {
     if (!args.has('--accept-terms')) {
@@ -478,15 +502,28 @@ async function sandboxOrder(): Promise<Result> {
     makerOrCancel: false,
   });
   const json = JSON.stringify(order, (_key, value) => (typeof value === 'bigint' ? value.toString() : value));
-  // The request was accepted. Whether it filled, and at what price, is for a person to
-  // read from the response: this script has never seen a real one.
+  const fields = JSON.parse(json) as Record<string, unknown>;
+  const filled = Number(fields.filledQuantity ?? 0) > 0;
+  // Had Gemini read `price` as the YES price, the NO limit would have been 1 - price,
+  // which is below the NO ask whenever the ask is above 50 cents. So a fill at an ask
+  // above 50 cents can only mean `price` is the NO price.
+  const conclusive = filled && Number(noAsk) > 0.5;
+  const feeKeys = Object.keys(fields).filter((key) => /fee|commission/i.test(key));
+  const placed = `Gemini accepted a sandbox order: buy NO, quantity 1, price ${noAsk} (the quoted NO ask; YES bid was ${contract.prices?.bestBid}) on ${contract.instrumentSymbol}.`;
+  const verdict = conclusive
+    ? `It filled ${String(fields.filledQuantity)} at ${String(fields.avgExecutionPrice)}, so for outcome "no" the order price is the NO price.`
+    : filled
+      ? `It filled, but the NO ask was at or below 50 cents, where a YES-priced order would fill too. Run again when the ask is higher.`
+      : `It did not fill (status ${String(fields.status)}). Either the quote moved or price is read as the YES price. Run again.`;
+  const fees =
+    feeKeys.length > 0
+      ? `Fee fields in the response: ${feeKeys.join(', ')}.`
+      : 'The response has no fee field, so item 5 stays open.';
   return {
     item,
     question,
-    status: 'partly',
-    detail:
-      `Gemini accepted a sandbox order: buy NO, quantity 1, price ${noAsk} (the quoted NO ask; YES bid was ${contract.prices?.bestBid}) on ${contract.instrumentSymbol}. ` +
-      `Response: ${json}. If it filled near ${noAsk}, price is the NO price. If it did not fill, price is probably read as the YES price. Read any fee fields for item 5.`,
+    status: conclusive ? 'yes' : 'partly',
+    detail: `${placed} ${verdict} ${fees} Response: ${json}.`,
   };
 }
 
