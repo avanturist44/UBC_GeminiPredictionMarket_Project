@@ -1,4 +1,5 @@
 import {
+  isDecimalString,
   resolveEventTickers,
   selectContracts,
   yesQuote,
@@ -72,7 +73,7 @@ export function toMarketUpsert(
     expiryAt: toDate(contract.expiryDate) ?? toDate(event.expiryDate),
     status: contract.status ?? event.status,
     marketState: contract.marketState ?? null,
-    strike: contract.strike?.value ?? null,
+    strike: isDecimalString(contract.strike?.value) ? contract.strike.value : null,
     yesBid: quote.bid,
     yesAsk: quote.ask,
     lastPrice: quote.last,
@@ -104,7 +105,11 @@ export async function runRecorderCycle(deps: RecorderDeps): Promise<CycleSummary
         }
         const observedAt = now();
         const pinned = await listTrackedSymbolsForEvent(deps.db, eventTicker);
-        for (const contract of selectContracts(event, rule.pick, pinned)) {
+        const contracts = selectContracts(event, rule.pick, pinned);
+        if (contracts.length === 0) {
+          logger.warn(`recorder: rule ${rule.key} selected no contract in ${eventTicker}`);
+        }
+        for (const contract of contracts) {
           const market = toMarketUpsert(event, contract, rule);
           const { id } = await upsertMarket(deps.db, market);
           summary.markets += 1;

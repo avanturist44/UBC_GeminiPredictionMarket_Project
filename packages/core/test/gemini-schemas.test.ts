@@ -86,6 +86,18 @@ describe('Gemini schemas against recorded responses', () => {
     expect(EventSchema.safeParse(raw).success).toBe(false);
   });
 
+  it('does not reject an event over a field the app never uses for money', () => {
+    const raw = fixture('event-15m-settled.json') as {
+      volume: unknown;
+      contracts: Array<Record<string, unknown>>;
+    };
+    raw.volume = 'n/a';
+    raw.contracts[0]!.settlementValue = 'MSST';
+    raw.contracts[0]!.strike = { type: 'spread', value: 'pick' };
+    const event = EventSchema.parse(raw);
+    expect(event.contracts[0]?.settlementValue).toBe('MSST');
+  });
+
   it('rejects a price that is not a decimal', () => {
     const raw = fixture('event-15m-live.json') as {
       contracts: Array<{ prices: Record<string, unknown> }>;

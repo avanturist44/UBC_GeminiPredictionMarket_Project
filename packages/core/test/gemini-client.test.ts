@@ -154,6 +154,8 @@ describe('createGeminiPublicClient', () => {
         init?.signal?.addEventListener('abort', () => reject(init.signal?.reason));
       })) as typeof fetch;
     const { client } = harness([], { fetch: hanging, timeoutMs: 20 });
-    await expect(client.getEvent('A')).rejects.toThrow();
+    const started = Date.now();
+    await expect(client.getEvent('A')).rejects.toMatchObject({ name: 'TimeoutError' });
+    expect(Date.now() - started).toBeLessThan(2000);
   });
 });

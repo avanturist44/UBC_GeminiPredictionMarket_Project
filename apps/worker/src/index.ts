@@ -46,6 +46,8 @@ while (!stopping) {
     // A cycle-level failure, such as the database being unreachable. Keep looping.
     log('error', 'recorder cycle failed', { error: error instanceof Error ? error.message : String(error) });
   }
+  // A signal that arrived during the cycle: stop now instead of sleeping first.
+  if (stopping) break;
   const wait = Math.max(0, env.RECORDER_INTERVAL_MS - (Date.now() - started));
   await new Promise<void>((resolve) => {
     const timer = setTimeout(resolve, wait);
@@ -54,6 +56,7 @@ while (!stopping) {
       resolve();
     };
   });
+  wake = undefined;
 }
 
 await close();

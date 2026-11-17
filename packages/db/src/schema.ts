@@ -27,8 +27,11 @@ const createdAt = () => timestamp({ withTimezone: true }).notNull().defaultNow()
 const ts = () => timestamp({ withTimezone: true });
 /** A price or probability between 0 and 1. */
 const price = () => numeric({ precision: 10, scale: 4 });
-/** US dollars of test money. */
-const usd = () => numeric({ precision: 14, scale: 2 });
+/**
+ * US dollars of test money. Four decimals, because quantity and price both move in
+ * hundredths: 16.39 contracts at 61 cents cost exactly 9.9979.
+ */
+const usd = () => numeric({ precision: 16, scale: 4 });
 /** Contract quantity. Gemini's quantityIncrement is 0.01. */
 const quantity = () => numeric({ precision: 18, scale: 4 });
 
@@ -238,10 +241,11 @@ export const trades = pgTable(
   },
   (t) => [
     uniqueIndex('trades_idempotency_key_unique').on(t.idempotencyKey),
-    // A thesis has exactly one author trade.
+    // A thesis has exactly one author trade. A rejected attempt does not count, so the
+    // author's order can be retried with a new idempotency key.
     uniqueIndex('trades_one_author_position_per_thesis')
       .on(t.thesisId)
-      .where(sql`${t.isAuthorPosition}`),
+      .where(sql`${t.isAuthorPosition} and ${t.status} <> 'rejected'`),
     index('trades_user_created_idx').on(t.userId, t.createdAt),
     index('trades_market_idx').on(t.marketId),
     check('trades_has_owner', sql`${t.userId} is not null or ${t.authorId} is not null`),

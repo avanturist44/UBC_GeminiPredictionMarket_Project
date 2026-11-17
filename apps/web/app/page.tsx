@@ -36,7 +36,7 @@ export default async function Home() {
 
         {status.state === 'error' && (
           <p className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-            Could not read the database: {status.message}
+            Could not read the database. The server log has the details.
           </p>
         )}
 

@@ -55,10 +55,32 @@ describe('selectContracts', () => {
     expect(symbols(picked)).toEqual(['GEMI-BTC2611172200-HI64500']);
   });
 
-  it('keeps contracts that are already tracked instead of picking again', () => {
+  it('"nearestMoney" keeps contracts that are already tracked instead of picking again', () => {
     const pinned = ['GEMI-BTC2611172200-HI66000'];
     const picked = selectContracts(daily, { kind: 'nearestMoney', count: 1 }, pinned);
     expect(symbols(picked)).toEqual(pinned);
+  });
+
+  it('"nearestMoney" picks again when none of the tracked contracts exist any more', () => {
+    const picked = selectContracts(daily, { kind: 'nearestMoney', count: 1 }, ['GEMI-GONE']);
+    expect(symbols(picked)).toEqual(['GEMI-BTC2611172200-HI64750']);
+  });
+
+  it('"nearestMoney" ranks a two-sided book ahead of a stale one-sided quote', () => {
+    const event = structuredClone(daily);
+    for (const c of event.contracts) {
+      // No bid and an old ask of 0.51: looks closest to even, but nobody is quoting it.
+      if (c.ticker === 'HI66000') c.prices = { bestAsk: '0.51' };
+    }
+    const picked = selectContracts(event, { kind: 'nearestMoney', count: 1 }, []);
+    expect(symbols(picked)).toEqual(['GEMI-BTC2611172200-HI64750']);
+  });
+
+  it('"tickers" and "all" follow the rule, not what was tracked before', () => {
+    const before = ['GEMI-BTC2611172200-HI66000'];
+    const edited = selectContracts(daily, { kind: 'tickers', tickers: ['HI65000'] }, before);
+    expect(symbols(edited)).toEqual(['GEMI-BTC2611172200-HI65000']);
+    expect(selectContracts(daily, { kind: 'all' }, before)).toHaveLength(10);
   });
 });
 

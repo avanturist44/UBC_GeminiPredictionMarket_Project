@@ -8,6 +8,7 @@ import {
   markets,
   pricePoints,
   theses,
+  tips,
   trades,
   upsertMarket,
   users,
@@ -75,9 +76,9 @@ describe('schema', () => {
     expect(user).toMatchObject({
       isGuest: true,
       tradingMode: 'paper',
-      paperBalanceUsd: '1000.00',
-      maxPerTradeUsd: '10.00',
-      dailyCopyCapUsd: '25.00',
+      paperBalanceUsd: '1000.0000',
+      maxPerTradeUsd: '10.0000',
+      dailyCopyCapUsd: '25.0000',
     });
   });
 
@@ -101,6 +102,9 @@ describe('schema', () => {
     ).rejects.toThrow();
     await expect(
       db.insert(theses).values({ ...base, onchainId: '0x02', probabilityYes: '1.2' }),
+    ).rejects.toThrow();
+    await expect(
+      db.insert(theses).values({ ...base, onchainId: '0x06', headline: 'x'.repeat(91) }),
     ).rejects.toThrow();
 
     await db.insert(theses).values({ ...base, onchainId: '0x03', status: 'blocked' });
@@ -134,6 +138,67 @@ describe('schema', () => {
     await expect(
       db.insert(trades).values({ ...trade, userId: null, idempotencyKey: 'k2' }),
     ).rejects.toThrow();
+  });
+});
+
+describe('trades and tips', () => {
+  async function thesisWithAuthor(tag: string) {
+    const [user] = await db.insert(users).values({ displayName: `Author ${tag}` }).returning();
+    const [author] = await db
+      .insert(authors)
+      .values({ kind: 'human', userId: user!.id, displayName: `Author ${tag}` })
+      .returning();
+    const { id: marketId } = await upsertMarket(db, market({ instrumentSymbol: `GEMI-TT-${tag}` }));
+    const [thesis] = await db
+      .insert(theses)
+      .values({
+        onchainId: `0xtt${tag}`,
+        authorId: author!.id,
+        marketId,
+        side: 'yes',
+        probabilityYes: '0.6',
+        headline: 'h',
+        body: 'b',
+      })
+      .returning();
+    const authorTrade = (key: string, status: 'pending' | 'filled' | 'rejected') => ({
+      userId: user!.id,
+      authorId: author!.id,
+      marketId,
+      thesisId: thesis!.id,
+      isAuthorPosition: true,
+      side: 'yes' as const,
+      quantity: '16.39',
+      price: '0.61',
+      costUsd: '9.9979',
+      mode: 'paper' as const,
+      status,
+      idempotencyKey: key,
+    });
+    return { user: user!, thesis: thesis!, authorTrade };
+  }
+
+  it('stores a cost to the hundredth of a cent, so caps and profit do not drift', async () => {
+    const { authorTrade } = await thesisWithAuthor('a');
+    const [trade] = await db.insert(trades).values(authorTrade('a1', 'filled')).returning();
+    // 16.39 contracts at 61 cents.
+    expect(trade!.costUsd).toBe('9.9979');
+  });
+
+  it('allows one live author position per thesis, and a retry after a rejected fill', async () => {
+    const { authorTrade } = await thesisWithAuthor('b');
+    await db.insert(trades).values(authorTrade('b1', 'rejected'));
+    await db.insert(trades).values(authorTrade('b2', 'filled'));
+    await expect(db.insert(trades).values(authorTrade('b3', 'filled'))).rejects.toThrow();
+    await expect(db.insert(trades).values(authorTrade('b4', 'pending'))).rejects.toThrow();
+  });
+
+  it('rejects a tip of zero', async () => {
+    const { user, thesis } = await thesisWithAuthor('c');
+    const tip = { thesisId: thesis.id, userId: user.id };
+    await expect(db.insert(tips).values({ ...tip, amountUsdc: '0' })).rejects.toThrow();
+    const [stored] = await db.insert(tips).values({ ...tip, amountUsdc: '0.25' }).returning();
+    expect(stored).toMatchObject({ amountUsdc: '0.250000', status: 'pending' });
   });
 });
 

@@ -7,7 +7,7 @@ export const STATUS_WINDOW_MINUTES = 5;
 export type RecorderStatus =
   | { state: 'ok'; rows: RecorderStatusRow[]; recordingSymbols: number; latest: Date | null }
   | { state: 'not-configured' }
-  | { state: 'error'; message: string };
+  | { state: 'error' };
 
 /** Which tracked contracts received price points in the last few minutes. */
 export async function loadRecorderStatus(): Promise<RecorderStatus> {
@@ -23,6 +23,8 @@ export async function loadRecorderStatus(): Promise<RecorderStatus> {
     );
     return { state: 'ok', rows, recordingSymbols: recording.length, latest };
   } catch (error) {
-    return { state: 'error', message: error instanceof Error ? error.message : String(error) };
+    // The message can name the database host or user. Keep it in the server log.
+    console.error('recorder status query failed', error);
+    return { state: 'error' };
   }
 }

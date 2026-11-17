@@ -40,12 +40,18 @@ let db: Db;
 let close: () => Promise<void>;
 let time: Date;
 const errors: string[] = [];
-const logger = { info: () => {}, warn: () => {}, error: (message: string) => errors.push(message) };
+const warnings: string[] = [];
+const logger = {
+  info: () => {},
+  warn: (message: string) => warnings.push(message),
+  error: (message: string) => errors.push(message),
+};
 
 beforeEach(async () => {
   ({ db, close } = await createTestDb());
   time = new Date('2026-11-17T07:31:00Z');
   errors.length = 0;
+  warnings.length = 0;
 });
 afterEach(() => close());
 
@@ -170,6 +176,29 @@ describe('runRecorderCycle', () => {
     expect(rows.map((m) => m.instrumentSymbol)).toEqual(['GEMI-BTC2611172200-HI64750']);
     expect(rows[0]).toMatchObject({ yesBid: '0.9000', yesAsk: '0.9300' });
     expect(await allPoints()).toHaveLength(2);
+  });
+
+  it('warns when a rule selects no contract, so a wrong ticker is noticed', async () => {
+    const rule: TrackedRule = {
+      key: 'typo',
+      event: { kind: 'fixed', ticker: 'BTC2611172200' },
+      pick: { kind: 'tickers', tickers: ['HI99999'] },
+      keywords: [],
+    };
+    const { summary } = await run([rule], { BTC2611172200: fixture('event-daily-categorical.json') });
+    expect(summary).toMatchObject({ markets: 0, points: 0, errors: 0 });
+    expect(warnings.join('\n')).toContain('typo');
+  });
+
+  it('leaves a stored resolution alone when it refreshes the market', async () => {
+    const events = { BTC15M2611170700: fixture('event-15m-settled.json') };
+    await run([fixed('BTC15M2611170700')], events);
+    const resolvedAt = new Date('2026-11-17T07:00:07.595Z');
+    await db.update(markets).set({ resolutionSide: 'yes', resolvedAt });
+    await run([fixed('BTC15M2611170700')], events);
+    const [market] = await allMarkets();
+    expect(market).toMatchObject({ resolutionSide: 'yes' });
+    expect(market!.resolvedAt?.toISOString()).toBe(resolvedAt.toISOString());
   });
 
   it('never stores a resolution: that is the resolver’s write', async () => {

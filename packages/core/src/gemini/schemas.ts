@@ -17,6 +17,17 @@ export const DecimalString = z.union([
   z.number().transform((n) => String(n)),
 ]);
 
+/**
+ * A value the app shows or stores but never computes money from. It is kept as a
+ * string whatever it holds, so an odd value in one event cannot reject a whole list.
+ */
+const DisplayValue = z.union([z.string(), z.number().transform((n) => String(n))]);
+
+/** True for a plain decimal such as "64548.75". */
+export function isDecimalString(value: string | null | undefined): value is string {
+  return typeof value === 'string' && DECIMAL.test(value);
+}
+
 export const OutcomeSchema = z.enum(['yes', 'no']);
 export type Outcome = z.infer<typeof OutcomeSchema>;
 
@@ -43,7 +54,8 @@ export const PricesSchema = z.looseObject({
  */
 export const StrikeSchema = z.looseObject({
   type: z.string().nullish(),
-  value: DecimalString.nullish(),
+  /** A price level for crypto and commodities. Check isDecimalString before storing it. */
+  value: DisplayValue.nullish(),
   availableAt: z.string().nullish(),
 });
 export type GeminiStrike = z.infer<typeof StrikeSchema>;
@@ -61,12 +73,12 @@ export const ContractSchema = z.looseObject({
   resolutionSide: OutcomeSchema.nullish(),
   resolvedAt: z.string().nullish(),
   /** Present once settled: the index value the contract settled against. */
-  settlementValue: DecimalString.nullish(),
+  settlementValue: DisplayValue.nullish(),
   strike: StrikeSchema.nullish(),
   quantityIncrement: DecimalString.nullish(),
   quantityMinimum: DecimalString.nullish(),
   priceIncrement: DecimalString.nullish(),
-  priceMinimum: DecimalString.nullish(),
+  priceMinimum: DisplayValue.nullish(),
 });
 export type GeminiContract = z.infer<typeof ContractSchema>;
 
@@ -86,7 +98,7 @@ export const EventSchema = z.looseObject({
   status: z.string(),
   expiryDate: z.string().nullish(),
   resolvedAt: z.string().nullish(),
-  volume: DecimalString.nullish(),
+  volume: DisplayValue.nullish(),
   sourceDetails: SourceDetailsSchema.nullish(),
   contracts: z.array(ContractSchema),
 });

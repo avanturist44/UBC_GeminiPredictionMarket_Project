@@ -122,40 +122,54 @@ export function yesQuote(contract: GeminiContract): YesQuote {
   };
 }
 
-/** Distance of the YES price from 50 cents, or null when there is no price at all. */
-function distanceFromEven(contract: GeminiContract): number | null {
+interface Ranked {
+  contract: GeminiContract;
+  /** A bid and an ask are both present. A lone quote can be stale. */
+  twoSided: boolean;
+  /** Distance of the YES price from 50 cents. */
+  distance: number;
+}
+
+/** Null when the contract has no price at all. Used only to rank, never for money. */
+function rank(contract: GeminiContract): Ranked | null {
   const { bid, ask, last } = yesQuote(contract);
-  // Used only to rank contracts for selection, never for money.
-  const mid =
-    bid !== null && ask !== null ? (Number(bid) + Number(ask)) / 2 : Number(bid ?? ask ?? last);
-  if (bid === null && ask === null && last === null) return null;
-  return Math.abs(mid - 0.5);
+  if (bid !== null && ask !== null) {
+    return { contract, twoSided: true, distance: Math.abs((Number(bid) + Number(ask)) / 2 - 0.5) };
+  }
+  const only = bid ?? ask ?? last;
+  if (only === null) return null;
+  return { contract, twoSided: false, distance: Math.abs(Number(only) - 0.5) };
 }
 
 /**
  * Chooses which contracts of an event to track.
  *
- * `pinnedSymbols` are this event's contracts that are already tracked. Once chosen they
- * are kept, so a "nearest the money" pick does not jump to another contract as prices
- * move and leave a chart with a gap.
+ * `all` and `tickers` follow the rule as written, so editing a rule takes effect on the
+ * next cycle. `nearestMoney` depends on prices, so its first choice is kept:
+ * `pinnedSymbols` are this event's contracts that are already tracked, and while any of
+ * them still exists the pick does not move to another contract and leave a chart with a gap.
  */
 export function selectContracts(
   event: GeminiEvent,
   pick: ContractPick,
   pinnedSymbols: readonly string[],
 ): GeminiContract[] {
-  if (pinnedSymbols.length > 0) {
-    return event.contracts.filter((c) => pinnedSymbols.includes(c.instrumentSymbol));
-  }
   if (pick.kind === 'all') return event.contracts;
   if (pick.kind === 'tickers') {
     return event.contracts.filter((c) => pick.tickers.includes(c.ticker));
   }
+  const pinned = event.contracts.filter((c) => pinnedSymbols.includes(c.instrumentSymbol));
+  if (pinned.length > 0) return pinned;
   return event.contracts
     .filter((c) => c.marketState === 'open')
-    .map((contract) => ({ contract, distance: distanceFromEven(contract) }))
-    .filter((entry): entry is { contract: GeminiContract; distance: number } => entry.distance !== null)
-    .sort((a, b) => a.distance - b.distance || a.contract.ticker.localeCompare(b.contract.ticker))
+    .map(rank)
+    .filter((entry): entry is Ranked => entry !== null)
+    .sort(
+      (a, b) =>
+        Number(b.twoSided) - Number(a.twoSided) ||
+        a.distance - b.distance ||
+        a.contract.ticker.localeCompare(b.contract.ticker),
+    )
     .slice(0, pick.count)
     .map((entry) => entry.contract);
 }

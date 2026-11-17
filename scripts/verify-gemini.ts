@@ -82,7 +82,8 @@ async function symbolsMatch(): Promise<Result> {
   const settled = (await prod.listRecentlySettled()).data.filter((e) => /15M/.test(e.ticker)).slice(0, 4);
   for (const event of settled) {
     const other = await sandbox.getEvent(event.ticker);
-    const same = other?.contracts[0]?.resolutionSide === event.contracts[0]?.resolutionSide;
+    const side = event.contracts[0]?.resolutionSide;
+    const same = side != null && other?.contracts[0]?.resolutionSide === side;
     if (!same) mismatches += 1;
     lines.push(
       `${event.ticker}: production resolved ${event.contracts[0]?.resolutionSide}, ` +
@@ -92,8 +93,11 @@ async function symbolsMatch(): Promise<Result> {
   return {
     item: '2',
     question: 'Do sandbox symbols and resolutions match production?',
-    status: mismatches === 0 ? 'yes' : 'no',
-    detail: `${lines.join('. ')}. Prices differ: sandbox books are made by bots.`,
+    status: mismatches > 0 ? 'no' : settled.length === 0 ? 'partly' : 'yes',
+    detail:
+      `${lines.join('. ')}. ` +
+      (settled.length === 0 ? 'No settled 15-minute event was available to compare resolutions. ' : '') +
+      'Prices differ: sandbox books are made by bots.',
   };
 }
 
@@ -151,10 +155,11 @@ async function noPriceConvention(crypto: GeminiEvent[]): Promise<Result> {
       cents(c.prices?.sell?.no) === 100 - cents(c.prices?.bestAsk),
   );
   const sample = contracts[0];
+  const holds = contracts.length > 0 && consistent.length === contracts.length;
   return {
     item: '4',
     question: 'For outcome "no", is price the price of NO?',
-    status: 'partly',
+    status: holds ? 'partly' : 'no',
     detail:
       `Quotes: ${consistent.length} of ${contracts.length} two-sided contracts have buy.no = 1 - bestBid and ` +
       `sell.no = 1 - bestAsk` +
@@ -162,8 +167,11 @@ async function noPriceConvention(crypto: GeminiEvent[]): Promise<Result> {
         ? ` (for example ${sample.instrumentSymbol}: bid ${sample.prices?.bestBid}, ask ${sample.prices?.bestAsk}, ` +
           `buy.no ${sample.prices?.buy?.no}, sell.no ${sample.prices?.sell?.no})`
         : '') +
-      '. So Gemini quotes NO at its own price. Whether an order\'s `price` follows the same convention ' +
-      'needs one sandbox order: run with --order. Until then the adapter should convert explicitly.',
+      (holds
+        ? '. So Gemini quotes NO at its own price. '
+        : '. The quotes do not show that NO is quoted at its own price. ') +
+      'Whether an order\'s `price` follows the same convention needs one sandbox order: run with --order. ' +
+      'Until then the adapter should convert explicitly.',
   };
 }
 
@@ -401,14 +409,17 @@ async function resolutionLag(): Promise<Result> {
 async function strikeTiming(): Promise<Result> {
   const [current, next] = short15('BTC', 2);
   const [now, later] = [await prod.getStrike(current!), await prod.getStrike(next!)];
+  const asExpected = Boolean(now?.value) && !later?.value;
   return {
     item: 'strike',
     question: 'When is the strike of a 15-minute contract available?',
-    status: now?.value ? 'yes' : 'partly',
+    status: asExpected ? 'yes' : 'partly',
     detail:
       `${current}: value ${now?.value ?? 'absent'} (availableAt ${now?.availableAt}). ` +
       `${next}: value ${later?.value ?? 'absent'} (availableAt ${later?.availableAt}). ` +
-      'The strike appears when the window opens, 15 minutes before expiry.',
+      (asExpected
+        ? 'The strike appears when the window opens, 15 minutes before expiry.'
+        : 'This does not match "present for the open window, absent for the next one". Look again.'),
   };
 }
 
@@ -467,13 +478,15 @@ async function sandboxOrder(): Promise<Result> {
     makerOrCancel: false,
   });
   const json = JSON.stringify(order, (_key, value) => (typeof value === 'bigint' ? value.toString() : value));
+  // The request was accepted. Whether it filled, and at what price, is for a person to
+  // read from the response: this script has never seen a real one.
   return {
     item,
     question,
-    status: 'yes',
+    status: 'partly',
     detail:
-      `Sent buy NO, quantity 1, price ${noAsk} (the quoted NO ask; YES bid was ${contract.prices?.bestBid}) on ${contract.instrumentSymbol}. ` +
-      `Response: ${json}. If it filled near ${noAsk}, price is the NO price. Read any fee fields for item 5.`,
+      `Gemini accepted a sandbox order: buy NO, quantity 1, price ${noAsk} (the quoted NO ask; YES bid was ${contract.prices?.bestBid}) on ${contract.instrumentSymbol}. ` +
+      `Response: ${json}. If it filled near ${noAsk}, price is the NO price. If it did not fill, price is probably read as the YES price. Read any fee fields for item 5.`,
   };
 }
 
@@ -503,18 +516,28 @@ async function main() {
   console.error('Checking Gemini, Arc and npm. This takes about a minute...');
 
   // Shared inputs. The Crypto list is about 1 MB; the unfiltered list is over 25 MB.
-  const crypto = (await prod.listEvents({ status: 'active', category: 'Crypto', limit: 500 })).data;
-  const categories = await prod.getCategories();
+  // If either fails, the checks that need it report an error and the rest still run.
+  const cryptoList = await prod
+    .listEvents({ status: 'active', category: 'Crypto', limit: 500 })
+    .then((list) => list.data)
+    .catch((error: unknown) => new Error(`could not load the Crypto list: ${describeError(error)}`));
+  const categoryList = await prod
+    .getCategories()
+    .catch((error: unknown) => new Error(`could not load categories: ${describeError(error)}`));
+  const need = <T,>(value: T | Error): T => {
+    if (value instanceof Error) throw value;
+    return value;
+  };
 
   const results: Result[] = [
     ...(await safely('1', 'sandbox events', sandboxEvents)),
     ...(await safely('2', 'symbols match', symbolsMatch)),
     ...(await safely('3', 'OAuth paths', oauthPaths)),
-    ...(await safely('4', 'NO price', () => noPriceConvention(crypto))),
+    ...(await safely('4', 'NO price', () => noPriceConvention(need(cryptoList)))),
     fees(),
-    ...(await safely('6', 'priceHistory', () => priceHistory(crypto))),
-    shortAssets(crypto),
-    ...(await safely('8', 'non-crypto markets', () => nonCryptoByDeadline(categories))),
+    ...(await safely('6', 'priceHistory', () => priceHistory(need(cryptoList)))),
+    ...(await safely('7', '15-minute assets', async () => shortAssets(need(cryptoList)))),
+    ...(await safely('8', 'non-crypto markets', () => nonCryptoByDeadline(need(categoryList)))),
     ...(await safely('9', 'WebSocket hosts', webSockets)),
     ...(await safely('10', 'Arc RPC', arc)),
     ...needsPerson(),
