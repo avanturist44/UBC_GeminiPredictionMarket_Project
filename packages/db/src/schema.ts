@@ -20,6 +20,10 @@ import {
  * The eleven tables from the build plan's data model. UUID primary keys, timestamptz
  * for times, numeric for prices and money (never floats). The chain holds only tips,
  * thesis hashes and market outcomes; everything else lives here.
+ *
+ * Every table has row-level security on and no policies. Supabase grants its public API
+ * roles (anon, authenticated) access to new tables; with security on they see no rows.
+ * The app connects as the table owner, which is exempt, so nothing else changes.
  */
 
 const id = () => uuid().primaryKey().defaultRandom();
@@ -77,7 +81,7 @@ export const users = pgTable('users', {
   circleWalletId: text(),
   walletAddress: text(),
   createdAt: createdAt(),
-});
+}).enableRLS();
 
 export const geminiConnections = pgTable('gemini_connections', {
   userId: uuid()
@@ -89,7 +93,7 @@ export const geminiConnections = pgTable('gemini_connections', {
   expiresAt: ts().notNull(),
   scope: text().notNull(),
   termsAcceptedAt: ts(),
-});
+}).enableRLS();
 
 export const authors = pgTable(
   'authors',
@@ -114,7 +118,7 @@ export const authors = pgTable(
         or (${t.kind} = 'human' and ${t.userId} is not null and ${t.agentKey} is null)`,
     ),
   ],
-);
+).enableRLS();
 
 export const markets = pgTable(
   'markets',
@@ -155,7 +159,7 @@ export const markets = pgTable(
     index('markets_event_ticker_idx').on(t.eventTicker),
     index('markets_tracked_expiry_idx').on(t.tracked, t.expiryAt),
   ],
-);
+).enableRLS();
 
 export const pricePoints = pgTable(
   'price_points',
@@ -171,7 +175,7 @@ export const pricePoints = pgTable(
     source: priceSource().notNull(),
   },
   (t) => [index('price_points_market_ts_idx').on(t.marketId, t.ts)],
-);
+).enableRLS();
 
 export const theses = pgTable(
   'theses',
@@ -212,7 +216,7 @@ export const theses = pgTable(
     check('theses_body_length', sql`char_length(${t.body}) <= 1200`),
     check('theses_probability_range', sql`${t.probabilityYes} >= 0 and ${t.probabilityYes} <= 1`),
   ],
-);
+).enableRLS();
 
 export const trades = pgTable(
   'trades',
@@ -250,7 +254,7 @@ export const trades = pgTable(
     index('trades_market_idx').on(t.marketId),
     check('trades_has_owner', sql`${t.userId} is not null or ${t.authorId} is not null`),
   ],
-);
+).enableRLS();
 
 export const tips = pgTable(
   'tips',
@@ -275,7 +279,7 @@ export const tips = pgTable(
     index('tips_status_idx').on(t.status),
     check('tips_amount_positive', sql`${t.amountUsdc} > 0`),
   ],
-);
+).enableRLS();
 
 export const audits = pgTable(
   'audits',
@@ -291,7 +295,7 @@ export const audits = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('audits_thesis_idx').on(t.thesisId)],
-);
+).enableRLS();
 
 export const agentRuns = pgTable(
   'agent_runs',
@@ -306,7 +310,7 @@ export const agentRuns = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('agent_runs_agent_created_idx').on(t.agentKey, t.createdAt)],
-);
+).enableRLS();
 
 export const agentState = pgTable(
   'agent_state',
@@ -321,4 +325,4 @@ export const agentState = pgTable(
     haltReason: text(),
   },
   (t) => [primaryKey({ columns: [t.agentKey, t.day] })],
-);
+).enableRLS();

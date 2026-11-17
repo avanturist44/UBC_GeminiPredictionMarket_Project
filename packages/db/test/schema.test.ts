@@ -71,6 +71,22 @@ describe('schema', () => {
     ]);
   });
 
+  it('turns row-level security on for every table', async () => {
+    // Supabase grants its public API roles access to new tables. With row-level security
+    // on and no policies, those roles see nothing. The app connects as the table owner,
+    // which is exempt, so the other tests in this file prove it still reads and writes.
+    const result: unknown = await db.execute(
+      sql`select c.relname as table_name from pg_class c
+          join pg_namespace n on n.oid = c.relnamespace
+          where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity
+          order by 1`,
+    );
+    const rows = (Array.isArray(result) ? result : (result as { rows: unknown[] }).rows) as Array<{
+      table_name: string;
+    }>;
+    expect(rows.map((r) => r.table_name)).toEqual([]);
+  });
+
   it('gives a new user the default paper balance and limits', async () => {
     const [user] = await db.insert(users).values({ displayName: 'Guest 1' }).returning();
     expect(user).toMatchObject({
