@@ -2,16 +2,16 @@
 
 A social trading layer on Gemini Prediction Markets: every bet is published with a thesis, and anyone can copy it. Built for the UBC 2026 hackathon. All money is test money: simulated fills at Gemini's live prices, and testnet USDC on Arc.
 
-**Status: Phase 0 (verify and scaffold).** The workspace, the database schema and a minimal price recorder exist. Feeds, agents, the auditor, the escrow and copy trade come in later phases. The full README (architecture, trust assumptions, what is simulated) is written in Phase 7.
+**Status: Phase 1 (market data and the Markets tab).** The price recorder runs on a 30-second poll plus a live WebSocket stream, and the Markets tab shows live odds with a chart for each tracked market. Trading, agents, the auditor, the escrow and copy trade come in later phases. The full README (architecture, trust assumptions, what is simulated) is written in Phase 7.
 
 ## Layout
 
 ```
-apps/web/          Next.js app and API routes (so far: a recorder status page and /api/health)
-apps/worker/       Always-on Node worker (so far: the price recorder)
-packages/core/     Gemini schemas and public client, ticker rules, tracked markets
+apps/web/          Next.js app and API routes (so far: the Markets tab, /api/markets, /api/health)
+apps/worker/       Always-on Node worker (so far: the price recorder, by poll and by stream)
+packages/core/     Gemini schemas, public client and stream messages, ticker rules, tracked markets
 packages/db/       Drizzle schema, migrations, queries
-scripts/           verify-gemini.ts
+scripts/           verify-gemini.ts, circle-setup.ts
 docs/              gemini-findings.md: what the live APIs actually do
 ```
 
@@ -25,8 +25,8 @@ Needs Node 22.4 or newer, pnpm 10 (`corepack enable`), and a Postgres database.
 pnpm install
 cp .env.example .env          # set DATABASE_URL
 pnpm db:migrate               # creates the eleven tables
-pnpm dev:worker               # starts recording prices every 30 seconds
-pnpm dev:web                  # http://localhost:3000
+pnpm dev:worker               # records prices: a poll every 30 seconds and a live stream
+pnpm dev:web                  # http://localhost:3000, markets at /markets
 ```
 
 Other commands:
@@ -46,6 +46,14 @@ Other commands:
 - **Web:** Vercel, with the root directory set to `apps/web`. Set `DATABASE_URL` and `TRADING_MODE=paper`.
 
 `GET /api/health` on the web app reports how many tracked contracts received price points in the last five minutes.
+
+## How prices are recorded and shown
+
+- The worker polls each tracked event every 30 seconds (`source = rest`) and holds one WebSocket to Gemini with a `bookTicker` subscription per tracked contract (`source = ws`, at most one row per contract every 10 seconds, and none while the quote is unchanged).
+- If the socket drops or goes silent, the worker reconnects after 1, 2, 4 and up to 30 seconds and subscribes again. The poll keeps recording in the meantime.
+- Gemini's API returns no price history, so each chart starts when recording started.
+- The Markets tab shows what Gemini's own site shows: the price to buy YES and the price to buy NO. The chart line is the midpoint of the YES bid and ask.
+- Pages re-read their data every 5 seconds, so prices and charts update without a reload.
 
 ## Secrets
 

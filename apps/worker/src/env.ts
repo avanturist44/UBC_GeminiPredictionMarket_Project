@@ -5,6 +5,7 @@ import { z } from 'zod';
 const EnvSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   GEMINI_PUBLIC_BASE: z.string().url().default('https://api.gemini.com'),
+  GEMINI_WS_URL: z.string().url().default('wss://ws.gemini.com'),
   RECORDER_INTERVAL_MS: z.coerce.number().int().min(5000).default(30_000),
 });
 
