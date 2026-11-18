@@ -2,15 +2,10 @@ import { DEFAULT_TRACKED_RULES, createGeminiPublicClient } from '@thesis/core';
 import { createDb, listLiveTrackedMarkets } from '@thesis/db';
 import { runMigrations } from '@thesis/db/migrate';
 import { loadEnv } from './env';
+import { BTC_INDEX_STREAM, createMomentumObserver } from './momentum-observer';
 import { createQuoteRecorder } from './quotes';
 import { runRecorderCycle, type Logger } from './recorder';
 import { createPriceStream } from './stream';
-
-/**
- * The always-on worker. So far it runs one job, the price recorder, in two parts: a REST
- * poll every 30 seconds that keeps `markets` current, and a WebSocket stream of live quotes.
- * Agents, the auditor, the registrar and the resolver are added in later phases.
- */
 
 const log = (level: string, message: string, extra: object = {}) =>
   console.log(JSON.stringify({ t: new Date().toISOString(), level, message, ...extra }));
@@ -27,7 +22,17 @@ const { db, close } = createDb(env.DATABASE_URL);
 const client = createGeminiPublicClient({ baseUrl: env.GEMINI_PUBLIC_BASE, logger });
 
 const quotes = createQuoteRecorder({ db, logger });
-const stream = createPriceStream({ url: env.GEMINI_WS_URL, onTicker: quotes.handle, logger });
+const momentum = createMomentumObserver(db);
+const stream = createPriceStream({
+  url: env.GEMINI_WS_URL,
+  extraStreams: [BTC_INDEX_STREAM],
+  onTicker(ticker) {
+    quotes.handle(ticker);
+    momentum.handleTicker(ticker);
+  },
+  onOther: momentum.handleOther,
+  logger,
+});
 
 /** Points the stream at the contracts that are tracked and have not expired. */
 async function syncStream(): Promise<void> {
@@ -79,6 +84,14 @@ while (!stopping) {
   }
   // The poll is what finds new contracts and notices expired ones.
   await syncStream();
+  if (!stopping) {
+    try {
+      const runs = await momentum.run();
+      log('info', 'momentum observation cycle', { runs });
+    } catch (error) {
+      log('error', 'momentum observation failed', { error: errorText(error) });
+    }
+  }
   // A signal that arrived during the cycle: stop now instead of sleeping first.
   if (stopping) break;
   const wait = Math.max(0, env.RECORDER_INTERVAL_MS - (Date.now() - started));

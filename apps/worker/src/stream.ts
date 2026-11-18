@@ -31,6 +31,8 @@ export interface PriceStreamOptions {
   url: string;
   onTicker: (ticker: BookTicker) => void;
   logger: Logger;
+  extraStreams?: readonly string[];
+  onOther?: (message: string) => void;
   connect?: (url: string) => StreamSocket;
   pingIntervalMs?: number;
   silenceTimeoutMs?: number;
@@ -181,9 +183,11 @@ export function createPriceStream(options: PriceStreamOptions): PriceStream {
     current.on('message', (data) => {
       if (!isCurrent()) return;
       alive();
-      const message = parseStreamMessage(data.toString());
+      const text = data.toString();
+      const message = parseStreamMessage(text);
       if (message.kind === 'bookTicker') onTicker(message.ticker);
       else if (message.kind === 'reply') onReply(message.id, message.ok, message.error);
+      else options.onOther?.(text);
     });
 
     current.on('error', (error) => {
@@ -214,7 +218,7 @@ export function createPriceStream(options: PriceStreamOptions): PriceStream {
       open();
     },
     setSymbols(symbols) {
-      desired = new Set(symbols.map(bookTickerStream));
+      desired = new Set([...symbols.map(bookTickerStream), ...(options.extraStreams ?? [])]);
       sync();
     },
     status() {
