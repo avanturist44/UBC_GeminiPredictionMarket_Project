@@ -2,7 +2,7 @@
 
 A social trading layer on Gemini Prediction Markets: every bet is published with a thesis, and anyone can copy it. Built for the UBC 2026 hackathon. All money is test money: simulated fills at Gemini's live prices, and testnet USDC on Arc.
 
-**Status on `avi/ubc-hack`: BTC paper execution and Grok-powered log-only news research implemented; live trading acceptance pending.** The Markets tab and live recorder are available from Phase 1. The BTC worker executes simulated YES/NO trades, publishes numeric theses, enforces limits, and settles from Gemini's official outcome. All 182 tests and the repository typecheck passed. Live Gemini input, an official outcome, and cited Grok research were checked. An isolated local Postgres instance is configured for verification; three qualifying live paper fills and settlement remain pending. See [BTC worker details and verification](docs/btc-paper-worker.md).
+**Status on `avi/ubc-hack`: BTC paper execution and Grok-powered log-only news research implemented; live trading acceptance pending.** The Markets tab and live recorder are available from Phase 1. The BTC worker executes simulated YES/NO trades, publishes numeric theses, enforces limits, and settles from Gemini's official outcome. All 185 tests and the repository typecheck passed. Live Gemini input, an official outcome, and cited Grok research were checked. The local verification worker now has heartbeat and restart supervision; three qualifying live paper fills and settlement remain pending. See [BTC worker details and verification](docs/btc-paper-worker.md).
 
 ### Gemini, the trading agent, and Circle
 
@@ -61,6 +61,8 @@ Other commands:
 `GET /api/health` on the web app reports how many tracked contracts received price points in the last five minutes.
 
 ### Next: verify the BTC loop on hosted Postgres
+
+For the currently selected **local** verification database, use `.\scripts\local-worker.ps1 start` and `.\scripts\local-worker.ps1 status` in PowerShell 7. This runs a supervised BTC paper worker with archived logs, heartbeat reporting, and restart-on-exit/stall behavior. Scheduled Grok research stays disabled in this local supervisor. See [the worker runbook](docs/btc-paper-worker.md#managed-local-worker). The helper refuses remote database URLs.
 
 Configure the intended Postgres connection as `DATABASE_URL` in an ignored root `.env`. The team's supplied configuration separates local `DATABASE_URL` from hosted `PROD_DATABASE_URL`; preserve that separation unless intentionally choosing to write to the shared database. Keep `TRADING_MODE=paper`, `BTC_BOT_MODE=paper`, and `TRADING_ENABLED=true`. Start with `corepack pnpm start:worker`. The model requires at least 31 completed minute closes before it can enter; allow further contract windows for three qualifying paper trades. A restart clears in-memory warmup. Follow the queries and acceptance checklist in [the BTC worker runbook](docs/btc-paper-worker.md). Do not treat fixture tests as live acceptance or relax the limits to force demonstration trades.
 

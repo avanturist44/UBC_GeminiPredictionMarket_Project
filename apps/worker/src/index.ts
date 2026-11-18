@@ -9,6 +9,7 @@ import { createPriceStream } from './stream';
 import { createPaperAdapter, recordMomentumError } from './paper';
 import { createNewsObserver } from './news-observer';
 import { createXaiResearchProvider } from './xai-research';
+import { createLocalWorkerControl } from './local-control';
 
 const log = (level: string, message: string, extra: object = {}) =>
   console.log(JSON.stringify({ t: new Date().toISOString(), level, message, ...extra }));
@@ -58,13 +59,24 @@ async function syncStream(): Promise<void> {
 
 let stopping = false;
 let wake: (() => void) | undefined;
-for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-  process.on(signal, () => {
+const requestStop = () => {
+    if (stopping) return;
     stopping = true;
     newsAbort.abort();
     wake?.();
-  });
+};
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.on(signal, requestStop);
 }
+const startedAt = new Date().toISOString();
+let lastCycleAt = startedAt;
+const localControl = createLocalWorkerControl({
+  healthFile: process.env.WORKER_HEALTH_FILE, stopFile: process.env.WORKER_STOP_FILE,
+  requestStop, onError: () => logger.warn('local worker control file could not be updated'),
+  health: () => ({ pid: process.pid, startedAt, lastCycleAt, stopping,
+    indexAgeMs: momentum.status().indexAgeMs, volatilityReturnCount: momentum.status().volatilityReturnCount,
+    streamConnected: stream.status().connected }),
+});
 
 log('info', 'worker started', {
   job: 'price-recorder',
@@ -113,6 +125,7 @@ while (!stopping) {
         .finally(() => { newsTask = undefined; });
     }
   }
+  lastCycleAt = new Date().toISOString();
   // A signal that arrived during the cycle: stop now instead of sleeping first.
   if (stopping) break;
   const wait = Math.max(0, env.RECORDER_INTERVAL_MS - (Date.now() - started));
@@ -127,6 +140,7 @@ while (!stopping) {
 }
 
 clearInterval(flushTimer);
+localControl.close();
 stream.stop();
 await newsTask;
 await close();

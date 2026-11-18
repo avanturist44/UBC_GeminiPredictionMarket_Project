@@ -64,7 +64,7 @@ Despite its `momentum` name, the current formula estimates finish probability fr
 
 ## What has actually been verified
 
-- 182 repository tests and the full typecheck passed during the latest code verification, including news-policy, observer, and Grok adapter tests. A live Grok 4.7 forecast with six cited URLs passed provenance checks and was saved locally; entry was skipped for a missing/stale book.
+- 185 repository tests and the full typecheck passed during the latest code verification, including local heartbeat/shutdown, news-policy, observer, and Grok adapter tests. A live Grok 4.7 forecast with six cited URLs passed provenance checks and was saved locally; entry was skipped for a missing/stale book. The local BTC worker is now supervised with tested crash and stall recovery.
 - Tests cover YES/NO pricing and payouts, daily loss halting, retries, rollback, warmup, stale inputs, exposure and UTC boundaries, and missing-market logging.
 - Two independent real local Postgres connections produced one fill under concurrent entry attempts and one payout under concurrent settlement attempts. These used an isolated fixture database and do not count as live trading acceptance.
 - Local Postgres is configured, and the background worker has stored live Gemini price points and agent decision logs.

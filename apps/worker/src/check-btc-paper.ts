@@ -28,6 +28,7 @@ try {
   const criteriaMet = uniqueLoggedContracts >= 3 && officialSettlements.length >= 1 && invalidSettlements === 0;
   console.log(JSON.stringify({
     checkedAt: new Date().toISOString(),
+    latestDecisionAgeSeconds: runs[0] ? Math.round((Date.now() - runs[0].createdAt.getTime()) / 1000) : null,
     databaseTarget: ['127.0.0.1', 'localhost'].includes(new URL(env.DATABASE_URL).hostname) ? 'local' : 'remote',
     paperFills: fills.length, loggedContracts: uniqueLoggedContracts,
     correctlySettled: correct.length, correctOfficialSettlements: officialSettlements.length,

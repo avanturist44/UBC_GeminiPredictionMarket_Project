@@ -46,6 +46,28 @@ corepack pnpm start:worker
 
 Use `.\scripts\local-postgres.ps1 status` to check Postgres and `.\scripts\local-postgres.ps1 stop` to stop it. The background verification worker's PID is in `.local/worker.pid`, and its logs are `.local/worker.out.log` and `.local/worker.err.log`. Postgres logs are in `.local/postgres.log`. Keep the background worker running during warmup; do not start a second worker simply to inspect logs.
 
+## Managed local worker
+
+On November 18, the original background Node process was found absent. Its logs showed an overnight gap and subsequent recovery, but contained no final shutdown message. The exact cause of process termination was not established; local Postgres and Gemini's REST, index, book, and outcome checks were healthy when inspected.
+
+Use the PowerShell 7 supervisor for local BTC verification:
+
+```powershell
+.\scripts\local-worker.ps1 start
+.\scripts\local-worker.ps1 status
+.\scripts\local-worker.ps1 stop
+```
+
+The supervisor accepts only a localhost `DATABASE_URL`, starts a hidden Node worker in paper mode, and explicitly disables scheduled news research for this BTC verification run. It does not alter the root `.env`, hosted database, or Grok key. A named mutex prevents duplicate supervisors, and process command lines are checked before controlling recorded PIDs.
+
+The worker atomically writes `.local/worker.health.json` every five seconds, recording its PID, last completed cycle, index age, warmup return count, and stream status. Status output rejects a heartbeat from an older PID and distinguishes starting, running, reconnecting, stale heartbeat, stalled progress, and stopped states. Times use UTC-aware arithmetic.
+
+Unexpected child exits restart after five seconds. No completed cycle for five minutes triggers a restart. Existing stdout/stderr files are archived before each child starts, and restart events go to `.local/worker-supervisor.log`. The stop command creates a local stop request; the worker finishes its current cycle and closes the stream/database, with a bounded forced-stop fallback if necessary. It then waits for the supervisor to stop so a later start cannot race the old supervisor.
+
+This protects against child-process exits and stalls while the supervisor is running. It does not run while the computer sleeps or guarantee survival of a Windows sign-out or termination of the entire process tree. Index gaps and process restarts still require contiguous live warmup. Keep the computer awake for local verification; an always-on deployment remains the eventual operational target.
+
+Verification: 185 repository tests and the full typecheck passed, including heartbeat, stop-request, and disabled-control tests. Manual local checks passed for start/status, graceful stop/restart, unexpected-child-exit recovery, and the stall watchdog (using an intentionally aged control heartbeat, not fabricated market data). A final process was left uninterrupted, and fresh warmup skips were confirmed in Postgres. Three live paper fills and official settlement remain pending until the unmodified strategy qualifies.
+
 ## Maintenance and progress diagnostics
 
 On November 17 (Pacific), repeated HTTP 500 responses were confirmed on the event, event-list, and recently-settled endpoints. [Gemini's maintenance notice](https://status.gemini.com/) lists Prediction Markets downtime from midnight to approximately 2 AM Eastern on November 18, equivalent to 9–11 PM Pacific on November 17. The independent WebSocket checks still received a fresh BTC index and book; that is not sufficient to replace official REST metadata or outcomes.
