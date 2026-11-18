@@ -2,7 +2,7 @@
 
 A social trading layer on Gemini Prediction Markets: every bet is published with a thesis, and anyone can copy it. Built for the UBC 2026 hackathon. All money is test money: simulated fills at Gemini's live prices, and testnet USDC on Arc.
 
-**Status on `avi/ubc-hack`: Phase 2 BTC paper execution implemented; live database acceptance pending.** The Markets tab and live recorder are available from Phase 1. The BTC worker now executes simulated YES/NO trades, publishes deterministic numeric theses, enforces limits, and settles from Gemini's official outcome. All 155 tests and the repository typecheck passed. Live Gemini REST, BTC index, book sizes, and an official outcome were checked; hosted database writes, three live paper fills, and settlement of a live paper position remain unverified because this checkout has no `DATABASE_URL`. See [BTC worker details and verification](docs/btc-paper-worker.md).
+**Status on `avi/ubc-hack`: Phase 2 BTC paper execution implemented; live acceptance pending.** The Markets tab and live recorder are available from Phase 1. The BTC worker now executes simulated YES/NO trades, publishes deterministic numeric theses, enforces limits, and settles from Gemini's official outcome. All 155 tests and the repository typecheck passed. Live Gemini input and an official outcome were checked, and a read-only hosted database connection succeeded. An isolated local Postgres instance is now configured for live-data paper verification; three qualifying live paper fills and settlement remain pending. See [BTC worker details and verification](docs/btc-paper-worker.md).
 
 ### Gemini, the trading agent, and Circle
 
@@ -56,7 +56,7 @@ Other commands:
 
 ### Next: verify the BTC loop on hosted Postgres
 
-Configure the server Postgres connection as `DATABASE_URL` in an ignored root `.env`. Keep `TRADING_MODE=paper`, `BTC_BOT_MODE=paper`, and `TRADING_ENABLED=true`. Start with `corepack pnpm start:worker`. The model requires at least 31 completed minute closes before it can enter; allow further contract windows for three qualifying paper trades. A restart clears in-memory warmup. Follow the queries and acceptance checklist in [the BTC worker runbook](docs/btc-paper-worker.md). Do not treat fixture tests as live acceptance or relax the limits to force demonstration trades.
+Configure the intended Postgres connection as `DATABASE_URL` in an ignored root `.env`. The team's supplied configuration separates local `DATABASE_URL` from hosted `PROD_DATABASE_URL`; preserve that separation unless intentionally choosing to write to the shared database. Keep `TRADING_MODE=paper`, `BTC_BOT_MODE=paper`, and `TRADING_ENABLED=true`. Start with `corepack pnpm start:worker`. The model requires at least 31 completed minute closes before it can enter; allow further contract windows for three qualifying paper trades. A restart clears in-memory warmup. Follow the queries and acceptance checklist in [the BTC worker runbook](docs/btc-paper-worker.md). Do not treat fixture tests as live acceptance or relax the limits to force demonstration trades.
 
 If the worker already runs on Railway, the existing worker service's `DATABASE_URL` variable is the first place to locate the team's connection. Alternatively, use the Supabase project's **Connect** dialog and copy the Postgres connection URI, including the database password. An API URL, publishable key, or service-role API key is not a Postgres `DATABASE_URL`. See the [official connection guide](https://supabase.com/docs/guides/database/connecting-to-postgres).
 

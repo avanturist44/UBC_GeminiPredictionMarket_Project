@@ -14,6 +14,7 @@ next-env.d.ts
 .DS_Store
 .vercel/
 .superpowers/
+.local/
 
 # Foundry (Phase 4)
 contracts/out/

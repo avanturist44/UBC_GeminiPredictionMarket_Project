@@ -24,7 +24,27 @@ The BTC worker uses production Gemini public data and simulated fills only. Ther
 
 The observed book's spread exceeded 6 cents, so it would correctly skip entry. These observations prove public connectivity, not live paper fills.
 
-**Live Phase 2 exit criteria are still pending.** This workspace has no `.env` or `DATABASE_URL`; starting the worker fails explicitly with `Invalid worker environment: DATABASE_URL`. Therefore hosted Postgres writes, actual 30-minute live warmup, live hypothetical YES/NO decision rows, three live paper entries, settlement of a live paper position, and multi-process locking against hosted Postgres remain unverified. Embedded database tests are not a substitute for those checks.
+**Live Phase 2 exit criteria are still pending.** The initial run had no `.env` or `DATABASE_URL` and failed environment validation. After receiving the team's configuration, a read-only connection check reached the hosted Thesis Market database: all eleven public application tables exist, with 57 markets, zero paper trades, and zero momentum runs at the time checked. The local `localhost:5432` connection returned `ECONNREFUSED`.
+
+The ignored root `.env` preserves `DATABASE_URL` for local development and keeps the hosted connection separately as `PROD_DATABASE_URL`. The worker reads only `DATABASE_URL`; it does not automatically switch to the hosted URL. No hosted migrations or application writes were performed during the connection check. The user selected isolated local Postgres for live-data verification. PostgreSQL 17.12 was installed under `.local/`, bound to `127.0.0.1:5432` with SCRAM password authentication, and the existing migrations were applied to local `thesis_market`. The worker was started against that local database to collect real Gemini input. Completed live warmup, three qualifying live paper entries, and settlement of a live paper position still need observation. Embedded database tests are not a substitute for those checks.
+
+Real PostgreSQL concurrency was also checked in a temporary local database using two independent connections: simultaneous entry attempts produced exactly one trade and one accounting increment; simultaneous settlement attempts produced exactly one payout and PnL update. That database used synthetic signals and a fixture outcome and was dropped afterward. Those checks did not populate the live verification database or touch the hosted database.
+
+## Local Postgres on Windows
+
+Portable binaries come from [EDB's official archive page](https://productsdl.enterprisedb.com/download-postgresql-binaries), linked by [PostgreSQL's Windows download page](https://www.postgresql.org/download/windows/). The installed archive is `postgresql-17.12-1-windows-x64-binaries.zip`, extracted to `.local/postgresql-17.12/pgsql`. No Windows service or system PATH change is needed. Both binaries and database files stay ignored by Git.
+
+After the archive is extracted, the helper initializes a cluster if needed, generates a local password, updates only a local `DATABASE_URL`, starts Postgres, and creates `thesis_market`. It refuses to replace a remote connection URL. It preserves `PROD_DATABASE_URL`.
+
+Use PowerShell 7 for the helper. The first live local check observed 12 markets, 74 price points, six momentum decision rows, and zero paper fills during warmup. Decision rows contained real BTC index prices and book sizes; the skips were for missing volatility during warmup and contracts outside the entry window.
+
+```powershell
+.\scripts\local-postgres.ps1 start
+corepack pnpm db:migrate
+corepack pnpm start:worker
+```
+
+Use `.\scripts\local-postgres.ps1 status` to check Postgres and `.\scripts\local-postgres.ps1 stop` to stop it. The background verification worker's PID is in `.local/worker.pid`, and its logs are `.local/worker.out.log` and `.local/worker.err.log`. Postgres logs are in `.local/postgres.log`. Keep the background worker running during warmup; do not start a second worker simply to inspect logs.
 
 ## Run against the configured database
 
