@@ -2,7 +2,7 @@ import { streamSymbolKey, type BookTicker, type GeminiPublicClient, type GeminiE
 import { agentRuns, agentState, and, authors, desc, eq, gt, markets, type Db } from '@thesis/db';
 import type { MomentumInput } from './momentum';
 import { evaluateNews, newsMarketEligible, NewsForecastSchema, NEWS_INTERVAL_MS,
-  NEWS_MAX_CALLS_PER_HOUR, type NewsResearchProvider, type NewsResearchRequest } from './news';
+  NEWS_MAX_CALLS_PER_HOUR, NEWS_RESEARCH_TIMEOUT_MS, type NewsResearchProvider, type NewsResearchRequest } from './news';
 
 const key = 'news';
 const text = (value: unknown) => (typeof value === 'string' ? value : value ? JSON.stringify(value) : '').slice(0, 8000);
@@ -22,7 +22,7 @@ function contractContext(event: GeminiEvent | null, symbol: string, nowMs: numbe
 
 /** One research-only decision per 15 minutes. This component has no execution adapter. */
 export function createNewsObserver(db: Db, client: Pick<GeminiPublicClient, 'getEvent'>, options: {
-  enabled: () => boolean; provider?: NewsResearchProvider; now?: () => number; signal?: AbortSignal;
+  enabled: () => boolean; provider?: NewsResearchProvider; now?: () => number; signal?: AbortSignal; retryFailed?: boolean;
 }) {
   const now = options.now ?? Date.now;
   const quotes = new Map<string, NonNullable<MomentumInput['quote']>>();
@@ -46,7 +46,12 @@ export function createNewsObserver(db: Db, client: Pick<GeminiPublicClient, 'get
           const at = now();
           const prior = await tx.select().from(agentRuns).where(eq(agentRuns.agentKey, key))
             .orderBy(desc(agentRuns.createdAt)).limit(200);
-          if (prior[0] && at - prior[0].createdAt.getTime() < NEWS_INTERVAL_MS) return null;
+          const recent = prior.filter((run) => at - run.createdAt.getTime() < NEWS_INTERVAL_MS);
+          // Do not use only the first row: multiple runs can have the same millisecond timestamp.
+          const newlyConfigured = !!options.provider && recent.length > 0 && recent.every((run) => run.reason === 'news research provider not configured');
+          const manualRetry = !!options.retryFailed && recent.some((run) => !!run.error) &&
+            recent.every((run) => !!run.error || run.reason === 'news research provider not configured');
+          if (recent.length && !newlyConfigured && !manualRetry) return null;
           const halts = await tx.select().from(agentState).where(and(eq(agentState.agentKey, key), eq(agentState.halted, true)));
           const calls = prior.filter((r) => r.createdAt.getTime() > at - 60 * 60_000 && r.signal?.researchRequested === true);
           const candidates = (await tx.select().from(markets).where(and(eq(markets.tracked, true), gt(markets.expiryAt, new Date(at)))))
@@ -77,7 +82,7 @@ export function createNewsObserver(db: Db, client: Pick<GeminiPublicClient, 'get
               signal: { ...baseSignal, phase: 'skipped' } }).where(eq(agentRuns.id, run.id));
             return 1;
           }
-          const abort = AbortSignal.any([AbortSignal.timeout(45_000), ...(options.signal ? [options.signal] : [])]);
+          const abort = AbortSignal.any([AbortSignal.timeout(NEWS_RESEARCH_TIMEOUT_MS), ...(options.signal ? [options.signal] : [])]);
           abort.throwIfAborted();
           researchRequested = true;
           await db.update(agentRuns).set({ reason: 'news research in progress',
@@ -108,7 +113,7 @@ export function createNewsObserver(db: Db, client: Pick<GeminiPublicClient, 'get
             signal: { mode: 'log-only', phase: 'completed', researchRequested, ...decision,
               forecast: parsed.success ? parsed.data : null, context,
               provider: research.provider.slice(0, 100), model: research.model.slice(0, 100),
-              searchedAtMs: research.searchedAtMs, quote,
+              searchedAtMs: research.searchedAtMs, retrievedSources: research.sources, quote,
               audit: 'not performed; research citations are not a factual-accuracy audit' },
           }).where(eq(agentRuns.id, run.id));
         } catch (error) {

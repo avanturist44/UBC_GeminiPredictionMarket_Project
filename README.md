@@ -2,17 +2,17 @@
 
 A social trading layer on Gemini Prediction Markets: every bet is published with a thesis, and anyone can copy it. Built for the UBC 2026 hackathon. All money is test money: simulated fills at Gemini's live prices, and testnet USDC on Arc.
 
-**Status on `avi/ubc-hack`: BTC paper execution and log-only news research implemented; live acceptance pending.** The Markets tab and live recorder are available from Phase 1. The BTC worker executes simulated YES/NO trades, publishes deterministic numeric theses, enforces limits, and settles from Gemini's official outcome. All 174 tests and the repository typecheck passed. Live Gemini input and an official outcome were checked, and a read-only hosted database connection succeeded. An isolated local Postgres instance is configured for live-data paper verification; three qualifying live paper fills and settlement remain pending. See [BTC worker details and verification](docs/btc-paper-worker.md).
+**Status on `avi/ubc-hack`: BTC paper execution and Grok-powered log-only news research implemented; live trading acceptance pending.** The Markets tab and live recorder are available from Phase 1. The BTC worker executes simulated YES/NO trades, publishes numeric theses, enforces limits, and settles from Gemini's official outcome. All 182 tests and the repository typecheck passed. Live Gemini input, an official outcome, and cited Grok research were checked. An isolated local Postgres instance is configured for verification; three qualifying live paper fills and settlement remain pending. See [BTC worker details and verification](docs/btc-paper-worker.md).
 
 ### Gemini, the trading agent, and Circle
 
 See [agent types and current implementation status](docs/agents.md) for the BTC strategy, supporting components, planned AI agents, and remaining verification.
 
-The second agent now has a [log-only news research pipeline](docs/news-agent.md) for daily BTC/ETH and non-crypto markets. It validates evidence, computes hypothetical entries, and records decisions without executing trades. Model selection is deferred, with Grok preferred; no live LLM provider is connected yet. `NEWS_AGENT_ENABLED=false` is the default.
+The second agent has a [Grok-powered log-only news research pipeline](docs/news-agent.md) for daily BTC/ETH and non-crypto markets. Grok 4.7 performs web research and returns structured forecasts; code validates citation provenance and computes hypothetical entries. A live cited forecast is verified. `NEWS_AGENT_ENABLED=false` remains the default; configure `LLM_PROVIDER=xai`, `LLM_MODEL=grok-4.7`, and server-only `XAI_API_KEY` to use the adapter.
 
 Gemini provides prediction market data and official outcomes. The current BTC agent makes its entry decisions with the deterministic momentum model and simulates fills in Postgres. A Circle wallet and Arc testnet USDC belong to the planned tipping and payout flow; the funded wallet is not yet connected to this worker. A Circle wallet balance does not fund the worker's simulated $1,000 paper bankroll or submit a Gemini order.
 
-The architecture leaves the LLM provider open. Grok/Grokbot is not currently installed or configured on either branch. An AI reasoning or tool-calling layer, Circle escrow, AI auditing, and copy-trade integration remain later work. The full product still needs the Circle flow; current paper execution does not complete that integration.
+Grok is now integrated for news research. Circle escrow, AI auditing, news execution, and copy-trade integration remain later work. The full product still needs the Circle flow; current paper execution does not complete that integration.
 
 ## Layout
 
@@ -47,7 +47,7 @@ Other commands:
 | `pnpm typecheck` | Type-checks every package and the scripts |
 | `corepack pnpm --filter @thesis/worker verify:btc` | Checks live BTC REST, index, book sizes and a recent official outcome without submitting orders |
 | `corepack pnpm --filter @thesis/worker check:btc-paper` | Reads BTC paper-fill, decision-log and settlement progress; exit 2 means acceptance is still pending |
-| `corepack pnpm --filter @thesis/worker observe:news` | Runs one log-only news observation; logs missing provider configuration until an adapter is added |
+| `corepack pnpm --filter @thesis/worker observe:news` | Runs one log-only news observation; can make a metered Grok search request when configured, subject to cadence and caps |
 | `pnpm verify:gemini` | Checks every "Verify" item in the build plan against the live services. `--write` refreshes `docs/gemini-findings.md` |
 | `pnpm verify:gemini --order` | Also places one small order in Gemini's **sandbox**. Needs `GEMINI_SANDBOX_API_KEY` and `GEMINI_SANDBOX_API_SECRET` |
 | `pnpm db:generate` | Generates a migration after a schema change |

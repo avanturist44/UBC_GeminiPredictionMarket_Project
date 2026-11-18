@@ -8,6 +8,7 @@ import { runRecorderCycle, type Logger } from './recorder';
 import { createPriceStream } from './stream';
 import { createPaperAdapter, recordMomentumError } from './paper';
 import { createNewsObserver } from './news-observer';
+import { createXaiResearchProvider } from './xai-research';
 
 const log = (level: string, message: string, extra: object = {}) =>
   console.log(JSON.stringify({ t: new Date().toISOString(), level, message, ...extra }));
@@ -27,7 +28,9 @@ const quotes = createQuoteRecorder({ db, logger });
 const paper = createPaperAdapter(db, client, { enabled: () => env.TRADING_ENABLED });
 const momentum = createMomentumObserver(db, { adapter: env.BTC_BOT_MODE === 'paper' ? paper : undefined });
 const newsAbort = new AbortController();
-const news = createNewsObserver(db, client, { enabled: () => env.NEWS_AGENT_ENABLED, signal: newsAbort.signal });
+const researchProvider = env.LLM_PROVIDER === 'xai' && env.XAI_API_KEY ?
+  createXaiResearchProvider({ apiKey: env.XAI_API_KEY, model: env.LLM_MODEL }) : undefined;
+const news = createNewsObserver(db, client, { enabled: () => env.NEWS_AGENT_ENABLED, signal: newsAbort.signal, provider: researchProvider });
 let newsTask: Promise<unknown> | undefined;
 const stream = createPriceStream({
   url: env.GEMINI_WS_URL,

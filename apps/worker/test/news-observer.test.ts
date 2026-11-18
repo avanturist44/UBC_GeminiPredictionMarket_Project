@@ -38,6 +38,24 @@ it('logs missing configuration and persists the 15-minute cadence across observe
   expect(await db.select().from(trades)).toHaveLength(0);
 });
 
+it('permits the first configured provider run immediately after a missing-provider skip', async () => {
+  await setup().observer.run();
+  const research = vi.fn(async () => result());
+  await setup({ research }).observer.run();
+  expect(research).toHaveBeenCalledTimes(1);
+  await setup({ research }).observer.run();
+  expect(research).toHaveBeenCalledTimes(1);
+});
+
+it('allows an explicit failed-run retry while preserving the hourly request cap', async () => {
+  const research = vi.fn(async () => { throw new Error('temporary failure'); });
+  const client = { getEvent: async () => event };
+  const observer = createNewsObserver(db, client, { enabled: () => true, now: () => now, provider: { research }, retryFailed: true });
+  for (let n = 0; n < 5; n++) await observer.run();
+  expect(research).toHaveBeenCalledTimes(4);
+  expect((await db.select().from(agentRuns)).some((r) => r.reason === 'hourly research call limit')).toBe(true);
+});
+
 it('logs a grounded hypothetical entry with official rules and fresh quotes, without publishing or trading', async () => {
   const research = vi.fn(async (_request: NewsResearchRequest, _signal: AbortSignal) => result()); const { observer, client } = setup({ research });
   await Promise.all([observer.run(), observer.run()]);
@@ -47,6 +65,7 @@ it('logs a grounded hypothetical entry with official rules and fresh quotes, wit
   const [run] = await db.select().from(agentRuns);
   expect(run).toMatchObject({ decision: 'skip', reason: 'log only: hypothetical news entry',
     signal: { mode: 'log-only', decision: 'candidate', side: 'yes', entryPrice: .5,
+      retrievedSources: expect.arrayContaining([{ url: 'https://a.example.org/news', title: 'Public report' }]),
       context: { contractLabel: 'Above 65,000', rules: expect.stringContaining('Resolves YES') } } });
   expect(await db.select().from(trades)).toHaveLength(0); expect(await db.select().from(theses)).toHaveLength(0);
 });

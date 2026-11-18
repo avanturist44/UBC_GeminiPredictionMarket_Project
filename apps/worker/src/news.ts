@@ -3,6 +3,7 @@ import type { MomentumInput } from './momentum';
 
 export const NEWS_INTERVAL_MS = 15 * 60_000;
 export const NEWS_MAX_CALLS_PER_HOUR = 4;
+export const NEWS_RESEARCH_TIMEOUT_MS = 90_000;
 
 export const NewsForecastSchema = z.strictObject({
   probability_yes: z.number().finite().min(0).max(1),

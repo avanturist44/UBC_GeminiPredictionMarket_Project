@@ -4,9 +4,9 @@ Updated November 18, 2026. Implementation described here is on `avi/ubc-hack`.
 
 ## What we are working on now
 
-**The current trading agent is BTC 15-minute `momentum`, and the second agent is the new log-only `news` research pipeline.** Momentum uses Gemini's live prediction market data, computes its own YES/NO probability, publishes its numeric reasoning, and holds simulated positions until Gemini resolves the contract. News evaluates daily crypto and non-crypto markets through a provider interface and logs hypothetical decisions; a live provider is not configured yet.
+**The current trading agent is BTC 15-minute `momentum`, and the second agent is the log-only Grok-powered `news` research pipeline.** Momentum uses Gemini's live prediction market data, computes its own YES/NO probability, publishes numeric reasoning, and holds simulated positions until Gemini resolves the contract. News uses Grok 4.7 web search to assess daily crypto and non-crypto markets and logs forecasts and hypothetical decisions. A live cited research run is verified; news execution remains disabled.
 
-Momentum does not use Grok, Grokbot, or another LLM to decide trades. Its rules and probability calculation are ordinary TypeScript code. For news, the user selected log-only implementation first and prefers Grok for the later provider integration. Grokbot is not required. See [the news agent runbook](news-agent.md).
+Momentum does not use Grok, Grokbot, or another LLM to decide trades. Its rules and probability calculation are ordinary TypeScript code. News now has the xAI Grok provider integration, with strict forecast validation and citation provenance. Grokbot is not required. See [the news agent runbook](news-agent.md).
 
 ## Agent types and implementation status
 
@@ -16,7 +16,7 @@ Momentum does not use Grok, Grokbot, or another LLM to decide trades. Its rules 
 | Paper executor | Execution component used by `momentum` | Simulate a fill at fresh executable quotes, enforce size and risk limits, and write the position and thesis atomically | Implemented and tested |
 | Settlement worker | Official-outcome accounting component | Read Gemini's result and settle paper positions and theses exactly once | Implemented and tested; settlement of a live paper position still pending |
 | Price recorder and observer | Market-data and monitoring components | Discover markets, collect the index and books, build volatility history, and log skips and health | Running against local Postgres and live Gemini data |
-| `news` agent | LLM/web-search research policy with provider interface | Validate evidence-backed forecasts and log hypothetical daily crypto/non-crypto entries | Log-only pipeline implemented and tested; provider integration pending, Grok preferred |
+| `news` agent | Grok 4.7 web-search research with code-controlled policy | Validate evidence-backed forecasts and log hypothetical daily crypto/non-crypto entries | Live cited research verified; log-only, no execution or published theses |
 | `fade` agent | Planned price-move strategy assisted by an LLM and web search | Investigate a sharp price move and consider a reversal when no public explanation is found | Not implemented; deferred |
 | Thesis auditor | Planned evidence-verification agent | Check factual claims and flag unsupported claims or claims of non-public information before publication | Not implemented |
 
@@ -60,11 +60,11 @@ Despite its `momentum` name, the current formula estimates finish probability fr
 - **Gemini:** live index, order books, market metadata, strikes, and official contract outcomes.
 - **BTC worker and Postgres:** decision rules, simulated bankroll and fills, public thesis records, idempotency, limits, and settlement accounting.
 - **Circle wallet and Arc testnet USDC:** planned tipping and escrow payout flow. The funded Circle wallet is not connected to the current worker, and its USDC balance is separate from the paper bankroll.
-- **LLM provider:** Grok is preferred for news, with selection and integration deferred. The current BTC numeric thesis is a template. It has no AI summary, AI audit, or on-chain registration yet.
+- **LLM provider:** xAI Grok 4.7 is connected for news research. The BTC numeric thesis remains a template. AI auditing and on-chain registration are still pending.
 
 ## What has actually been verified
 
-- 174 repository tests and the full typecheck passed during the latest code verification, including 17 news-policy and observer tests. A local one-shot news run recorded missing-provider configuration; no live LLM forecast has been made.
+- 182 repository tests and the full typecheck passed during the latest code verification, including news-policy, observer, and Grok adapter tests. A live Grok 4.7 forecast with six cited URLs passed provenance checks and was saved locally; entry was skipped for a missing/stale book.
 - Tests cover YES/NO pricing and payouts, daily loss halting, retries, rollback, warmup, stale inputs, exposure and UTC boundaries, and missing-market logging.
 - Two independent real local Postgres connections produced one fill under concurrent entry attempts and one payout under concurrent settlement attempts. These used an isolated fixture database and do not count as live trading acceptance.
 - Local Postgres is configured, and the background worker has stored live Gemini price points and agent decision logs.
@@ -76,7 +76,7 @@ Despite its `momentum` name, the current formula estimates finish probability fr
 1. Observe a complete, uninterrupted volatility warmup and fresh executable BTC input.
 2. Let the unchanged strategy and limits produce three qualifying paper trades with linked theses and decision logs.
 3. Verify a position settles from Gemini's official YES/NO result, then verify a repeated settlement does not change payout or PnL twice.
-4. Continue the news agent in log-only mode as requested, with Grok preferred for its later provider adapter. Add auditing and shared limits before enabling news paper execution. Circle/Arc tipping, payouts, and copy trade remain later integrations; fade remains deferred.
+4. Continue Grok-powered news research in log-only mode. Add auditing and shared limits before enabling news paper execution. Circle/Arc tipping, payouts, and copy trade remain later integrations; fade remains deferred.
 
 See [the BTC worker runbook](btc-paper-worker.md) for configuration, commands, and operational details. Check current database progress with:
 
