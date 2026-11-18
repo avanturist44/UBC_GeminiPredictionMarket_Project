@@ -2,14 +2,20 @@
 
 A social trading layer on Gemini Prediction Markets: every bet is published with a thesis, and anyone can copy it. Built for the UBC 2026 hackathon. All money is test money: simulated fills at Gemini's live prices, and testnet USDC on Arc.
 
-**Status: Phase 1 (market data and the Markets tab).** The price recorder runs on a 30-second poll plus a live WebSocket stream, and the Markets tab shows live odds with a chart for each tracked market. Trading, agents, the auditor, the escrow and copy trade come in later phases. The full README (architecture, trust assumptions, what is simulated) is written in Phase 7.
+**Status on `avi/ubc-hack`: Phase 2 BTC paper execution implemented; live database acceptance pending.** The Markets tab and live recorder are available from Phase 1. The BTC worker now executes simulated YES/NO trades, publishes deterministic numeric theses, enforces limits, and settles from Gemini's official outcome. All 155 tests and the repository typecheck passed. Live Gemini REST, BTC index, book sizes, and an official outcome were checked; hosted database writes, three live paper fills, and settlement of a live paper position remain unverified because this checkout has no `DATABASE_URL`. See [BTC worker details and verification](docs/btc-paper-worker.md).
+
+### Gemini, the trading agent, and Circle
+
+Gemini provides prediction market data and official outcomes. The current BTC agent makes its entry decisions with the deterministic momentum model and simulates fills in Postgres. A Circle wallet and Arc testnet USDC belong to the planned tipping and payout flow; the funded wallet is not yet connected to this worker. A Circle wallet balance does not fund the worker's simulated $1,000 paper bankroll or submit a Gemini order.
+
+The architecture leaves the LLM provider open. Grok/Grokbot is not currently installed or configured on either branch. An AI reasoning or tool-calling layer, Circle escrow, AI auditing, and copy-trade integration remain later work. The full product still needs the Circle flow; current paper execution does not complete that integration.
 
 ## Layout
 
 ```
 apps/web/          Next.js app and API routes (so far: the Markets tab, /api/markets, /api/health)
-apps/worker/       Always-on Node worker (so far: the price recorder, by poll and by stream)
-packages/core/     Gemini schemas, public client and stream messages, ticker rules, tracked markets
+apps/worker/       Price recorder, BTC observer, paper execution and settlement, live-data verification
+packages/core/     Gemini client and stream schemas, ticker rules, tracked markets, agent limits
 packages/db/       Drizzle schema, migrations, queries
 scripts/           verify-gemini.ts, circle-setup.ts
 docs/              gemini-findings.md: what the live APIs actually do
@@ -35,6 +41,7 @@ Other commands:
 | --- | --- |
 | `pnpm test` | Unit tests, including parsing of recorded Gemini responses and recorder tests on an in-memory Postgres |
 | `pnpm typecheck` | Type-checks every package and the scripts |
+| `corepack pnpm --filter @thesis/worker verify:btc` | Checks live BTC REST, index, book sizes and a recent official outcome without submitting orders |
 | `pnpm verify:gemini` | Checks every "Verify" item in the build plan against the live services. `--write` refreshes `docs/gemini-findings.md` |
 | `pnpm verify:gemini --order` | Also places one small order in Gemini's **sandbox**. Needs `GEMINI_SANDBOX_API_KEY` and `GEMINI_SANDBOX_API_SECRET` |
 | `pnpm db:generate` | Generates a migration after a schema change |
@@ -46,6 +53,12 @@ Other commands:
 - **Web:** Vercel, with the root directory set to `apps/web`. Set `DATABASE_URL` and `TRADING_MODE=paper`.
 
 `GET /api/health` on the web app reports how many tracked contracts received price points in the last five minutes.
+
+### Next: verify the BTC loop on hosted Postgres
+
+Configure the server Postgres connection as `DATABASE_URL` in an ignored root `.env`. Keep `TRADING_MODE=paper`, `BTC_BOT_MODE=paper`, and `TRADING_ENABLED=true`. Start with `corepack pnpm start:worker`. The model requires at least 31 completed minute closes before it can enter; allow further contract windows for three qualifying paper trades. A restart clears in-memory warmup. Follow the queries and acceptance checklist in [the BTC worker runbook](docs/btc-paper-worker.md). Do not treat fixture tests as live acceptance or relax the limits to force demonstration trades.
+
+If the worker already runs on Railway, the existing worker service's `DATABASE_URL` variable is the first place to locate the team's connection. Alternatively, use the Supabase project's **Connect** dialog and copy the Postgres connection URI, including the database password. An API URL, publishable key, or service-role API key is not a Postgres `DATABASE_URL`. See the [official connection guide](https://supabase.com/docs/guides/database/connecting-to-postgres).
 
 ## How prices are recorded and shown
 
