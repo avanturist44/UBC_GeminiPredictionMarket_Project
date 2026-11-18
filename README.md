@@ -6,6 +6,8 @@ A social trading layer on Gemini Prediction Markets: every bet is published with
 
 ### Gemini, the trading agent, and Circle
 
+See [agent types and current implementation status](docs/agents.md) for the BTC strategy, supporting components, planned AI agents, and remaining verification.
+
 Gemini provides prediction market data and official outcomes. The current BTC agent makes its entry decisions with the deterministic momentum model and simulates fills in Postgres. A Circle wallet and Arc testnet USDC belong to the planned tipping and payout flow; the funded wallet is not yet connected to this worker. A Circle wallet balance does not fund the worker's simulated $1,000 paper bankroll or submit a Gemini order.
 
 The architecture leaves the LLM provider open. Grok/Grokbot is not currently installed or configured on either branch. An AI reasoning or tool-calling layer, Circle escrow, AI auditing, and copy-trade integration remain later work. The full product still needs the Circle flow; current paper execution does not complete that integration.
