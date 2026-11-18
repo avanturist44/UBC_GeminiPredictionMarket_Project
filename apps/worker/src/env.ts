@@ -10,6 +10,7 @@ const EnvSchema = z.object({
   TRADING_MODE: z.literal('paper').default('paper'),
   TRADING_ENABLED: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
   BTC_BOT_MODE: z.enum(['log-only', 'paper']).default('paper'),
+  NEWS_AGENT_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
 });
 
 export type WorkerEnv = z.infer<typeof EnvSchema>;

@@ -7,6 +7,7 @@ import { createQuoteRecorder } from './quotes';
 import { runRecorderCycle, type Logger } from './recorder';
 import { createPriceStream } from './stream';
 import { createPaperAdapter, recordMomentumError } from './paper';
+import { createNewsObserver } from './news-observer';
 
 const log = (level: string, message: string, extra: object = {}) =>
   console.log(JSON.stringify({ t: new Date().toISOString(), level, message, ...extra }));
@@ -25,12 +26,16 @@ const client = createGeminiPublicClient({ baseUrl: env.GEMINI_PUBLIC_BASE, logge
 const quotes = createQuoteRecorder({ db, logger });
 const paper = createPaperAdapter(db, client, { enabled: () => env.TRADING_ENABLED });
 const momentum = createMomentumObserver(db, { adapter: env.BTC_BOT_MODE === 'paper' ? paper : undefined });
+const newsAbort = new AbortController();
+const news = createNewsObserver(db, client, { enabled: () => env.NEWS_AGENT_ENABLED, signal: newsAbort.signal });
+let newsTask: Promise<unknown> | undefined;
 const stream = createPriceStream({
   url: env.GEMINI_WS_URL,
   extraStreams: [BTC_INDEX_STREAM],
   onTicker(ticker) {
     quotes.handle(ticker);
     momentum.handleTicker(ticker);
+    news.handleTicker(ticker);
   },
   onOther: momentum.handleOther,
   logger,
@@ -53,6 +58,7 @@ let wake: (() => void) | undefined;
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
     stopping = true;
+    newsAbort.abort();
     wake?.();
   });
 }
@@ -96,6 +102,13 @@ while (!stopping) {
       await recordMomentumError(db, error).catch((failure) =>
         log('error', 'momentum error persistence failed', { error: errorText(failure) }));
     }
+    // Research may take tens of seconds. It must not delay BTC decisions or recorder cycles.
+    if (!newsTask && env.NEWS_AGENT_ENABLED) {
+      newsTask = news.run().then((runs) => {
+        if (runs) log('info', 'news observation cycle', { runs, mode: 'log-only' });
+      }).catch((error) => log('error', 'news observation failed', { error: errorText(error) }))
+        .finally(() => { newsTask = undefined; });
+    }
   }
   // A signal that arrived during the cycle: stop now instead of sleeping first.
   if (stopping) break;
@@ -112,5 +125,6 @@ while (!stopping) {
 
 clearInterval(flushTimer);
 stream.stop();
+await newsTask;
 await close();
 log('info', 'worker stopped');

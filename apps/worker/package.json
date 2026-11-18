@@ -8,6 +8,7 @@
     "start": "tsx src/index.ts",
     "verify:btc": "tsx src/verify-btc.ts",
     "check:btc-paper": "tsx src/check-btc-paper.ts",
+    "observe:news": "tsx src/observe-news.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
