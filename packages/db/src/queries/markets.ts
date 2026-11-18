@@ -118,3 +118,53 @@ export async function getRecorderStatus(db: Db, since: Date): Promise<RecorderSt
 
   return rows.map((row) => ({ ...row, points: row.points ?? 0, latestTs: row.latestTs ?? null }));
 }
+
+const notExpiredAt = (now: Date) =>
+  sql`(${markets.expiryAt} is null or ${markets.expiryAt} > ${now.toISOString()}::timestamptz)`;
+
+export interface LiveMarket {
+  id: string;
+  instrumentSymbol: string;
+}
+
+/** Tracked contracts that have not expired: the ones the price stream subscribes to. */
+export async function listLiveTrackedMarkets(db: Db, now: Date): Promise<LiveMarket[]> {
+  return db
+    .select({ id: markets.id, instrumentSymbol: markets.instrumentSymbol })
+    .from(markets)
+    .where(and(eq(markets.tracked, true), notExpiredAt(now)))
+    .orderBy(asc(markets.instrumentSymbol));
+}
+
+export interface StreamQuote {
+  marketId: string;
+  ts: Date;
+  yesBid: string | null;
+  yesAsk: string | null;
+  /** Null when the stream carried no last trade. The stored one is then kept. */
+  lastPrice: string | null;
+}
+
+/**
+ * Stores one quote from the WebSocket: a `ws` price point, and the market's current quote.
+ * An empty book with no trade has no price to chart, so it only clears the market's quote.
+ *
+ * Both writes happen or neither does. The caller retries a failed quote, and a point left
+ * behind by a half-finished write would be stored a second time.
+ */
+export async function recordStreamQuote(db: Db, quote: StreamQuote): Promise<{ point: boolean }> {
+  const point = quote.yesBid !== null || quote.yesAsk !== null || quote.lastPrice !== null;
+  await db.transaction(async (tx) => {
+    if (point) await tx.insert(pricePoints).values({ ...quote, source: 'ws' });
+    await tx
+      .update(markets)
+      .set({
+        yesBid: quote.yesBid,
+        yesAsk: quote.yesAsk,
+        ...(quote.lastPrice === null ? {} : { lastPrice: quote.lastPrice }),
+        updatedAt: sql`now()`,
+      })
+      .where(eq(markets.id, quote.marketId));
+  });
+  return { point };
+}

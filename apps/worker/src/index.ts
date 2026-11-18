@@ -1,11 +1,14 @@
 import { DEFAULT_TRACKED_RULES, createGeminiPublicClient } from '@thesis/core';
-import { createDb } from '@thesis/db';
+import { createDb, listLiveTrackedMarkets } from '@thesis/db';
 import { runMigrations } from '@thesis/db/migrate';
 import { loadEnv } from './env';
+import { createQuoteRecorder } from './quotes';
 import { runRecorderCycle, type Logger } from './recorder';
+import { createPriceStream } from './stream';
 
 /**
- * The always-on worker. Phase 0 runs one job, the price recorder.
+ * The always-on worker. So far it runs one job, the price recorder, in two parts: a REST
+ * poll every 30 seconds that keeps `markets` current, and a WebSocket stream of live quotes.
  * Agents, the auditor, the registrar and the resolver are added in later phases.
  */
 
@@ -16,11 +19,27 @@ const logger: Logger = {
   warn: (message) => log('warn', message),
   error: (message) => log('error', message),
 };
+const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 const env = loadEnv();
 await runMigrations(env.DATABASE_URL);
 const { db, close } = createDb(env.DATABASE_URL);
 const client = createGeminiPublicClient({ baseUrl: env.GEMINI_PUBLIC_BASE, logger });
+
+const quotes = createQuoteRecorder({ db, logger });
+const stream = createPriceStream({ url: env.GEMINI_WS_URL, onTicker: quotes.handle, logger });
+
+/** Points the stream at the contracts that are tracked and have not expired. */
+async function syncStream(): Promise<void> {
+  try {
+    const live = await listLiveTrackedMarkets(db, new Date());
+    quotes.setMarkets(live);
+    stream.setSymbols(live.map((market) => market.instrumentSymbol));
+  } catch (error) {
+    // The stream keeps its current subscriptions until the next cycle.
+    log('error', 'stream sync failed', { error: errorText(error) });
+  }
+}
 
 let stopping = false;
 let wake: (() => void) | undefined;
@@ -34,18 +53,32 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 log('info', 'worker started', {
   job: 'price-recorder',
   intervalMs: env.RECORDER_INTERVAL_MS,
+  stream: env.GEMINI_WS_URL,
   rules: DEFAULT_TRACKED_RULES.map((rule) => rule.key),
 });
+
+// Contracts recorded by an earlier run can be streamed before the first poll finishes.
+await syncStream();
+stream.start();
+const flushTimer = setInterval(() => {
+  quotes.flush().catch((error) => log('error', 'stream flush failed', { error: errorText(error) }));
+}, 1000);
 
 while (!stopping) {
   const started = Date.now();
   try {
     const summary = await runRecorderCycle({ db, client, rules: DEFAULT_TRACKED_RULES, logger });
-    log('info', 'recorder cycle', { ...summary, ms: Date.now() - started });
+    log('info', 'recorder cycle', {
+      ...summary,
+      ms: Date.now() - started,
+      stream: { ...stream.status(), points: quotes.stats().written },
+    });
   } catch (error) {
     // A cycle-level failure, such as the database being unreachable. Keep looping.
-    log('error', 'recorder cycle failed', { error: error instanceof Error ? error.message : String(error) });
+    log('error', 'recorder cycle failed', { error: errorText(error) });
   }
+  // The poll is what finds new contracts and notices expired ones.
+  await syncStream();
   // A signal that arrived during the cycle: stop now instead of sleeping first.
   if (stopping) break;
   const wait = Math.max(0, env.RECORDER_INTERVAL_MS - (Date.now() - started));
@@ -59,5 +92,7 @@ while (!stopping) {
   wake = undefined;
 }
 
+clearInterval(flushTimer);
+stream.stop();
 await close();
 log('info', 'worker stopped');

@@ -173,3 +173,19 @@ export function selectContracts(
     .slice(0, pick.count)
     .map((entry) => entry.contract);
 }
+
+/** Halfway between the best bid and ask for YES. Null unless the book has both sides. */
+export function yesMidpoint(quote: Pick<YesQuote, 'bid' | 'ask'>): number | null {
+  if (quote.bid === null || quote.ask === null) return null;
+  return Math.round(((Number(quote.bid) + Number(quote.ask)) / 2) * 10_000) / 10_000;
+}
+
+/**
+ * One YES price for a market, between 0 and 1: the midpoint, or the last trade when a side
+ * of the book is empty. Without a trade either it is unknown: a lone ask of 97 cents says
+ * little about the price. For display only, never for money: orders use the bid and ask
+ * as strings.
+ */
+export function yesPrice(quote: YesQuote): number | null {
+  return yesMidpoint(quote) ?? (quote.last === null ? null : Number(quote.last));
+}

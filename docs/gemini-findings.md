@@ -30,7 +30,20 @@ Re-run the checks with `pnpm verify:gemini`; `--write` refreshes the results tab
 
 Quote convention, relevant to item 4: `bestBid` equals `sell.yes`, `bestAsk` equals `buy.yes`, `buy.no` equals `1 - bestBid`, and `sell.no` equals `1 - bestAsk`. Gemini quotes NO at its own price.
 
-WebSocket `bookTicker` message, for Phase 1: `{ u, E, s, b, B, a, A }` where `s` is the symbol in lower case, `b`/`a` are best bid and ask, `B`/`A` their sizes, and an empty string means that side of the book is empty. `E` is in nanoseconds.
+## Public WebSocket, checked for Phase 1
+
+Checked against `wss://ws.gemini.com` on November 18, 2026, before the stream client was written. The worker's stream client (`apps/worker/src/stream.ts`) depends on each row.
+
+| Question | What the live socket does |
+| --- | --- |
+| What is a `bookTicker` message? | `{ u, E, s, b, B, a, A, c?, C? }`. `s` is the symbol in lower case, `b`/`a` are the best bid and ask, `B`/`A` their sizes, and an empty string means that side of the book is empty. `E` is in nanoseconds. `c` is the last trade price: it equalled REST `lastTradePrice` on both contracts compared (0.83 and 0.04), and is absent on a contract that has not traded. The SDK types list `c` and `C` as optional strings without naming them |
+| What comes back from `SUBSCRIBE`? | `{ "id": "1", "status": 200 }`, and the current book for each stream at once, before any change |
+| Is there an `UNSUBSCRIBE`? | Yes: `{ id, method: "UNSUBSCRIBE", params }` returns status 200 and the messages stop. It also returns 200 for a stream that was never subscribed. `LIST_SUBSCRIPTIONS` returns the current streams. The SDK uses both |
+| What if one stream name in a request is wrong? | The whole request is refused: `{ id, status: 400, error: { code: -1013, msg: "Invalid stream name: …" } }`, and none of its streams are subscribed. The client retries each stream alone |
+| Is an expired contract's stream still valid? | Yes. It sends one message with an empty book and the last trade |
+| Does the server answer a ping frame? | Yes, with a pong at once. The client pings every 15 seconds and reconnects after 45 seconds of silence |
+
+Gemini's site: `https://www.gemini.com/predictions/{eventTicker}` is the event's page (checked with `RECESSION26` and `BRENT2611182200`; an unknown ticker gets the generic page). For each contract the site shows "Yes" as `prices.buy.yes` (the YES ask) and "No" as `prices.buy.no` (one minus the YES bid). The Markets tab shows the same two figures, so they can be compared directly.
 
 ## Results of the last run
 
