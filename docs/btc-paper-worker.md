@@ -70,6 +70,14 @@ Verification: 185 repository tests and the full typecheck passed, including hear
 
 ## Maintenance and progress diagnostics
 
+### First live paper trade and settlement, November 18
+
+The supervised worker completed a genuine 30-return warmup and entered `GEMI-BTC15M2611182200-UP` at `2026-11-18T21:56:32.222Z`: YES, quantity `1.0000`, price/cost `$0.3500`, with approximately `$0.10255` estimated executable edge. The available YES ask size was one contract, so the fill was reduced to that size. Subsequent cycles logged duplicate-position skips rather than adding another position.
+
+Gemini officially resolved the contract NO. The worker settled the position with payout `$0.0000`, realized PnL `-$0.3500`, and released the open exposure. A separate official-event fetch confirmed NO, and replaying the paper resolver returned zero settlements with unchanged agent accounting. The trade ID is `4b4052dd-06bd-4c02-b5f5-28a6445e755d` in the local verification database.
+
+This satisfies the live 15-minute settlement check. At this checkpoint, the three-trade criterion remained pending (one logged live paper trade), while the daily-loss-stop regression had passed in the 185-test suite. A subsequent multi-minute execution/index gap correctly reset contiguous warmup; it did not undo the recorded trade or settlement. No artificial returns or relaxed entry thresholds were used.
+
 On November 17 (Pacific), repeated HTTP 500 responses were confirmed on the event, event-list, and recently-settled endpoints. [Gemini's maintenance notice](https://status.gemini.com/) lists Prediction Markets downtime from midnight to approximately 2 AM Eastern on November 18, equivalent to 9–11 PM Pacific on November 17. The independent WebSocket checks still received a fresh BTC index and book; that is not sufficient to replace official REST metadata or outcomes.
 
 The worker now writes an explicit skip even when every tracked BTC market has expired. Those rows include index age, fresh-book count, completed minute closes, the contiguous return count, and volatility readiness. Normal cycle logs expose the same health data. Missing minutes reset the contiguous warmup count. Entry skips during warmup say how many of the required 30 returns are available.

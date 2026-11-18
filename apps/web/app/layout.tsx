@@ -28,6 +28,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <Link href="/" className="text-base font-semibold tracking-tight">
               Thesis Market
             </Link>
+            <Link href="/agents" className="text-sm font-medium text-primary hover:underline">Agent activity</Link>
             {/* Always visible while the build uses test money. */}
             <span className="rounded-full border border-input px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
               Simulated funds

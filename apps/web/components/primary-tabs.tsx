@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const TABS = [
-  { href: '/', label: 'AI', match: (path: string) => path === '/' },
+  { href: '/', label: 'AI', match: (path: string) => path === '/' || path.startsWith('/agents') },
   { href: '/humans', label: 'Humans', match: (path: string) => path.startsWith('/humans') },
   { href: '/markets', label: 'Markets', match: (path: string) => path.startsWith('/markets') },
 ] as const;
