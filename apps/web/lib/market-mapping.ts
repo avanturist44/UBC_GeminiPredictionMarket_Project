@@ -1,4 +1,4 @@
-import { yesMidpoint, yesPrice } from '@thesis/core';
+import { windowOpensAt, yesMidpoint, yesPrice } from '@thesis/core';
 import type { MarketDetail, MarketRow, ThesisMarkerRow } from '@thesis/db';
 import type {
   ChartPoint,
@@ -25,6 +25,7 @@ export function toMarketView(row: MarketRow): MarketView {
     contractLabel: row.contractLabel,
     category: row.category,
     expiryAt: row.expiryAt?.toISOString() ?? null,
+    opensAt: windowOpensAt(row.eventTicker, row.expiryAt)?.toISOString() ?? null,
     marketState: row.marketState,
     strike: row.strike,
     yesBid: row.yesBid,
@@ -82,10 +83,36 @@ function toChartPoints(rows: MarketDetail['points']): { points: ChartPoint[]; se
     : { points: trades, series: 'lastTrade' };
 }
 
+/**
+ * Where a market's chart starts. A short crypto window is charted from the moment it opens,
+ * as on Gemini's site: before that there is no strike and the quotes sit at 50 cents. Until
+ * it opens, and for every other market, the chart shows everything recorded.
+ */
+export function chartStart(market: MarketRow, now: Date): Date | null {
+  const opens = windowOpensAt(market.eventTicker, market.expiryAt);
+  return opens && now.getTime() >= opens.getTime() ? opens : null;
+}
+
 export function toMarketDetailView(detail: MarketDetail, asOf: Date): MarketDetailResponse {
   const market = toMarketView(detail.market);
 
   const { points, series } = toChartPoints(detail.points);
+
+  // The line ends at the quote shown above the chart. Price points are stored at most every
+  // ten seconds, while the market's own quote is at most a second or two old.
+  const live =
+    detail.market.resolutionSide === null &&
+    (detail.market.expiryAt === null || asOf.getTime() < detail.market.expiryAt.getTime());
+  const current =
+    series === 'midpoint'
+      ? market.yesMid
+      : detail.market.lastPrice === null
+        ? null
+        : Number(detail.market.lastPrice);
+  const lastPoint = points.at(-1);
+  if (live && current !== null && (!lastPoint || asOf.getTime() > lastPoint.t)) {
+    points.push({ t: asOf.getTime(), price: current });
+  }
 
   const theses: ThesisMarker[] = detail.theses.map((row) => {
     const t = row.publishedAt?.getTime() ?? null;

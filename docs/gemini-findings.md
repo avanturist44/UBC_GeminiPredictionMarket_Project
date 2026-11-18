@@ -41,6 +41,7 @@ Checked against `wss://ws.gemini.com` on November 18, 2026, before the stream cl
 | Is there an `UNSUBSCRIBE`? | Yes: `{ id, method: "UNSUBSCRIBE", params }` returns status 200 and the messages stop. It also returns 200 for a stream that was never subscribed. `LIST_SUBSCRIPTIONS` returns the current streams. The SDK uses both |
 | What if one stream name in a request is wrong? | The whole request is refused: `{ id, status: 400, error: { code: -1013, msg: "Invalid stream name: …" } }`, and none of its streams are subscribed. The client retries each stream alone |
 | Is an expired contract's stream still valid? | Yes. It sends one message with an empty book and the last trade |
+| Can a web page connect to it? | Yes. It accepted connections with an `Origin` of `http://localhost:3000`, of the deployed site and of `www.gemini.com` alike, and Gemini's own site connects to the same host from the browser. A page cannot send ping frames, so the page's heartbeat is a `LIST_SUBSCRIPTIONS` request |
 | Does the server answer a ping frame? | Yes, with a pong at once. The client pings every 15 seconds and reconnects after 45 seconds of silence |
 
 Gemini's site: `https://www.gemini.com/predictions/{eventTicker}` is the event's page (checked with `RECESSION26` and `BRENT2611182200`; an unknown ticker gets the generic page). For each contract the site shows "Yes" as `prices.buy.yes` (the YES ask) and "No" as `prices.buy.no` (one minus the YES bid). The Markets tab shows the same two figures, so they can be compared directly.

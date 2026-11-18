@@ -10,6 +10,7 @@ import {
   pricePoints,
   recordStreamQuote,
   sql,
+  updateMarketQuote,
   theses,
   upsertMarket,
   users,
@@ -181,6 +182,17 @@ describe('recordStreamQuote', () => {
   });
 });
 
+describe('updateMarketQuote', () => {
+  it('moves the market’s quote without storing a price point', async () => {
+    const { id } = await upsertMarket(db, market());
+    await updateMarketQuote(db, { marketId: id, yesBid: '0.4', yesAsk: null, lastPrice: null });
+    expect(await db.select().from(pricePoints)).toHaveLength(0);
+    const [row] = await db.select().from(markets).where(eq(markets.id, id));
+    // No last trade in the message: the stored one is kept.
+    expect(row).toMatchObject({ yesBid: '0.4000', yesAsk: null, lastPrice: '0.8300' });
+  });
+});
+
 describe('listOpenMarkets', () => {
   it('lists tracked contracts that have not expired, soonest first, with no expiry last', async () => {
     await upsertMarket(db, market({ instrumentSymbol: 'GEMI-LONG-X', expiryAt: new Date('2027-02-01T00:00:00Z') }));
@@ -287,6 +299,33 @@ describe('getMarketDetail', () => {
     expect(times.at(-1)).toBe(start + 999 * 10_000);
     // Spread across the whole history, not the first or last hundred rows.
     expect(times[0]).toBeLessThan(start + 20 * 10_000);
+  });
+
+  it('can start the price history at a time chosen from the market', async () => {
+    const { id } = await upsertMarket(db, market());
+    const t = (m: number) => new Date(Date.UTC(2026, 10, 18, 2, m, 0));
+    for (const minute of [50, 55, 59]) {
+      await insertPricePoint(db, { marketId: id, ts: t(minute), yesBid: '0.49', yesAsk: '0.51', lastPrice: null, source: 'rest' });
+    }
+    const opened = new Date('2026-11-18T03:00:00Z');
+    await insertPricePoint(db, { marketId: id, ts: opened, yesBid: '0.4', yesAsk: '0.5', lastPrice: null, source: 'ws' });
+    await insertPricePoint(db, { marketId: id, ts: new Date('2026-11-18T03:01:00Z'), yesBid: '0.3', yesAsk: '0.4', lastPrice: null, source: 'ws' });
+
+    const seen: Array<string | null> = [];
+    const detail = await getMarketDetail(db, 'GEMI-BTC15M2611180315-UP', {
+      pointsFrom: (found) => {
+        seen.push(found.eventTicker);
+        return opened;
+      },
+    });
+    expect(seen).toEqual(['BTC15M2611180315']);
+    expect(detail!.points.map((p) => p.ts.toISOString())).toEqual([
+      '2026-11-18T03:00:00.000Z',
+      '2026-11-18T03:01:00.000Z',
+    ]);
+
+    const all = await getMarketDetail(db, 'GEMI-BTC15M2611180315-UP', { pointsFrom: () => null });
+    expect(all!.points).toHaveLength(5);
   });
 
   it('lists published theses as chart markers, oldest first, with the author kind', async () => {

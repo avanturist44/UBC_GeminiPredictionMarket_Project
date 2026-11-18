@@ -34,6 +34,7 @@ describe('toMarketView', () => {
       contractLabel: 'Up',
       category: 'Crypto',
       expiryAt: '2026-11-18T03:15:00.000Z',
+      opensAt: '2026-11-18T03:00:00.000Z',
       marketState: 'open',
       strike: '64931.38',
       yesBid: '0.8900',
@@ -45,6 +46,10 @@ describe('toMarketView', () => {
       thesesNo: 1,
       updatedAt: '2026-11-18T03:05:00.000Z',
     });
+  });
+
+  it('has no opening time for a market that is not a short window', () => {
+    expect(toMarketView(row({ eventTicker: 'BRENT2611182200' }))).toMatchObject({ opensAt: null });
   });
 
   it('has no midpoint when a side of the book is empty', () => {
@@ -119,10 +124,34 @@ describe('toMarketDetailView', () => {
 
   it('plots the midpoints and skips points without both sides of the book', () => {
     expect(view.series).toBe('midpoint');
-    expect(view.points).toEqual([
+    expect(view.points.slice(0, 2)).toEqual([
       { t: t(0).getTime(), price: 0.45 },
       { t: t(4).getTime(), price: 0.65 },
     ]);
+  });
+
+  it('ends the line at the current quote, so the chart agrees with the prices above it', () => {
+    // The market row holds bid 89, ask 95, read at 03:05.
+    expect(view.points.at(-1)).toEqual({ t: Date.parse('2026-11-18T03:05:00Z'), price: 0.92 });
+    expect(view.points).toHaveLength(3);
+  });
+
+  it('adds no current point once the market has closed or resolved', () => {
+    const closed = toMarketDetailView(detail, new Date('2026-11-18T03:15:00Z'));
+    expect(closed.points).toHaveLength(2);
+    const resolved = toMarketDetailView(
+      { ...detail, market: row({ resolutionSide: 'yes' }) },
+      new Date('2026-11-18T03:05:00Z'),
+    );
+    expect(resolved.points).toHaveLength(2);
+  });
+
+  it('adds no current point while the book has one side empty', () => {
+    const oneSidedNow = toMarketDetailView(
+      { ...detail, market: row({ yesBid: null }) },
+      new Date('2026-11-18T03:05:00Z'),
+    );
+    expect(oneSidedNow.points).toHaveLength(2);
   });
 
   it('plots last trades for a market whose book never had both sides', () => {
@@ -135,13 +164,15 @@ describe('toMarketDetailView', () => {
           { ts: t(2), yesBid: null, yesAsk: '0.0900', lastPrice: '0.0500' },
         ],
       },
-      new Date(),
+      new Date('2026-11-18T03:05:00Z'),
     );
     expect(oneSided.series).toBe('lastTrade');
-    expect(oneSided.points).toEqual([
+    expect(oneSided.points.slice(0, 2)).toEqual([
       { t: t(0).getTime(), price: 0.04 },
       { t: t(2).getTime(), price: 0.05 },
     ]);
+    // The current point of a last-trade chart is the market's last trade.
+    expect(oneSided.points.at(-1)).toMatchObject({ price: 0.83 });
   });
 
   it('keeps the trade history of a one-sided market that had both sides for a moment', () => {
@@ -159,7 +190,7 @@ describe('toMarketDetailView', () => {
       new Date(),
     );
     expect(mostlyOneSided.series).toBe('lastTrade');
-    expect(mostlyOneSided.points.map((p) => p.price)).toEqual([0.04, 0.04, 0.04, 0.05]);
+    expect(mostlyOneSided.points.slice(0, 4).map((p) => p.price)).toEqual([0.04, 0.04, 0.04, 0.05]);
   });
 
   it('places each thesis at its publish time, on the price the market had then', () => {

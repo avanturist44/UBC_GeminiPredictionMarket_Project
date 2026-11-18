@@ -12,6 +12,8 @@ export interface MarketView {
   category: string | null;
   /** ISO time, or null for a market with no end date. */
   expiryAt: string | null;
+  /** ISO time a short crypto window opens (when its strike is set). Null for other markets. */
+  opensAt: string | null;
   /** Gemini's marketState. Anything other than `open` is not tradable. */
   marketState: string | null;
   strike: string | null;

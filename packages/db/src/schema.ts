@@ -17,7 +17,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 /**
- * The eleven tables from the build plan's data model. UUID primary keys, timestamptz
+ * The eleven tables from the build plan's data model, plus llm_calls for the spend cap. UUID primary keys, timestamptz
  * for times, numeric for prices and money (never floats). The chain holds only tips,
  * thesis hashes and market outcomes; everything else lives here.
  *
@@ -206,10 +206,16 @@ export const theses = pgTable(
   },
   (t) => [
     uniqueIndex('theses_onchain_id_unique').on(t.onchainId),
-    // One thesis per author per contract. Drafts and blocked attempts do not count.
+    // One thesis per author per contract, counting one that is still with the auditor.
+    // Drafts and blocked attempts do not count. The application checks this first; the index
+    // is what holds when two requests arrive together.
     uniqueIndex('theses_one_live_per_author_market')
       .on(t.authorId, t.marketId)
-      .where(sql`${t.status} in ('published', 'resolved')`),
+      .where(sql`${t.status} in ('auditing', 'published', 'resolved')`),
+    // One thesis per author with the auditor at a time, so nobody can queue audits.
+    uniqueIndex('theses_one_auditing_per_author')
+      .on(t.authorId)
+      .where(sql`${t.status} = 'auditing'`),
     index('theses_market_idx').on(t.marketId),
     index('theses_status_published_idx').on(t.status, t.publishedAt),
     check('theses_headline_length', sql`char_length(${t.headline}) <= 90`),
@@ -240,6 +246,8 @@ export const trades = pgTable(
     /** Positions are held to resolution. There is no sell path. */
     locked: boolean().notNull().default(true),
     payoutUsd: usd(),
+    /** Why a rejected trade was not filled, in words its owner can act on. */
+    rejectReason: text(),
     idempotencyKey: text().notNull(),
     createdAt: createdAt(),
   },
@@ -291,6 +299,8 @@ export const audits = pgTable(
     verdict: auditVerdict().notNull(),
     claims: jsonb().$type<AuditClaim[]>().notNull().default([]),
     insideInfo: boolean().notNull().default(false),
+    /** Why a blocked thesis was blocked, in words the author can act on. */
+    blockReason: text(),
     model: text(),
     createdAt: createdAt(),
   },
@@ -325,4 +335,22 @@ export const agentState = pgTable(
     haltReason: text(),
   },
   (t) => [primaryKey({ columns: [t.agentKey, t.day] })],
+).enableRLS();
+
+/**
+ * One row per language-model call, for the daily spend cap (the plan asks for spend
+ * "tracked by token count in the database" but names no table for it).
+ */
+export const llmCalls = pgTable(
+  'llm_calls',
+  {
+    id: id(),
+    /** What the call was for: audit-screen, audit-check, news, fade. */
+    purpose: text().notNull(),
+    model: text().notNull(),
+    inputTokens: integer().notNull(),
+    outputTokens: integer().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('llm_calls_created_idx').on(t.createdAt)],
 ).enableRLS();

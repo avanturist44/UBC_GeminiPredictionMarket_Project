@@ -266,6 +266,30 @@ describe('createPriceStream', () => {
     expect(sockets).toHaveLength(2);
   });
 
+  it('subscribes to extra streams and hands their messages on as text', () => {
+    const other: string[] = [];
+    const priceStream = createPriceStream({
+      url: 'wss://example.test',
+      connect: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket;
+      },
+      onTicker: (ticker) => tickers.push(ticker),
+      extraStreams: ['lukka:LS-LRRR-XBTUSD@indexPrice'],
+      onOther: (text) => other.push(text),
+      logger,
+    });
+    priceStream.setSymbols([A]);
+    priceStream.start();
+    latest().open();
+    expect(latest().requests('SUBSCRIBE')).toEqual([[stream(A), 'lukka:LS-LRRR-XBTUSD@indexPrice']]);
+    latest().receive({ e: 'thirdPartyPrice', s: 'btcusd', p: '64903.9' });
+    latest().receive({ id: '1', status: 200 });
+    expect(other).toEqual(['{"e":"thirdPartyPrice","s":"btcusd","p":"64903.9"}']);
+    priceStream.stop();
+  });
+
   it('stops for good: no reconnect after stop', () => {
     const priceStream = start([A]);
     latest().open();

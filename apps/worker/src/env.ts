@@ -2,10 +2,21 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
+/** An empty value in .env means "not set", so the default applies. */
+const blank = <T extends z.ZodType>(schema: T) => z.preprocess((value) => (value === '' ? undefined : value), schema);
+
 const EnvSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   GEMINI_PUBLIC_BASE: z.string().url().default('https://api.gemini.com'),
   GEMINI_WS_URL: z.string().url().default('wss://ws.gemini.com'),
+  TRADING_ENABLED: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
+  // The language model behind the auditor and the news and fade agents. With no key the
+  // auditor runs its phrase screen only and the two agents stay off.
+  LLM_PROVIDER: blank(z.enum(['anthropic', 'none']).optional()),
+  LLM_MODEL: blank(z.string().default('claude-opus-5-5')),
+  LLM_API_KEY: blank(z.string().optional()),
+  LLM_EFFORT: blank(z.enum(['low', 'medium', 'high', 'xhigh', 'max']).default('medium')),
+  LLM_DAILY_TOKEN_CAP: blank(z.coerce.number().int().positive().default(2_000_000)),
   RECORDER_INTERVAL_MS: z.coerce.number().int().min(5000).default(30_000),
 });
 

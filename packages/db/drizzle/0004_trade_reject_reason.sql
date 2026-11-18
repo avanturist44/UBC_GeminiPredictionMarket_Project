@@ -1,0 +1,1 @@
+ALTER TABLE "trades" ADD COLUMN "reject_reason" text;

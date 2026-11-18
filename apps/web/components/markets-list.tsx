@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cents, noBuyPrice, timeLeft } from '@/lib/format';
 import { sortMarkets, type MarketSort, type MarketView, type MarketsResponse } from '@/lib/market-view';
+import { withLiveQuote } from '@/lib/live-quote';
 import { useLive, useNow } from '@/lib/use-live';
+import { useLiveQuotes } from '@/lib/use-live-quotes';
 import { cn } from '@/lib/utils';
 
 const SORTS: Array<{ value: MarketSort; label: string }> = [
@@ -98,6 +100,9 @@ export function MarketsList({ initial }: { initial: MarketsResponse | undefined 
   const { data, error, retry } = useLive<MarketsResponse>('/api/markets', initial);
   const { now } = useNow(initial?.asOf);
   const [sort, setSort] = useState<MarketSort>('expiry');
+  // Prices come live from Gemini while the page's own connection is up, and from our API
+  // (re-read every two seconds) whenever it is not.
+  const live = useLiveQuotes(data?.markets.map((market) => market.symbol) ?? []);
 
   if (!data) {
     return error ? <LoadError message={error.message} onRetry={retry} /> : <MarketsListSkeleton />;
@@ -133,14 +138,17 @@ export function MarketsList({ initial }: { initial: MarketsResponse | undefined 
       <ul className="divide-y border-y">
         {sortMarkets(data.markets, sort).map((market) => (
           <li key={market.symbol}>
-            <MarketRowLink market={market} now={now} />
+            <MarketRowLink market={withLiveQuote(market, live.quoteFor(market.symbol))} now={now} />
           </li>
         ))}
       </ul>
 
       <p className="text-sm text-muted-foreground">
-        Live prices from Gemini Prediction Markets: what one contract of each side costs to buy
-        right now. A contract pays $1 if its side wins. A dash means nobody is selling that side.
+        {live.connected
+          ? 'Prices are live from Gemini Prediction Markets'
+          : 'Prices from Gemini Prediction Markets, refreshed every 2 seconds'}
+        : what one contract of each side costs to buy right now. A contract pays $1 if its side
+        wins. A dash means nobody is selling that side.
       </p>
     </div>
   );

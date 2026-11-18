@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatTickerTime, rollingEventTickers } from '../src/index';
+import { formatTickerTime, rollingEventTickers, windowOpensAt } from '../src/index';
 
 const at = (iso: string) => new Date(iso);
 
@@ -45,5 +45,21 @@ describe('rollingEventTickers', () => {
   it('handles daily events that expire at 04:59 UTC, with a dash in the prefix', () => {
     const nyc = { prefix: 'WXHIGH-NYC-', periodMinutes: 1440, offsetMinutes: 4 * 60 + 59, count: 1 };
     expect(rollingEventTickers(nyc, at('2026-11-17T07:27:00Z'))).toEqual(['WXHIGH-NYC-2611180459']);
+  });
+});
+
+describe('windowOpensAt', () => {
+  const expiry = at('2026-11-18T04:15:00Z');
+
+  it('is the expiry minus the window named in a short crypto ticker', () => {
+    expect(windowOpensAt('BTC15M2611180415', expiry)?.toISOString()).toBe('2026-11-18T04:00:00.000Z');
+    expect(windowOpensAt('ETH05M2611180415', expiry)?.toISOString()).toBe('2026-11-18T04:10:00.000Z');
+  });
+
+  it('is unknown for events that are not short windows, or have no expiry', () => {
+    expect(windowOpensAt('BTC2611182200', at('2026-11-18T22:00:00Z'))).toBeNull();
+    expect(windowOpensAt('RECESSION26', at('2027-02-01T04:59:00Z'))).toBeNull();
+    expect(windowOpensAt('WXHIGH-NYC-2611180459', at('2026-11-18T04:59:59Z'))).toBeNull();
+    expect(windowOpensAt('BTC15M2611180415', null)).toBeNull();
   });
 });

@@ -43,3 +43,17 @@ export function rollingExpiries(spec: RollingSpec, now: Date): Date[] {
 export function rollingEventTickers(spec: RollingSpec, now: Date): string[] {
   return rollingExpiries(spec, now).map((expiry) => spec.prefix + formatTickerTime(expiry));
 }
+
+/** BTC15M2611180415: letters, a two-digit window in minutes, "M", then the expiry time. */
+const SHORT_WINDOW_TICKER = /^[A-Z]+(\d{2})M\d{10}$/;
+
+/**
+ * When a short crypto window opens: its expiry minus the window length named in the event
+ * ticker (`15M`, `05M`). The strike is the index price at that moment, and Gemini's own
+ * chart for the contract starts there. Null for any other kind of event.
+ */
+export function windowOpensAt(eventTicker: string, expiry: Date | null): Date | null {
+  const minutes = SHORT_WINDOW_TICKER.exec(eventTicker)?.[1];
+  if (!minutes || !expiry) return null;
+  return new Date(expiry.getTime() - Number(minutes) * MINUTE_MS);
+}

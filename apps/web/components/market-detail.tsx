@@ -7,8 +7,10 @@ import { OddsChart } from '@/components/odds-chart';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cents, noBuyPrice, percent, plainNumber, timeLeft } from '@/lib/format';
-import type { MarketDetailResponse, MarketView, ThesisMarker } from '@/lib/market-view';
+import type { ChartPoint, MarketDetailResponse, MarketView, ThesisMarker } from '@/lib/market-view';
+import { withLiveQuote } from '@/lib/live-quote';
 import { useLive, useNow } from '@/lib/use-live';
+import { useLiveQuotes } from '@/lib/use-live-quotes';
 import { cn } from '@/lib/utils';
 
 export function MarketDetailSkeleton() {
@@ -72,27 +74,56 @@ function ThesisColumn({
         <ul className="space-y-2">
           {theses.map((thesis) => (
             <li key={thesis.id}>
-              <button
-                type="button"
-                onClick={() => onSelect(thesis.id)}
-                aria-pressed={thesis.id === selectedId}
+              <div
                 className={cn(
-                  'w-full rounded-lg border p-3 text-left text-sm',
-                  thesis.id === selectedId ? 'border-primary' : 'hover:bg-muted/60',
+                  'space-y-1 rounded-lg border p-3 text-sm',
+                  thesis.id === selectedId && 'border-primary',
                 )}
               >
-                <span className="block font-medium">{thesis.headline}</span>
-                <span className="mt-1 block text-muted-foreground">
+                <Link href={`/thesis/${thesis.id}`} className="block font-medium underline-offset-4 hover:underline">
+                  {thesis.headline}
+                </Link>
+                <p className="text-muted-foreground">
                   {thesis.authorName}, {thesis.authorKind === 'agent' ? 'AI' : 'human'}. Puts YES at{' '}
                   {percent(thesis.probabilityYes)}.
-                </span>
-              </button>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onSelect(thesis.id)}
+                  aria-pressed={thesis.id === selectedId}
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  {thesis.id === selectedId ? 'Hide on the chart' : 'Show on the chart'}
+                </button>
+              </div>
             </li>
           ))}
         </ul>
       )}
     </div>
   );
+}
+
+/**
+ * The chart's points with the live quote as the newest one, so the line ends at the prices
+ * shown above it. Without a live quote the points are as our API sent them.
+ */
+function withLivePoint(
+  data: MarketDetailResponse,
+  market: MarketView,
+  isLive: boolean,
+  nowMs: number,
+): ChartPoint[] {
+  if (!isLive) return data.points;
+  const price =
+    data.series === 'midpoint'
+      ? market.yesMid
+      : market.lastPrice === null
+        ? null
+        : Number(market.lastPrice);
+  if (price === null) return data.points;
+  const lastPoint = data.points.at(-1);
+  return [...data.points, { t: Math.max(nowMs, (lastPoint?.t ?? 0) + 1), price }];
 }
 
 export function MarketDetail({
@@ -109,11 +140,23 @@ export function MarketDetail({
   const { now, mounted } = useNow(initial?.asOf);
   const [selectedThesisId, setSelectedThesisId] = useState<string | null>(null);
 
+  // Prices come live from Gemini while the market is open and the page's own connection is
+  // up, and from our API (re-read every two seconds) otherwise.
+  const expiry = data?.market.expiryAt ?? null;
+  const open =
+    data !== undefined &&
+    data.market.resolutionSide === null &&
+    (expiry === null || Date.parse(expiry) > now.getTime());
+  const live = useLiveQuotes(open ? [symbol] : []);
+
   if (!data) {
     return error ? <LoadError message={error.message} onRetry={retry} /> : <MarketDetailSkeleton />;
   }
 
-  const { market, points, theses } = data;
+  const liveQuote = open ? live.quoteFor(symbol) : undefined;
+  const market = withLiveQuote(data.market, liveQuote);
+  const { theses } = data;
+  const points = withLivePoint(data, market, liveQuote !== undefined, now.getTime());
   const left = timeLeft(market.expiryAt ? new Date(market.expiryAt) : null, now);
   const firstPoint = points[0];
   const toggle = (id: string) => setSelectedThesisId((current) => (current === id ? null : id));
@@ -174,6 +217,13 @@ export function MarketDetail({
               {mounted && <span className="text-muted-foreground">, {localDateTime(market.expiryAt)}</span>}
             </>
           )}
+          {open && (
+            <span className="block text-muted-foreground">
+              {liveQuote
+                ? 'Prices are live from Gemini.'
+                : 'Prices refresh every 2 seconds.'}
+            </span>
+          )}
         </p>
       </section>
 
@@ -197,7 +247,9 @@ export function MarketDetail({
         </div>
         <p className="text-sm text-muted-foreground">
           {mounted && firstPoint && points.length >= 2
-            ? `Recorded since ${localDateTime(new Date(firstPoint.t).toISOString())}. `
+            ? market.opensAt && new Date(market.opensAt).getTime() <= firstPoint.t
+              ? `Since this window opened, ${localDateTime(market.opensAt)}. `
+              : `Recorded since ${localDateTime(new Date(firstPoint.t).toISOString())}. `
             : ''}
           {data.series === 'midpoint'
             ? 'The line is the YES midpoint, halfway between the best bid and ask. While a side of the book is empty it holds its last value.'
@@ -232,6 +284,16 @@ export function MarketDetail({
               onSelect={toggle}
             />
           </div>
+        )}
+        {open && (
+          <p className="text-sm">
+            <Link
+              href={`/write?market=${encodeURIComponent(symbol)}`}
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              Write a thesis on this market
+            </Link>
+          </p>
         )}
       </section>
 

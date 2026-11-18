@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../client';
 import { authors, markets, pricePoints, theses } from '../schema';
 
@@ -118,8 +118,15 @@ const pointColumns = {
  * equal time slices and the newest point of each slice is kept, so the latest point always
  * survives and a chart of days costs the same as a chart of minutes.
  */
-async function loadPricePoints(db: Db, marketId: string, maxPoints: number): Promise<PricePointRow[]> {
-  const ofMarket = eq(pricePoints.marketId, marketId);
+async function loadPricePoints(
+  db: Db,
+  marketId: string,
+  maxPoints: number,
+  from: Date | null,
+): Promise<PricePointRow[]> {
+  const ofMarket = from
+    ? and(eq(pricePoints.marketId, marketId), gte(pricePoints.ts, from))
+    : eq(pricePoints.marketId, marketId);
   const [bounds] = await db
     .select({
       count: sql<number>`count(*)::int`,
@@ -162,7 +169,11 @@ async function loadPricePoints(db: Db, marketId: string, maxPoints: number): Pro
 export async function getMarketDetail(
   db: Db,
   instrumentSymbol: string,
-  options: { maxPoints?: number } = {},
+  options: {
+    maxPoints?: number;
+    /** Where the price history should start for this market. Null for all of it. */
+    pointsFrom?: (market: MarketRow) => Date | null;
+  } = {},
 ): Promise<MarketDetail | null> {
   const [found] = await selectMarketRows(db)
     .where(and(eq(markets.instrumentSymbol, instrumentSymbol), eq(markets.tracked, true)))
@@ -171,7 +182,7 @@ export async function getMarketDetail(
   const { id, ...market } = found;
 
   const [points, thesisRows] = await Promise.all([
-    loadPricePoints(db, id, options.maxPoints ?? 500),
+    loadPricePoints(db, id, options.maxPoints ?? 500, options.pointsFrom?.(market) ?? null),
     db
       .select({
         id: theses.id,

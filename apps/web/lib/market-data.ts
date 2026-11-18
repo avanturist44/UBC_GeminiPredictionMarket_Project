@@ -2,7 +2,7 @@ import 'server-only';
 import { getMarketDetail, listOpenMarkets } from '@thesis/db';
 import { cache } from 'react';
 import { getDb } from './db';
-import { toMarketDetailView, toMarketView } from './market-mapping';
+import { chartStart, toMarketDetailView, toMarketView } from './market-mapping';
 import type { ApiError, MarketDetailResponse, MarketsResponse } from './market-view';
 
 /** Loads what the Markets pages and their API routes send. Pages and routes share it. */
@@ -52,9 +52,12 @@ export const loadMarketDetail = cache(
     const db = getDb();
     if (!db) return NOT_CONFIGURED;
     try {
-      const detail = await getMarketDetail(db, symbol);
+      const now = new Date();
+      const detail = await getMarketDetail(db, symbol, {
+        pointsFrom: (market) => chartStart(market, now),
+      });
       if (!detail) return notFound;
-      return { ok: true, data: toMarketDetailView(detail, new Date()) };
+      return { ok: true, data: toMarketDetailView(detail, now) };
     } catch (error) {
       return dbError(error);
     }

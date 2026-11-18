@@ -1,10 +1,14 @@
 import { streamSymbolKey, type BookTicker } from '@thesis/core';
-import { recordStreamQuote, type Db, type LiveMarket } from '@thesis/db';
+import { recordStreamQuote, updateMarketQuote, type Db, type LiveMarket } from '@thesis/db';
 import type { Logger } from './recorder';
 
 /**
- * Turns the stream's bookTicker messages into `price_points` rows: at most one row per
- * symbol every 10 seconds, always the newest quote, and none while the price is unchanged.
+ * Stores what the stream's bookTicker messages say, at two speeds:
+ *
+ * - the market's current quote is updated as soon as it changes, so pages show a move within
+ *   about a second;
+ * - `price_points` gets at most one row per symbol every 10 seconds, always the newest quote,
+ *   and none while the price is unchanged.
  *
  * `handle` only remembers the newest quote, so it is safe to call for every message.
  * `flush` does the writing and is called on a short timer, which is also what gets the last
@@ -21,15 +25,20 @@ interface Entry {
   marketId: string;
   instrumentSymbol: string;
   latest: Quote | null;
-  written: Quote | null;
-  /** The earliest time of the next write, in milliseconds. */
-  notBefore: number;
+  /** The quote the market row holds. */
+  shown: Quote | null;
+  /** The quote of the last price point stored. */
+  charted: Quote | null;
+  /** The earliest time of the next price point, in milliseconds. */
+  pointNotBefore: number;
+  /** After a failed write, nothing is written for this symbol before this time. */
+  retryNotBefore: number;
 }
 
 export interface QuoteRecorderOptions {
   db: Db;
   logger: Logger;
-  /** Minimum gap between rows for one symbol. */
+  /** Minimum gap between price points for one symbol. */
   minIntervalMs?: number;
   now?: () => Date;
 }
@@ -70,8 +79,10 @@ export function createQuoteRecorder(options: QuoteRecorderOptions): QuoteRecorde
                 marketId: market.id,
                 instrumentSymbol: market.instrumentSymbol,
                 latest: null,
-                written: null,
-                notBefore: 0,
+                shown: null,
+                charted: null,
+                pointNotBefore: 0,
+                retryNotBefore: 0,
               },
         );
       }
@@ -91,28 +102,29 @@ export function createQuoteRecorder(options: QuoteRecorderOptions): QuoteRecorde
       try {
         for (const entry of entries.values()) {
           const quote = entry.latest;
-          if (!quote || same(quote, entry.written)) continue;
+          if (!quote) continue;
           const at = now();
-          if (at.getTime() < entry.notBefore) continue;
+          const time = at.getTime();
+          if (time < entry.retryNotBefore) continue;
+          // An emptied book with no trade has no price to chart.
+          const hasPrice = quote.bid !== null || quote.ask !== null || quote.last !== null;
+          const pointDue = hasPrice && !same(quote, entry.charted) && time >= entry.pointNotBefore;
+          if (!pointDue && same(quote, entry.shown)) continue;
+          const stored = { marketId: entry.marketId, yesBid: quote.bid, yesAsk: quote.ask, lastPrice: quote.last };
           try {
-            const { point } = await recordStreamQuote(db, {
-              marketId: entry.marketId,
-              ts: at,
-              yesBid: quote.bid,
-              yesAsk: quote.ask,
-              lastPrice: quote.last,
-            });
-            entry.written = quote;
-            // Only a stored point starts the wait. An emptied book stores none, and the quote
-            // that refills it a moment later should not have to wait ten seconds to be shown.
-            if (point) {
-              entry.notBefore = at.getTime() + minIntervalMs;
+            if (pointDue) {
+              await recordStreamQuote(db, { ...stored, ts: at });
+              entry.charted = quote;
+              entry.pointNotBefore = time + minIntervalMs;
               count += 1;
+            } else {
+              await updateMarketQuote(db, stored);
             }
+            entry.shown = quote;
           } catch (error) {
             // The quote stays unwritten and is tried again after the usual wait, so a database
             // that is down is not hit, and does not fill the log, once a second per symbol.
-            entry.notBefore = at.getTime() + minIntervalMs;
+            entry.retryNotBefore = time + minIntervalMs;
             const message = error instanceof Error ? error.message : String(error);
             logger.error(`stream: could not store a quote for ${entry.instrumentSymbol}: ${message}`);
           }

@@ -22,6 +22,27 @@
       "when": 1794959294535,
       "tag": "0002_enable_row_level_security",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794977514754,
+      "tag": "0003_thesis_pipeline",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794978021678,
+      "tag": "0004_trade_reject_reason",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795038009577,
+      "tag": "0005_thesis_uniqueness",
+      "breakpoints": true
     }
   ]
 }

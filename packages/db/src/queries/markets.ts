@@ -156,15 +156,24 @@ export async function recordStreamQuote(db: Db, quote: StreamQuote): Promise<{ p
   const point = quote.yesBid !== null || quote.yesAsk !== null || quote.lastPrice !== null;
   await db.transaction(async (tx) => {
     if (point) await tx.insert(pricePoints).values({ ...quote, source: 'ws' });
-    await tx
-      .update(markets)
-      .set({
-        yesBid: quote.yesBid,
-        yesAsk: quote.yesAsk,
-        ...(quote.lastPrice === null ? {} : { lastPrice: quote.lastPrice }),
-        updatedAt: sql`now()`,
-      })
-      .where(eq(markets.id, quote.marketId));
+    await updateMarketQuote(tx, quote);
   });
   return { point };
+}
+
+/**
+ * Moves the market's current quote without storing a price point. The stream does this as
+ * soon as a quote changes, so pages show it within a second; price points stay at one every
+ * ten seconds.
+ */
+export async function updateMarketQuote(db: Db, quote: Omit<StreamQuote, 'ts'>): Promise<void> {
+  await db
+    .update(markets)
+    .set({
+      yesBid: quote.yesBid,
+      yesAsk: quote.yesAsk,
+      ...(quote.lastPrice === null ? {} : { lastPrice: quote.lastPrice }),
+      updatedAt: sql`now()`,
+    })
+    .where(eq(markets.id, quote.marketId));
 }

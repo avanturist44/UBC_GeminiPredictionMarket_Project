@@ -91,6 +91,10 @@ describe('createQuoteRecorder', () => {
     now = at(6);
     quotes.handle(ticker({ bid: '0.9100' }));
     expect(await quotes.flush()).toBe(0);
+    // No new price point yet, but the market already shows the newest quote.
+    const [shown] = await db.select().from(markets).where(eq(markets.id, marketId));
+    expect(shown).toMatchObject({ yesBid: '0.9100', yesAsk: '0.9500' });
+    expect(await points()).toHaveLength(1);
     now = at(9);
     expect(await quotes.flush()).toBe(0);
 
@@ -196,6 +200,20 @@ describe('createQuoteRecorder', () => {
     expect(await quotes.flush()).toBe(0);
     expect(errors).toHaveLength(2);
     expect(await points()).toHaveLength(0);
+  });
+
+  it('does not touch the market again while the quote is unchanged', async () => {
+    quotes.handle(ticker());
+    await quotes.flush();
+    now = at(2);
+    quotes.handle(ticker({ bid: '0.9000' }));
+    await quotes.flush();
+    const [before] = await db.select().from(markets).where(eq(markets.id, marketId));
+    now = at(3);
+    quotes.handle(ticker({ bid: '0.9000', bidSize: '9.00' }));
+    await quotes.flush();
+    const [after] = await db.select().from(markets).where(eq(markets.id, marketId));
+    expect(after!.updatedAt.toISOString()).toBe(before!.updatedAt.toISOString());
   });
 
   it('counts what it has written', async () => {

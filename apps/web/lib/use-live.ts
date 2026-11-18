@@ -4,8 +4,12 @@ import { useEffect, useState } from 'react';
 import useSWR from 'swr';
 import type { ApiError } from './market-view';
 
-/** How often pages re-read live data. */
-export const LIVE_REFRESH_MS = 5000;
+/**
+ * How often pages re-read live data. The build plan says 5 seconds; odds on the 15-minute
+ * contracts move several cents a second, and at 5 seconds the page was visibly behind
+ * Gemini's own site.
+ */
+export const LIVE_REFRESH_MS = 2000;
 
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { cache: 'no-store' });
@@ -19,12 +23,12 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 /**
  * Live data from an API route: starts from what the server rendered, then re-reads every
- * five seconds. After a failed read the last good data stays on screen beside the error.
+ * two seconds. After a failed read the last good data stays on screen beside the error.
  */
-export function useLive<T>(url: string, initial: T | undefined) {
+export function useLive<T>(url: string, initial: T | undefined, refreshMs: number = LIVE_REFRESH_MS) {
   const { data, error, isValidating, mutate } = useSWR<T, Error>(url, fetchJson, {
     fallbackData: initial,
-    refreshInterval: LIVE_REFRESH_MS,
+    refreshInterval: refreshMs,
     keepPreviousData: true,
     revalidateOnFocus: true,
   });

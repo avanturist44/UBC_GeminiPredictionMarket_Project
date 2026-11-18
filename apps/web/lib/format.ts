@@ -64,6 +64,17 @@ export function timeLeft(expiry: Date | null, now: Date): TimeLeft {
   return { text: `${Math.floor(ms / DAY)} days`, soon: false, over: false };
 }
 
+/** Dollars of test money: "4.9995" becomes "$5.00". */
+export function usd(amount: string | number | null): string {
+  if (amount === null) return DASH;
+  return `$${Number(amount).toFixed(2)}`;
+}
+
+/** Contracts, without trailing zeros: "9.0900" becomes "9.09". */
+export function contracts(quantity: string): string {
+  return String(Number(quantity));
+}
+
 /** A number such as a strike, with thousands separators: 64931.38 becomes 64,931.38. */
 export function plainNumber(value: string): string {
   const number = Number(value);
