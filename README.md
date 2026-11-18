@@ -42,7 +42,7 @@ Other commands:
 ## Deploy
 
 - **Database:** a Supabase Postgres project. Use the pooled connection string as `DATABASE_URL`.
-- **Worker:** Railway, from the repository root. `railway.json` sets the start command. Set `DATABASE_URL`. The worker applies migrations when it starts.
+- **Worker:** Railway, from the repository root. The root `start` script runs the worker, and Railway's builder needs it to find the start command. Set `DATABASE_URL`. The worker applies migrations when it starts.
 - **Web:** Vercel, with the root directory set to `apps/web`. Set `DATABASE_URL` and `TRADING_MODE=paper`.
 
 `GET /api/health` on the web app reports how many tracked contracts received price points in the last five minutes.

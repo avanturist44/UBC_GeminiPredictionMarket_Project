@@ -10,6 +10,7 @@
     "dev:web": "pnpm --filter @thesis/web dev",
     "dev:worker": "pnpm --filter @thesis/worker dev",
     "build:web": "pnpm --filter @thesis/web build",
+    "start": "pnpm start:worker",
     "start:worker": "pnpm --filter @thesis/worker start",
     "db:generate": "pnpm --filter @thesis/db generate",
     "db:migrate": "pnpm --filter @thesis/db migrate",
