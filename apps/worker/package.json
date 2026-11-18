@@ -7,6 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "verify:btc": "tsx src/verify-btc.ts",
+    "check:btc-paper": "tsx src/check-btc-paper.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

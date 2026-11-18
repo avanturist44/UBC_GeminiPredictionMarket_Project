@@ -179,6 +179,34 @@ describe('BTC paper execution and official settlement', () => {
 });
 
 describe('observer warmup and hypothetical signals', () => {
+  it('records a skip with stream health when all tracked BTC contracts have expired', async () => {
+    await market(); now += 360_000;
+    const observer = createMomentumObserver(db, { now: () => now });
+    expect(await observer.run()).toBe(1);
+    const [run] = await db.select().from(agentRuns);
+    expect(run).toMatchObject({ marketId: null, decision: 'skip',
+      reason: 'no unexpired tracked BTC 15-minute contracts',
+      signal: { mode: 'log-only', health: { indexAgeMs: null, volatilityReturnCount: 0, freshBooks: 0 } } });
+  });
+
+  it('requires 31 completed closes and exposes missing minutes without counting the current minute', async () => {
+    await market();
+    const observer = createMomentumObserver(db, { now: () => now });
+    for (let n = 30; n >= 0; n--) {
+      const at = now - n * 60_000;
+      observer.handleOther(JSON.stringify({ e: 'thirdPartyPrice', s: 'btcusd', I: 'LRRR_XBT',
+        p: String(100 + (n % 2) * 0.1), E: at / 1000 }), at);
+    }
+    expect(observer.status()).toMatchObject({ completedCloses: 30, volatilityReturnCount: 29, volatilityPerMinute: null });
+    await observer.run();
+    expect((await db.select().from(agentRuns))[0]?.reason).toBe('warming up volatility (29/30 returns)');
+    now += 60_000;
+    expect(observer.status()).toMatchObject({ completedCloses: 31, volatilityReturnCount: 30 });
+    expect(observer.status().volatilityPerMinute).toBeGreaterThan(0);
+    now += 60_000;
+    expect(observer.status()).toMatchObject({ completedCloses: 0, volatilityReturnCount: 0, volatilityPerMinute: null });
+  });
+
   it('stores warmup, hypothetical YES/NO, and stale skips in agent_runs without fills', async () => {
     const row = await market();
     const observer = createMomentumObserver(db, { now: () => now });

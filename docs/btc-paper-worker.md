@@ -46,6 +46,22 @@ corepack pnpm start:worker
 
 Use `.\scripts\local-postgres.ps1 status` to check Postgres and `.\scripts\local-postgres.ps1 stop` to stop it. The background verification worker's PID is in `.local/worker.pid`, and its logs are `.local/worker.out.log` and `.local/worker.err.log`. Postgres logs are in `.local/postgres.log`. Keep the background worker running during warmup; do not start a second worker simply to inspect logs.
 
+## Maintenance and progress diagnostics
+
+On November 17 (Pacific), repeated HTTP 500 responses were confirmed on the event, event-list, and recently-settled endpoints. [Gemini's maintenance notice](https://status.gemini.com/) lists Prediction Markets downtime from midnight to approximately 2 AM Eastern on November 18, equivalent to 9–11 PM Pacific on November 17. The independent WebSocket checks still received a fresh BTC index and book; that is not sufficient to replace official REST metadata or outcomes.
+
+The worker now writes an explicit skip even when every tracked BTC market has expired. Those rows include index age, fresh-book count, completed minute closes, the contiguous return count, and volatility readiness. Normal cycle logs expose the same health data. Missing minutes reset the contiguous warmup count. Entry skips during warmup say how many of the required 30 returns are available.
+
+`verify:btc` reports failed REST checks and still checks the book and index separately, using independent subscriptions so an invalid book cannot cancel the index request. A computed BTC symbol is used only for a clearly labelled diagnostic subscription when REST is unavailable; it never creates a tradable market or invents a strike. Failed checks exit with code 1 without an uncaught stack trace.
+
+```powershell
+corepack pnpm --filter @thesis/worker check:btc-paper
+```
+
+This read-only command reports unique BTC contracts with logged fills, correct settlement payouts, the latest decision, and agent state. Exit code 2 means live paper criteria remain pending, 1 means the check failed, and 0 means at least three contracts have logged paper fills, at least one has a correct official YES/NO settlement, and no examined settlement payout is wrong. A void refund alone does not satisfy the settlement criterion. The daily-loss-stop test is a separate requirement. Run this against the database populated by the live worker; synthetic tests must not be counted as live acceptance.
+
+After the diagnostics changes, 157 repository tests and the full typecheck passed. Regression tests cover a database skip after every BTC contract expires and the exact boundary of 30 completed returns, including a missing-minute reset.
+
 ## Run against the configured database
 
 Use Node >=22.4 and the repository-pinned pnpm (`corepack pnpm`). Put the owner/server Postgres `DATABASE_URL` in an ignored root `.env`, along with `TRADING_MODE=paper`, `TRADING_ENABLED=true`, and `BTC_BOT_MODE=paper`. Then:

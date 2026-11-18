@@ -13,6 +13,25 @@ export function createMomentumObserver(db: Db, options: { adapter?: TradingAdapt
   const closes = new Map<number, number>();
   let latestIndex: { price: number; observedAtMs: number } | undefined;
 
+  function status() {
+    const nowMs = now();
+    const currentMinute = Math.floor(nowMs / minuteMs);
+    let completedCloses = 0;
+    for (let minute = currentMinute - 1; minute >= currentMinute - lookbackMinutes - 1; minute--) {
+      if (!closes.has(minute)) break;
+      completedCloses++;
+    }
+    const sigma = volatility(nowMs);
+    return {
+      indexPrice: latestIndex?.price ?? null,
+      indexAgeMs: latestIndex ? nowMs - latestIndex.observedAtMs : null,
+      completedCloses,
+      volatilityReturnCount: Math.max(0, completedCloses - 1),
+      volatilityPerMinute: Number.isFinite(sigma) ? sigma : null,
+      freshBooks: [...quotes.values()].filter((quote) => nowMs - quote.observedAtMs >= 0 && nowMs - quote.observedAtMs <= 10_000).length,
+    };
+  }
+
   function volatility(nowMs: number): number {
     const currentMinute = Math.floor(nowMs / minuteMs);
     const returns: number[] = [];
@@ -27,6 +46,7 @@ export function createMomentumObserver(db: Db, options: { adapter?: TradingAdapt
   }
 
   return {
+    status,
     handleTicker(ticker: BookTicker, observedAtMs = Date.now()) {
       if (!/^gemi-btc15m\d+-up$/.test(ticker.symbolKey)) return;
       quotes.set(ticker.symbolKey, {
@@ -78,6 +98,13 @@ export function createMomentumObserver(db: Db, options: { adapter?: TradingAdapt
       for (const [symbol, quote] of quotes) {
         if (nowMs - quote.observedAtMs > 60_000) quotes.delete(symbol);
       }
+      const health = status();
+      if (!active.length) {
+        await db.insert(agentRuns).values({ agentKey: 'momentum', decision: 'skip',
+          reason: 'no unexpired tracked BTC 15-minute contracts',
+          signal: { mode: options.adapter ? 'paper' : 'log-only', health }, createdAt: new Date(now()) });
+        return 1;
+      }
       const inputFor = (market: typeof active[number]): MomentumInput => ({
           nowMs: now(),
           expiryMs: market.expiryAt?.getTime() ?? NaN,
@@ -86,6 +113,7 @@ export function createMomentumObserver(db: Db, options: { adapter?: TradingAdapt
           indexPrice: latestIndex?.price ?? NaN,
           indexObservedAtMs: latestIndex?.observedAtMs ?? NaN,
           volatilityPerMinute: volatility(now()),
+          volatilityReturnCount: status().volatilityReturnCount,
           quote: quotes.get(streamSymbolKey(market.symbol)) ?? null,
         });
       if (options.adapter) {

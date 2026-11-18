@@ -90,7 +90,7 @@ while (!stopping) {
     try {
       const settled = await paper.settle();
       const runs = await momentum.run();
-      log('info', 'momentum cycle', { runs, settled, mode: env.BTC_BOT_MODE });
+      log('info', 'momentum cycle', { runs, settled, mode: env.BTC_BOT_MODE, health: momentum.status() });
     } catch (error) {
       log('error', 'momentum observation failed', { error: errorText(error) });
       await recordMomentumError(db, error).catch((failure) =>

@@ -7,6 +7,8 @@ export interface MomentumInput {
   indexObservedAtMs: number;
   /** Standard deviation of log returns over a one-minute interval. */
   volatilityPerMinute: number;
+  /** Consecutive completed one-minute returns, when supplied by the live observer. */
+  volatilityReturnCount?: number;
   /** YES top of book. Buying NO uses the complement of the YES bid. */
   quote: { observedAtMs: number; bid: number; ask: number; bidSize: number; askSize: number } | null;
 }
@@ -39,6 +41,9 @@ export function evaluateMomentum(input: MomentumInput): MomentumDecision {
   if (marketState !== 'open') return { decision: 'skip', reason: 'market not open' };
   if (!Number.isFinite(minutesLeft) || minutesLeft < 3 || minutesLeft > 12) {
     return { decision: 'skip', reason: 'outside entry window' };
+  }
+  if (input.volatilityReturnCount !== undefined && input.volatilityReturnCount < 30) {
+    return { decision: 'skip', reason: `warming up volatility (${input.volatilityReturnCount}/30 returns)` };
   }
   if (![strike, indexPrice, volatilityPerMinute].every((value) => Number.isFinite(value) && value > 0)) {
     return { decision: 'skip', reason: 'missing or invalid strike, index, or volatility' };
