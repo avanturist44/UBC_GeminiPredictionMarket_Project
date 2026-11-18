@@ -6,6 +6,7 @@ import { BTC_INDEX_STREAM, createMomentumObserver } from './momentum-observer';
 import { createQuoteRecorder } from './quotes';
 import { runRecorderCycle, type Logger } from './recorder';
 import { createPriceStream } from './stream';
+import { createPaperAdapter, recordMomentumError } from './paper';
 
 const log = (level: string, message: string, extra: object = {}) =>
   console.log(JSON.stringify({ t: new Date().toISOString(), level, message, ...extra }));
@@ -22,7 +23,8 @@ const { db, close } = createDb(env.DATABASE_URL);
 const client = createGeminiPublicClient({ baseUrl: env.GEMINI_PUBLIC_BASE, logger });
 
 const quotes = createQuoteRecorder({ db, logger });
-const momentum = createMomentumObserver(db);
+const paper = createPaperAdapter(db, client, { enabled: () => env.TRADING_ENABLED });
+const momentum = createMomentumObserver(db, { adapter: env.BTC_BOT_MODE === 'paper' ? paper : undefined });
 const stream = createPriceStream({
   url: env.GEMINI_WS_URL,
   extraStreams: [BTC_INDEX_STREAM],
@@ -86,10 +88,13 @@ while (!stopping) {
   await syncStream();
   if (!stopping) {
     try {
+      const settled = await paper.settle();
       const runs = await momentum.run();
-      log('info', 'momentum observation cycle', { runs });
+      log('info', 'momentum cycle', { runs, settled, mode: env.BTC_BOT_MODE });
     } catch (error) {
       log('error', 'momentum observation failed', { error: errorText(error) });
+      await recordMomentumError(db, error).catch((failure) =>
+        log('error', 'momentum error persistence failed', { error: errorText(failure) }));
     }
   }
   // A signal that arrived during the cycle: stop now instead of sleeping first.

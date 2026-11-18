@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "verify:btc": "tsx src/verify-btc.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@noble/hashes": "1.8.0",
     "@thesis/core": "workspace:*",
     "@thesis/db": "workspace:*",
     "tsx": "^4.23.15",

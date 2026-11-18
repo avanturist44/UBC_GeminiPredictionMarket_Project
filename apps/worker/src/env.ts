@@ -7,6 +7,9 @@ const EnvSchema = z.object({
   GEMINI_PUBLIC_BASE: z.string().url().default('https://api.gemini.com'),
   GEMINI_WS_URL: z.string().url().default('wss://ws.gemini.com'),
   RECORDER_INTERVAL_MS: z.coerce.number().int().min(5000).default(30_000),
+  TRADING_MODE: z.literal('paper').default('paper'),
+  TRADING_ENABLED: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
+  BTC_BOT_MODE: z.enum(['log-only', 'paper']).default('paper'),
 });
 
 export type WorkerEnv = z.infer<typeof EnvSchema>;

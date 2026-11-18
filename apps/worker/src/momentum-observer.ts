@@ -1,12 +1,14 @@
 import { streamSymbolKey, type BookTicker } from '@thesis/core';
 import { agentRuns, and, eq, gt, markets, sql, type Db } from '@thesis/db';
 import { evaluateMomentum, type MomentumInput } from './momentum';
+import type { TradingAdapter } from './paper';
 
 export const BTC_INDEX_STREAM = 'lukka:LS-LRRR-XBTUSD@indexPrice';
 const minuteMs = 60_000;
 const lookbackMinutes = 30;
 
-export function createMomentumObserver(db: Db) {
+export function createMomentumObserver(db: Db, options: { adapter?: TradingAdapter; now?: () => number } = {}) {
+  const now = options.now ?? Date.now;
   const quotes = new Map<string, NonNullable<MomentumInput['quote']>>();
   const closes = new Map<number, number>();
   let latestIndex: { price: number; observedAtMs: number } | undefined;
@@ -69,25 +71,29 @@ export function createMomentumObserver(db: Db) {
         strike: markets.strike,
       }).from(markets).where(and(
         eq(markets.tracked, true),
-        gt(markets.expiryAt, new Date()),
+        gt(markets.expiryAt, new Date(now())),
         sql`${markets.instrumentSymbol} ~ '^GEMI-BTC15M[0-9]+-UP$'`,
       ));
-      const nowMs = Date.now();
+      const nowMs = now();
       for (const [symbol, quote] of quotes) {
         if (nowMs - quote.observedAtMs > 60_000) quotes.delete(symbol);
       }
-      const volatilityPerMinute = volatility(nowMs);
-      const logs = active.map((market) => {
-        const input: MomentumInput = {
-          nowMs,
+      const inputFor = (market: typeof active[number]): MomentumInput => ({
+          nowMs: now(),
           expiryMs: market.expiryAt?.getTime() ?? NaN,
           marketState: market.state,
           strike: Number(market.strike),
           indexPrice: latestIndex?.price ?? NaN,
           indexObservedAtMs: latestIndex?.observedAtMs ?? NaN,
-          volatilityPerMinute,
+          volatilityPerMinute: volatility(now()),
           quote: quotes.get(streamSymbolKey(market.symbol)) ?? null,
-        };
+        });
+      if (options.adapter) {
+        for (const market of active) await options.adapter.execute(market.id, () => inputFor(market));
+        return active.length;
+      }
+      const logs = active.map((market) => {
+        const input = inputFor(market);
         const signal = evaluateMomentum(input);
         return {
           agentKey: 'momentum',
@@ -96,6 +102,7 @@ export function createMomentumObserver(db: Db) {
           decision: 'skip' as const,
           reason: signal.decision === 'trade' ? 'log only: hypothetical entry' : signal.reason,
           signal: { mode: 'log-only', ...signal, input },
+          createdAt: new Date(now()),
         };
       });
       if (logs.length) await db.insert(agentRuns).values(logs);
