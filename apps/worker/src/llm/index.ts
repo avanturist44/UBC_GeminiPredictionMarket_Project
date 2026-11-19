@@ -15,6 +15,8 @@ export interface LlmSettings {
   effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
   /** Input plus output tokens allowed per UTC day, across the auditor and the agents. */
   dailyTokenCap: number;
+  /** Purposes starting with this do not count toward the cap (see withSpendCap). */
+  excludePrefix?: string;
 }
 
 const startOfUtcDay = (now: Date) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -23,13 +25,24 @@ const startOfUtcDay = (now: Date) => new Date(Date.UTC(now.getUTCFullYear(), now
 export function withSpendCap(
   db: Db,
   provider: LlmProvider,
-  options: { dailyTokenCap: number; logger: Logger; now?: () => Date },
+  options: {
+    dailyTokenCap: number;
+    logger: Logger;
+    /** Count only calls whose purpose starts with this (one arena model's own cap). */
+    purposePrefix?: string;
+    /** Do not count calls whose purpose starts with this (keeps arena spend off the auditor's cap). */
+    excludePrefix?: string;
+    now?: () => Date;
+  },
 ): Llm {
   const now = options.now ?? (() => new Date());
   return createLlm({
     provider,
     async beforeCall() {
-      const used = await llmTokensSince(db, startOfUtcDay(now()));
+      const used = await llmTokensSince(db, startOfUtcDay(now()), {
+        purposePrefix: options.purposePrefix,
+        excludePrefix: options.excludePrefix,
+      });
       if (used >= options.dailyTokenCap) {
         throw new LlmError(
           'budget',
@@ -56,5 +69,9 @@ export function createWorkerLlm(db: Db, settings: LlmSettings, logger: Logger): 
     apiKey: settings.apiKey,
     effort: settings.effort,
   });
-  return withSpendCap(db, provider, { dailyTokenCap: settings.dailyTokenCap, logger });
+  return withSpendCap(db, provider, {
+    dailyTokenCap: settings.dailyTokenCap,
+    excludePrefix: settings.excludePrefix,
+    logger,
+  });
 }

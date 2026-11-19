@@ -168,14 +168,31 @@ export async function recordLlmCall(
   await db.insert(llmCalls).values(call);
 }
 
-/** Tokens used, input plus output, by every model call since `since`. */
-export async function llmTokensSince(db: Db, since: Date): Promise<number> {
+/** Matches `prefix` literally in a SQL `like`: `%`, `_` and the escape character are escaped. */
+const likePrefix = (prefix: string) => `${prefix.replace(/[\\%_]/g, '\\$&')}%`;
+
+/**
+ * Tokens used, input plus output, by model calls since `since`. With a scope, only calls whose
+ * purpose starts with `purposePrefix`, and none whose purpose starts with `excludePrefix`.
+ */
+export async function llmTokensSince(
+  db: Db,
+  since: Date,
+  scope: { purposePrefix?: string; excludePrefix?: string } = {},
+): Promise<number> {
+  const conditions = [sql`${llmCalls.createdAt} >= ${since.toISOString()}::timestamptz`];
+  if (scope.purposePrefix !== undefined) {
+    conditions.push(sql`${llmCalls.purpose} like ${likePrefix(scope.purposePrefix)} escape '\\'`);
+  }
+  if (scope.excludePrefix !== undefined) {
+    conditions.push(sql`${llmCalls.purpose} not like ${likePrefix(scope.excludePrefix)} escape '\\'`);
+  }
   const [row] = await db
     .select({
       tokens: sql<number>`coalesce(sum(${llmCalls.inputTokens} + ${llmCalls.outputTokens}), 0)::int`,
     })
     .from(llmCalls)
-    .where(sql`${llmCalls.createdAt} >= ${since.toISOString()}::timestamptz`);
+    .where(and(...conditions));
   return row?.tokens ?? 0;
 }
 

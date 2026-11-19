@@ -60,6 +60,8 @@ const llmSettings = {
   apiKey: env.LLM_API_KEY,
   effort: env.LLM_EFFORT,
   dailyTokenCap: env.LLM_DAILY_TOKEN_CAP,
+  /** Arena models have caps of their own and never spend the auditor's and agents' budget. */
+  excludePrefix: 'arena:',
 };
 /** The auditor's model. */
 const llm = createWorkerLlm(db, { ...llmSettings, model: env.LLM_MODEL }, logger);
