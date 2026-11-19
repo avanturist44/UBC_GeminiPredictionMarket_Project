@@ -44,7 +44,7 @@ export function createResponsesProvider(options: ResponsesProviderOptions): LlmP
         instructions: input.system,
         input: input.user,
         ...(input.useSearch ? { tools: [{ type: 'web_search' }] } : {}),
-        text: { format: { type: 'json_schema', name: 'reply', schema: input.jsonSchema, strict: true } },
+        text: { format: { type: 'json_schema', name: 'reply', schema: withoutMetaKeys(input.jsonSchema), strict: true } },
       };
 
       let status: number;
@@ -75,6 +75,18 @@ export function createResponsesProvider(options: ResponsesProviderOptions): LlmP
       return read((reply ?? {}) as ResponsesReply, options.model);
     },
   };
+}
+
+/**
+ * The schema without its root `$schema` and `$id`, which describe the document rather than the
+ * reply and are not among the keywords strict mode lists. The rest goes as zod produced it.
+ */
+function withoutMetaKeys(schema: unknown): unknown {
+  if (typeof schema !== 'object' || schema === null || Array.isArray(schema)) return schema;
+  const bare: Record<string, unknown> = { ...schema };
+  delete bare.$schema;
+  delete bare.$id;
+  return bare;
 }
 
 function read(reply: ResponsesReply, requested: string): LlmCompletion {

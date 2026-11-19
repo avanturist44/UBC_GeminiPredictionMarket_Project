@@ -1,5 +1,6 @@
 import { LlmError } from '@thesis/core';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { createResponsesProvider } from '../src/llm/responses';
 import { SCHEMA, failure, fakeFetch, hangingFetch, json, queued, request } from './fake-fetch';
 
@@ -67,6 +68,20 @@ describe('createResponsesProvider', () => {
     const { fetch, calls } = fakeFetch(() => json(200, completed()));
     await gpt(fetch).complete(request({ useSearch: true }));
     expect(calls[0]!.body.text).toEqual({ format: { type: 'json_schema', name: 'reply', schema: SCHEMA, strict: true } });
+  });
+
+  it('sends the schema without the root $schema key', async () => {
+    const { fetch, calls } = fakeFetch(() => json(200, completed()));
+    // What createLlm passes on is zod's own output, which starts with a $schema draft key.
+    const zodSchema = z.toJSONSchema(z.object({ ok: z.boolean() }));
+    expect(zodSchema).toHaveProperty('$schema');
+    await gpt(fetch).complete(request({ jsonSchema: { ...zodSchema, $id: 'https://example.com/reply' } }));
+
+    const sent = (calls[0]!.body.text as { format: { schema: Record<string, unknown> } }).format.schema;
+    expect(sent).not.toHaveProperty('$schema');
+    expect(sent).not.toHaveProperty('$id');
+    // Everything else goes exactly as zod produced it.
+    expect(sent).toEqual(SCHEMA);
   });
 
   it('maps 401 to unavailable and 429 to provider', async () => {
