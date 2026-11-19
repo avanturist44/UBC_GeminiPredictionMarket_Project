@@ -2,10 +2,12 @@ import 'server-only';
 import { AGENT_RULES, LIMIT_BOUNDS, checkLimitValue, type LimitName } from '@thesis/core';
 import {
   getAccount,
+  getAccountStats,
   getActivity,
   getAuthorStanding,
   getAuthorTheses,
   getLeaderboard,
+  getPortfolioData,
   requestLimits,
   type AuthorStanding,
   type UserRow,
@@ -13,6 +15,7 @@ import {
 import { z } from 'zod';
 import { getDb } from './db';
 import type { Loaded } from './market-data';
+import { PORTFOLIO_SLOTS, buildPortfolio } from './portfolio';
 import type {
   AccountResponse,
   ActivityResponse,
@@ -121,12 +124,22 @@ export async function loadAccount(user: UserRow): Promise<Loaded<AccountResponse
   const db = getDb();
   if (!db) return NOT_CONFIGURED;
   try {
-    const [me, account] = await Promise.all([toMe(user), getAccount(db, user.id)]);
+    const now = new Date();
+    const [me, account, portfolioData, stats] = await Promise.all([
+      toMe(user),
+      getAccount(db, user.id),
+      getPortfolioData(db, user.id, { now, slots: PORTFOLIO_SLOTS }),
+      getAccountStats(db, user.id),
+    ]);
+    const portfolio = buildPortfolio(portfolioData, { now, cashUsd: Number(user.paperBalanceUsd) });
     return {
       ok: true,
       data: {
         ...me,
-        asOf: new Date().toISOString(),
+        asOf: now.toISOString(),
+        joinedAt: user.createdAt.toISOString(),
+        portfolio: portfolio.view,
+        stats,
         positions: account.positions.map((p) => ({
           tradeId: p.tradeId,
           thesisId: p.thesisId,
@@ -142,6 +155,8 @@ export async function loadAccount(user: UserRow): Promise<Loaded<AccountResponse
           costUsd: p.costUsd,
           payoutUsd: p.payoutUsd,
           settled: p.status === 'settled',
+          markPrice: portfolio.marks.get(p.tradeId)?.markPrice ?? null,
+          valueUsd: portfolio.marks.get(p.tradeId)?.valueUsd ?? null,
         })),
         tips: account.tips.map((t) => ({
           tipId: t.tipId,

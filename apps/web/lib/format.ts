@@ -67,7 +67,8 @@ export function timeLeft(expiry: Date | null, now: Date): TimeLeft {
 /** Dollars of test money: "4.9995" becomes "$5.00". */
 export function usd(amount: string | number | null): string {
   if (amount === null) return DASH;
-  return `$${Number(amount).toFixed(2)}`;
+  // A fixed locale, so the server and the browser print the same thing: "$1,000.56".
+  return `$${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 /**

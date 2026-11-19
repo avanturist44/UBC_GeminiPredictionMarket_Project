@@ -1,6 +1,14 @@
-import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, lte } from 'drizzle-orm';
 import type { Db } from '../client';
-import { agentRuns, authors, markets, pricePoints, theses, trades, type TradeStatus } from '../schema';
+import { agentRuns, authors, markets, theses, trades } from '../schema';
+import {
+  COUNTED_TRADES,
+  getSlottedPrices,
+  getValuationMarkets,
+  type ValuationMarket,
+  type ValuationPrice,
+  type ValuedTrade,
+} from './valuation';
 
 /**
  * What the agent race needs, read in one go: each agent's own positions (never the trades of
@@ -15,16 +23,7 @@ export interface RaceAuthor {
   strategySummary: string | null;
 }
 
-export interface RaceTrade {
-  id: string;
-  marketId: string;
-  side: 'yes' | 'no';
-  quantity: string;
-  price: string;
-  costUsd: string;
-  status: TradeStatus;
-  payoutUsd: string | null;
-  createdAt: Date;
+export interface RaceTrade extends ValuedTrade {
   thesis: {
     id: string;
     headline: string;
@@ -34,26 +33,8 @@ export interface RaceTrade {
   } | null;
 }
 
-export interface RaceMarket {
-  id: string;
-  instrumentSymbol: string;
-  title: string;
-  contractLabel: string | null;
-  yesBid: string | null;
-  yesAsk: string | null;
-  lastPrice: string | null;
-  resolutionSide: 'yes' | 'no' | null;
-  resolvedAt: Date | null;
-  status: string | null;
-}
-
-export interface RacePrice {
-  marketId: string;
-  ts: Date;
-  yesBid: string | null;
-  yesAsk: string | null;
-  lastPrice: string | null;
-}
+export type RaceMarket = ValuationMarket;
+export type RacePrice = ValuationPrice;
 
 export interface RaceRun {
   decision: 'trade' | 'skip';
@@ -77,9 +58,6 @@ export interface RaceData {
   /** The first position either agent opened: where the race starts. Null before any trade. */
   since: Date | null;
 }
-
-/** Trades that cost the agent money: open or settled, never rejected or still waiting. */
-const COUNTED: TradeStatus[] = ['filled', 'partial', 'settled'];
 
 export async function getRaceData(
   db: Db,
@@ -118,7 +96,7 @@ export async function getRaceData(
             and(
               inArray(trades.authorId, authorIds),
               eq(trades.isAuthorPosition, true),
-              inArray(trades.status, COUNTED),
+              inArray(trades.status, COUNTED_TRADES),
               lte(trades.createdAt, options.now),
             ),
           )
@@ -164,49 +142,10 @@ export async function getRaceData(
   const since = tradeRows[0]?.trade.createdAt ?? null;
   if (marketIds.length === 0 || !since) return { agents, markets: [], prices: [], since: null };
 
-  const marketRows = await db
-    .select({
-      id: markets.id,
-      instrumentSymbol: markets.instrumentSymbol,
-      title: markets.title,
-      contractLabel: markets.contractLabel,
-      yesBid: markets.yesBid,
-      yesAsk: markets.yesAsk,
-      lastPrice: markets.lastPrice,
-      resolutionSide: markets.resolutionSide,
-      resolvedAt: markets.resolvedAt,
-      status: markets.status,
-    })
-    .from(markets)
-    .where(inArray(markets.id, marketIds));
-
-  // One point per market per slot: the last quote recorded in it. The recorder writes every
-  // few seconds, so a day of raw points would be thousands of rows per market.
-  const slotSeconds = Math.max(1, Math.ceil((options.now.getTime() - since.getTime()) / 1000 / Math.max(1, options.slots)));
-  // The slot is computed once, in a subquery: DISTINCT ON must name the same expression as
-  // ORDER BY, and two copies of a parameterised expression do not count as the same.
-  const slotted = db
-    .select({
-      marketId: pricePoints.marketId,
-      ts: pricePoints.ts,
-      yesBid: pricePoints.yesBid,
-      yesAsk: pricePoints.yesAsk,
-      lastPrice: pricePoints.lastPrice,
-      slot: sql<Date>`date_bin(make_interval(secs => ${slotSeconds}), ${pricePoints.ts}, ${since.toISOString()}::timestamptz)`.as('slot'),
-    })
-    .from(pricePoints)
-    .where(and(inArray(pricePoints.marketId, marketIds), gte(pricePoints.ts, since), lte(pricePoints.ts, options.now)))
-    .as('slotted');
-  const priceRows = await db
-    .selectDistinctOn([slotted.marketId, slotted.slot], {
-      marketId: slotted.marketId,
-      ts: slotted.ts,
-      yesBid: slotted.yesBid,
-      yesAsk: slotted.yesAsk,
-      lastPrice: slotted.lastPrice,
-    })
-    .from(slotted)
-    .orderBy(slotted.marketId, slotted.slot, desc(slotted.ts));
+  const [marketRows, priceRows] = await Promise.all([
+    getValuationMarkets(db, marketIds),
+    getSlottedPrices(db, { marketIds, since, now: options.now, slots: options.slots }),
+  ]);
 
   return { agents, markets: marketRows, prices: priceRows, since };
 }

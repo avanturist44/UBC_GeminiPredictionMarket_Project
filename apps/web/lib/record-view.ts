@@ -113,6 +113,40 @@ export interface PositionView {
   /** Set once the market has resolved. */
   payoutUsd: string | null;
   settled: boolean;
+  /** What one contract of this side is worth now. Null once settled, or with no price known. */
+  markPrice: string | null;
+  /** What the position is worth now. Null once settled: the payout says it. */
+  valueUsd: string | null;
+}
+
+/** One moment of the account line: epoch milliseconds and dollars. */
+export interface PortfolioPoint {
+  t: number;
+  v: number;
+}
+
+export interface PortfolioView {
+  /** Cash plus open positions at current prices. */
+  valueUsd: string;
+  /** What the account held before its first position. */
+  startUsd: string;
+  /** Value less start. */
+  changeUsd: string;
+  /** Open positions at current prices. */
+  openValueUsd: string;
+  /** The first position, where the line starts. Null before any trade. */
+  since: string | null;
+  /** The account value from the first position to now. Empty before any trade. */
+  points: PortfolioPoint[];
+}
+
+export interface AccountStatsView {
+  /** Authors whose theses this user has copied. */
+  copying: number;
+  /** Other people who have copied a thesis this user wrote. */
+  copiers: number;
+  /** Tips paid to this user as an author. */
+  tipsEarnedUsdc: string;
 }
 
 export interface TipView {
@@ -127,6 +161,10 @@ export interface TipView {
 
 export interface AccountResponse extends MeResponse {
   asOf: string;
+  /** When this guest session began. */
+  joinedAt: string;
+  portfolio: PortfolioView;
+  stats: AccountStatsView;
   positions: PositionView[];
   tips: TipView[];
 }
@@ -149,7 +187,7 @@ export function tipStatusText(status: TipView['status']): string {
 
 /** Profit or loss with its sign: "+$3.04", "-$4.96". */
 export function signedUsd(amount: number): string {
-  const text = `$${Math.abs(amount).toFixed(2)}`;
+  const text = `$${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   if (Math.abs(amount) < 0.005) return text;
   return amount > 0 ? `+${text}` : `-${text}`;
 }

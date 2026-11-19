@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { cents, noBuyPrice, percent, timeLeft, timeTicks } from '../lib/format';
+import { cents, noBuyPrice, percent, timeLeft, timeTicks, usd } from '../lib/format';
+
+describe('usd', () => {
+  it('prints dollars to the cent with thousands separators', () => {
+    expect(usd('1000.5632')).toBe('$1,000.56');
+    expect(usd(4)).toBe('$4.00');
+    expect(usd('12345678.9')).toBe('$12,345,678.90');
+    expect(usd(null)).toBe('–');
+  });
+});
 
 describe('cents', () => {
   it('shows a price between 0 and 1 as whole cents', () => {

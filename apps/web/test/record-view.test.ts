@@ -103,6 +103,7 @@ describe('small formatters', () => {
     expect(signedUsd(-4.96)).toBe('-$4.96');
     expect(signedUsd(0)).toBe('$0.00');
     expect(signedUsd(-0.001)).toBe('$0.00');
+    expect(signedUsd(1234.5)).toBe('+$1,234.50');
   });
 
   it('has words for every tip status', () => {
