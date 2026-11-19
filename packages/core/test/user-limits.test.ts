@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   checkDailyCopyCap,
+  checkLimitValue,
   checkNotOwnThesis,
   checkPerTradeCap,
   checkSlippage,
@@ -54,5 +55,19 @@ describe('user limits: each at, just under and just over its boundary', () => {
     expect(code(checkNotOwnThesis('u1', 'u1'))).toBe('own_thesis');
     expect(code(checkNotOwnThesis('u1', 'u2'))).toBe('ok');
     expect(code(checkNotOwnThesis('u1', null))).toBe('ok');
+  });
+
+  it('a limit the user sets must be dollars and cents inside the allowed range', () => {
+    expect(code(checkLimitValue('maxPerTradeUsd', 1))).toBe('ok');
+    expect(code(checkLimitValue('maxPerTradeUsd', 0.99))).toBe('bad_limit');
+    expect(code(checkLimitValue('maxPerTradeUsd', 10))).toBe('ok');
+    expect(code(checkLimitValue('maxPerTradeUsd', 10.01))).toBe('bad_limit');
+    expect(code(checkLimitValue('dailyCopyCapUsd', 100))).toBe('ok');
+    expect(code(checkLimitValue('dailyCopyCapUsd', 100.01))).toBe('bad_limit');
+    expect(code(checkLimitValue('dailyCopyCapUsd', 0))).toBe('bad_limit');
+    expect(code(checkLimitValue('dailyCopyCapUsd', 12.345))).toBe('bad_limit');
+    expect(code(checkLimitValue('dailyCopyCapUsd', 12.35))).toBe('ok');
+    expect(code(checkLimitValue('dailyCopyCapUsd', Number.NaN))).toBe('bad_limit');
+    expect(code(checkLimitValue('dailyCopyCapUsd', Number.POSITIVE_INFINITY))).toBe('bad_limit');
   });
 });

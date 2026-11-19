@@ -80,6 +80,8 @@ export const users = pgTable('users', {
   dailyCopyCapUsd: usd().notNull().default('25'),
   circleWalletId: text(),
   walletAddress: text(),
+  /** A raise of the user's limits that takes effect on a later UTC day. */
+  pendingLimits: jsonb().$type<{ maxPerTradeUsd?: string; dailyCopyCapUsd?: string; effectiveOn: string }>(),
   createdAt: createdAt(),
 }).enableRLS();
 

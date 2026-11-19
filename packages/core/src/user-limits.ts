@@ -59,6 +59,27 @@ export function checkSlippage(ask: string, entryPrice: string): LimitResult {
   return { ok: true };
 }
 
+/** The defaults a new user starts with, and the range each limit can be set within. */
+export const LIMIT_BOUNDS = {
+  maxPerTradeUsd: { min: 1, max: 10, fallback: 10 },
+  dailyCopyCapUsd: { min: 1, max: 100, fallback: 25 },
+} as const;
+
+export type LimitName = keyof typeof LIMIT_BOUNDS;
+
+/** Whether a value a user asked for is a whole number of cents inside the allowed range. */
+export function checkLimitValue(name: LimitName, value: number): LimitResult {
+  const { min, max } = LIMIT_BOUNDS[name];
+  const label = name === 'maxPerTradeUsd' ? 'The most per copy trade' : 'The daily copy cap';
+  if (!Number.isFinite(value) || Math.abs(value * 100 - Math.round(value * 100)) > 1e-6) {
+    return no('bad_limit', `${label} must be an amount in dollars and cents.`);
+  }
+  if (value < min || value > max) {
+    return no('bad_limit', `${label} must be between $${min} and $${max}.`);
+  }
+  return { ok: true };
+}
+
 /** Nobody copies or tips their own thesis: it would inflate their own totals. */
 export function checkNotOwnThesis(userId: string, authorUserId: string | null): LimitResult {
   if (authorUserId !== null && authorUserId === userId) return no('own_thesis', 'You cannot copy or tip your own thesis.');

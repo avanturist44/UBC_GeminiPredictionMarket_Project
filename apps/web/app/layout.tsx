@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import { IBM_Plex_Sans } from 'next/font/google';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { AccountChip } from '@/components/account-chip';
+import { LiveStrip } from '@/components/live-strip';
 import { PrimaryTabs } from '@/components/primary-tabs';
 import './globals.css';
 
@@ -24,7 +26,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" className={plex.variable}>
       <body>
         <header className="border-b">
-          <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
+          <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
             <Link href="/" className="text-base font-semibold tracking-tight">
               Thesis Market
             </Link>
@@ -32,8 +34,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <span className="rounded-full border border-input px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
               Simulated funds
             </span>
+            <AccountChip />
           </div>
           <PrimaryTabs placement="top" />
+          <LiveStrip />
         </header>
         {/* The bottom padding keeps content clear of the phone tab bar. */}
         <main className="mx-auto max-w-3xl px-4 pt-6 pb-24 sm:pb-10">{children}</main>

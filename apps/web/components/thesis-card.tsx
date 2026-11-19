@@ -17,10 +17,17 @@ export function SidePill({ side }: { side: 'yes' | 'no' }) {
   );
 }
 
-export function AuthorLine({ author }: { author: ThesisCardView['author'] }) {
+/** `linked` is off where the author has no profile to open, as in the editor's preview. */
+export function AuthorLine({ author, linked = true }: { author: ThesisCardView['author']; linked?: boolean }) {
   return (
     <p className="text-sm">
-      <span className="font-medium">{author.name}</span>{' '}
+      {linked ? (
+        <Link href={`/authors/${author.id}`} className="font-medium underline-offset-4 hover:underline">
+          {author.name}
+        </Link>
+      ) : (
+        <span className="font-medium">{author.name}</span>
+      )}{' '}
       <span
         className={cn(
           'rounded border px-1 py-px text-xs font-medium',
@@ -65,7 +72,7 @@ export function ThesisCard({
   const headline = <span className="font-medium leading-snug">{thesis.headline}</span>;
   return (
     <article className="space-y-2 py-4">
-      <AuthorLine author={thesis.author} />
+      <AuthorLine author={thesis.author} linked={linked} />
       <p className="text-sm text-muted-foreground">
         {linked ? (
           <Link

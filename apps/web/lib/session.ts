@@ -1,5 +1,5 @@
 import 'server-only';
-import { getUserById, type UserRow } from '@thesis/db';
+import { applyDueLimits, getUserById, type UserRow } from '@thesis/db';
 import { cookies } from 'next/headers';
 import { getDb } from './db';
 import { signSession, verifySession } from './session-token';
@@ -18,13 +18,14 @@ function secret(): string | null {
 
 export const sessionsConfigured = () => secret() !== null;
 
-/** The signed-in guest, or null. */
+/** The signed-in guest, or null. A limit raise that has come due is applied on the way. */
 export async function getSessionUser(): Promise<UserRow | null> {
   const key = secret();
   const db = getDb();
   if (!key || !db) return null;
   const userId = verifySession((await cookies()).get(SESSION_COOKIE)?.value, key);
-  return userId ? getUserById(db, userId) : null;
+  const user = userId ? await getUserById(db, userId) : null;
+  return user ? applyDueLimits(db, user, new Date()) : null;
 }
 
 export async function startSession(user: Pick<UserRow, 'id'>): Promise<void> {

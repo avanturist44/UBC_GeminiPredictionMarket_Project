@@ -329,6 +329,15 @@ export async function getFeed(db: Db, options: FeedOptions): Promise<ThesisView[
   );
 }
 
+/** One author's public theses, newest first, for their profile. */
+export async function getAuthorTheses(db: Db, authorId: string, limit = 50): Promise<ThesisView[]> {
+  return loadViews(
+    db,
+    and(inArray(theses.status, PUBLIC_STATUSES), eq(theses.authorId, authorId)),
+    Math.min(Math.max(limit, 1), 100),
+  );
+}
+
 /** One thesis in any status. The caller decides who may see one that is not public. */
 export async function getThesisView(db: Db, thesisId: string): Promise<ThesisView | null> {
   const [view] = await loadViews(db, and(eq(theses.id, thesisId)), 1);

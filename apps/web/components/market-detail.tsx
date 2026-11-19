@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { DisagreementBar } from '@/components/disagreement-bar';
 import { LoadError } from '@/components/load-error';
 import { OddsChart } from '@/components/odds-chart';
 import { Badge } from '@/components/ui/badge';
@@ -259,6 +260,8 @@ export function MarketDetail({
             ' Blue marks are AI theses and dark marks are human ones; a mark points up for YES and down for NO.'}
         </p>
       </section>
+
+      <DisagreementBar disagreement={{ ...data.disagreement, marketPrice: market.yesMid ?? data.disagreement.marketPrice }} />
 
       <section aria-labelledby="theses-heading" className="space-y-3">
         <h2 id="theses-heading" className="text-lg font-semibold">

@@ -4,11 +4,12 @@ import { copiedSince } from './copy-trade';
 import { getDb } from './db';
 import type { Loaded } from './market-data';
 import { toThesisCard, toThesisDetail } from './thesis-mapping';
+import { readTipBalance } from './tip-balance';
 import type { FeedResponse, MeResponse, ThesisResponse } from './thesis-view';
 
 /** Loads what the feeds and the thesis page send. Pages and API routes share it. */
 
-const NOT_CONFIGURED: Loaded<never> = {
+export const NOT_CONFIGURED: Loaded<never> = {
   ok: false,
   status: 503,
   error: { code: 'not_configured', message: 'No database is connected.' },
@@ -19,7 +20,7 @@ const NOT_FOUND: Loaded<never> = {
   error: { code: 'not_found', message: 'There is no thesis at this address.' },
 };
 
-function dbError(error: unknown): Loaded<never> {
+export function dbError(error: unknown): Loaded<never> {
   console.error('thesis query failed', error);
   return {
     ok: false,
@@ -29,7 +30,7 @@ function dbError(error: unknown): Loaded<never> {
 }
 
 const PAGE = 20;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function loadFeed(
   kind: 'agent' | 'human',
@@ -100,12 +101,19 @@ export async function toMe(user: UserRow): Promise<MeResponse> {
   const db = getDb();
   const now = new Date();
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const [copiedTodayUsd, tipBalanceUsdc] = await Promise.all([
+    db ? copiedSince(db, user.id, today) : '0.0000',
+    readTipBalance(user.walletAddress),
+  ]);
   return {
     id: user.id,
     displayName: user.displayName,
     paperBalanceUsd: user.paperBalanceUsd,
     maxPerTradeUsd: user.maxPerTradeUsd,
     dailyCopyCapUsd: user.dailyCopyCapUsd,
-    copiedTodayUsd: db ? await copiedSince(db, user.id, today) : '0.0000',
+    copiedTodayUsd,
+    pendingLimits: user.pendingLimits ?? null,
+    walletAddress: user.walletAddress,
+    tipBalanceUsdc,
   };
 }

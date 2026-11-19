@@ -70,6 +70,15 @@ export function usd(amount: string | number | null): string {
   return `$${Number(amount).toFixed(2)}`;
 }
 
+/**
+ * Units of a 6-decimal token (USDC) as a decimal string, cut to two places, never rounded
+ * up: a balance must not show a cent the wallet does not hold.
+ */
+export function usdcUnitsToText(units: bigint): string {
+  const cents = units / 10_000n;
+  return `${cents / 100n}.${String(cents % 100n).padStart(2, '0')}`;
+}
+
 /** Contracts, without trailing zeros: "9.0900" becomes "9.09". */
 export function contracts(quantity: string): string {
   return String(Number(quantity));

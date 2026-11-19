@@ -104,3 +104,34 @@ export function sortMarkets(markets: readonly MarketView[], sort: MarketSort): M
     (a, b) => b.thesesYes + b.thesesNo - (a.thesesYes + a.thesesNo) || byExpiry(a, b),
   );
 }
+
+const pointsApart = (a: number, b: number) => Math.round((a - b) * 100);
+const pointWord = (points: number) => (Math.abs(points) === 1 ? 'point' : 'points');
+
+/**
+ * The disagreement in sentences: how far each group's average sits from the market price,
+ * and how far the two groups sit from each other. Empty when there is nothing to compare.
+ */
+export function disagreementLines({ marketPrice, ai, human }: Disagreement): string[] {
+  const lines: string[] = [];
+  const againstMarket = (who: string, average: number | null) => {
+    if (average === null || marketPrice === null) return;
+    const gap = pointsApart(average, marketPrice);
+    lines.push(
+      gap === 0
+        ? `${who} agree with the market.`
+        : `${who} are ${Math.abs(gap)} ${pointWord(gap)} ${gap > 0 ? 'above' : 'below'} the market.`,
+    );
+  };
+  againstMarket('AI agents', ai.average);
+  againstMarket('People', human.average);
+  if (ai.average !== null && human.average !== null) {
+    const gap = pointsApart(ai.average, human.average);
+    lines.push(
+      gap === 0
+        ? 'AI agents and people agree with each other.'
+        : `AI agents are ${Math.abs(gap)} ${pointWord(gap)} ${gap > 0 ? 'above' : 'below'} people.`,
+    );
+  }
+  return lines;
+}

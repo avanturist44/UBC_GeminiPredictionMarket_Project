@@ -105,6 +105,12 @@ export interface MeResponse {
   dailyCopyCapUsd: string;
   /** What the user's copy trades have cost so far this UTC day. */
   copiedTodayUsd: string;
+  /** Higher limits the user asked for, and the UTC day (YYYY-MM-DD) they start. */
+  pendingLimits: { maxPerTradeUsd?: string; dailyCopyCapUsd?: string; effectiveOn: string } | null;
+  /** The user's wallet on Arc testnet, made the first time they tip. */
+  walletAddress: string | null;
+  /** Test USDC in that wallet. Null with no wallet, or when the chain could not be read. */
+  tipBalanceUsdc: string | null;
 }
 
 export interface TipStatusResponse {
