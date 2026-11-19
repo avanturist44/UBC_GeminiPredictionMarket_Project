@@ -77,6 +77,34 @@ describe('createLlm.generateJson', () => {
     expect(used).toEqual(['p', 'p']);
   });
 
+  it('passes the completion that validated to onCompletion, once', async () => {
+    const { provider } = scripted(['{"answer": "four"}', '{"answer": 4, "why": "fixed"}']);
+    const seen: string[] = [];
+    await createLlm({ provider }).generateJson({
+      purpose: 'p',
+      system: 's',
+      user: 'u',
+      schema: Shape,
+      onCompletion: (c) => void seen.push(c.text),
+    });
+    expect(seen).toEqual(['{"answer": 4, "why": "fixed"}']);
+  });
+
+  it('keeps a good answer when onCompletion throws', async () => {
+    const { provider, requests } = scripted(['{"answer": 4, "why": "w"}']);
+    const result = await createLlm({ provider }).generateJson({
+      purpose: 'p',
+      system: 's',
+      user: 'u',
+      schema: Shape,
+      onCompletion: () => {
+        throw new Error('the caller broke');
+      },
+    });
+    expect(result).toEqual({ answer: 4, why: 'w' });
+    expect(requests).toHaveLength(1);
+  });
+
   it('gives up after the second bad reply', async () => {
     const { provider, requests } = scripted(['nonsense', '{"answer": true}']);
     const error = await createLlm({ provider })

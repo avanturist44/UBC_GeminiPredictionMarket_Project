@@ -5,7 +5,7 @@ import { z } from 'zod';
  * of a given shape and get back a validated value, or an error: never free text.
  *
  * The wrapper knows nothing about a provider. A provider is anything that can turn a
- * system prompt and a user message into text (see apps/worker/src/llm for the real one).
+ * system prompt and a user message into text (see apps/worker/src/llm for the real ones).
  */
 
 export interface LlmUsage {
@@ -17,6 +17,11 @@ export interface LlmCompletion {
   text: string;
   model: string;
   usage: LlmUsage;
+  /**
+   * Google's Search Suggestions for a grounded Gemini answer, as the HTML Google rendered.
+   * Google's terms require it to be shown with the answer.
+   */
+  searchSuggestionsHtml?: string;
 }
 
 export interface LlmRequest {
@@ -59,6 +64,8 @@ export interface GenerateJsonArgs<T> {
   user: string;
   schema: z.ZodType<T>;
   useSearch?: boolean;
+  /** Called once with the completion whose reply validated, before the value is returned. */
+  onCompletion?: (completion: LlmCompletion) => void;
 }
 
 export interface Llm {
@@ -161,7 +168,14 @@ export function createLlm(options: CreateLlmOptions): Llm {
 
         try {
           const parsed = args.schema.safeParse(extractJson(completion.text));
-          if (parsed.success) return parsed.data;
+          if (parsed.success) {
+            try {
+              args.onCompletion?.(completion);
+            } catch {
+              // What the caller does with the completion must not lose an answer already paid for.
+            }
+            return parsed.data;
+          }
           problem = parsed.error.issues
             .slice(0, 5)
             .map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
