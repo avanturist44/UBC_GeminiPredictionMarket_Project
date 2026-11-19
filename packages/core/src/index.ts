@@ -10,4 +10,5 @@ export * from './llm';
 export * from './auditor';
 export * from './agents';
 export * from './user-limits';
+export * from './social';
 export * from './escrow-abi';

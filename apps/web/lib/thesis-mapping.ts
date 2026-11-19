@@ -1,6 +1,13 @@
 import { KEYWORD_SCREEN_MODEL, sideAsk } from '@thesis/core';
-import type { ThesisView } from '@thesis/db';
-import type { AuditSummary, ThesisCardView, ThesisDetailView } from './thesis-view';
+import type { SocialCounts, ThesisView } from '@thesis/db';
+import type { AuditSummary, SparkView, ThesisCardView, ThesisDetailView } from './thesis-view';
+
+export interface CardExtras {
+  social?: SocialCounts;
+  spark?: SparkView | null;
+  /** The signed-in user, if any. */
+  viewerUserId?: string | null;
+}
 
 /** Turns database rows into what the feeds and the thesis page send. Server side. */
 
@@ -15,8 +22,9 @@ function auditSummary(view: ThesisView): AuditSummary | null {
   };
 }
 
-export function toThesisCard(view: ThesisView): ThesisCardView {
+export function toThesisCard(view: ThesisView, extras: CardExtras = {}): ThesisCardView {
   const { thesis, author, market, position } = view;
+  const viewer = extras.viewerUserId ?? null;
   return {
     id: thesis.id,
     status: thesis.status,
@@ -35,6 +43,7 @@ export function toThesisCard(view: ThesisView): ThesisCardView {
       contractLabel: market.contractLabel,
       expiryAt: market.expiryAt?.toISOString() ?? null,
       marketState: market.marketState,
+      quoteAt: market.updatedAt.toISOString(),
       resolutionSide: market.resolutionSide,
     },
     side: thesis.side,
@@ -54,6 +63,9 @@ export function toThesisCard(view: ThesisView): ThesisCardView {
       : null,
     tipsUsdc: view.tipsUsdc,
     tipsOpen: thesis.status === 'published' && thesis.registerTx !== null && Boolean(process.env.ESCROW_ADDRESS),
+    social: extras.social ?? { likes: 0, comments: 0, copies: 0, liked: false },
+    viewerIsAuthor: viewer !== null && author.userId === viewer,
+    spark: extras.spark ?? null,
   };
 }
 
@@ -64,12 +76,13 @@ export function toThesisCard(view: ThesisView): ThesisCardView {
 export function toThesisDetail(
   view: ThesisView,
   viewer: { userId: string | null; rejectReason: string | null },
+  extras: Omit<CardExtras, 'viewerUserId'> = {},
 ): ThesisDetailView {
   const viewerIsAuthor = viewer.userId !== null && view.author.userId === viewer.userId;
   const blocked = view.thesis.status === 'blocked' ? (view.audit?.blockReason ?? 'The audit blocked this thesis.') : null;
   const returned = view.thesis.status === 'draft' ? viewer.rejectReason : null;
   return {
-    ...toThesisCard(view),
+    ...toThesisCard(view, { ...extras, viewerUserId: viewer.userId }),
     evidence: view.thesis.evidence,
     claims: (view.audit?.claims ?? []).map((claim) => ({
       text: claim.text,
@@ -84,6 +97,5 @@ export function toThesisDetail(
     onchainId: view.thesis.onchainId,
     registerTx: view.thesis.registerTx,
     escrowAddress: process.env.ESCROW_ADDRESS ?? null,
-    viewerIsAuthor,
   };
 }

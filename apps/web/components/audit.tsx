@@ -1,23 +1,44 @@
 import type { AuditClaimView, AuditSummary } from '@/lib/thesis-view';
 import { cn } from '@/lib/utils';
 
-/** The audit in a few words, for a thesis card. */
-export function AuditBadge({ audit }: { audit: AuditSummary | null }) {
-  const base = 'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium';
-  if (!audit) return <span className={cn(base, 'text-muted-foreground')}>Audit pending</span>;
+/** The audit in words, from the thesis's own audit. */
+function auditText(audit: AuditSummary | null): string {
+  if (!audit) return 'Audit pending';
   if (audit.verdict !== 'pass') {
-    return (
-      <span className={cn(base, 'border-no text-no')}>
-        {audit.problems > 0
-          ? `Flagged: ${audit.problems} ${audit.problems === 1 ? 'claim' : 'claims'} not supported`
-          : 'Flagged by the audit'}
-      </span>
-    );
+    return audit.problems > 0
+      ? `Flagged: ${audit.problems} ${audit.problems === 1 ? 'claim' : 'claims'} not supported`
+      : 'Flagged by the audit';
   }
-  if (audit.screenOnly) return <span className={cn(base, 'text-muted-foreground')}>Screened, claims not checked</span>;
+  if (audit.screenOnly) return 'Screened, claims not checked';
+  return `Checked${audit.checked > 0 ? `: ${audit.checked} ${audit.checked === 1 ? 'claim' : 'claims'}` : ''}`;
+}
+
+/**
+ * The audit in a few words. `compact` is the short form for a post header ("Checked",
+ * "2 flagged"); the full wording is its tooltip and its accessible name.
+ */
+export function AuditBadge({ audit, compact = false }: { audit: AuditSummary | null; compact?: boolean }) {
+  const base = 'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap';
+  const full = auditText(audit);
+  const tone = !audit
+    ? 'border-input text-muted-foreground'
+    : audit.verdict !== 'pass'
+      ? 'border-no/60 text-no'
+      : audit.screenOnly
+        ? 'border-input text-muted-foreground'
+        : 'border-primary/60 text-primary';
+  const short = !audit
+    ? 'Auditing'
+    : audit.verdict !== 'pass'
+      ? audit.problems > 0
+        ? `${audit.problems} flagged`
+        : 'Flagged'
+      : audit.screenOnly
+        ? 'Screened'
+        : 'Checked';
   return (
-    <span className={cn(base, 'border-primary text-primary')}>
-      Checked{audit.checked > 0 ? `: ${audit.checked} ${audit.checked === 1 ? 'claim' : 'claims'}` : ''}
+    <span className={cn(base, tone)} title={compact ? full : undefined} aria-label={compact ? full : undefined}>
+      {compact ? short : full}
     </span>
   );
 }

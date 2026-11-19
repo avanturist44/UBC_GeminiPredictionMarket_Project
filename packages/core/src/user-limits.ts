@@ -19,6 +19,8 @@ export const TIP_CHOICES_USDC = ['0', '0.10', '0.25', '0.50'] as const;
 export const MAX_SLIPPAGE = '0.05';
 /** A copy must close at least this long before the market does. */
 export const MIN_MINUTES_TO_COPY = 2;
+/** A copy is filled only at a quote recorded within this long. Older means prices are not updating. */
+export const MAX_QUOTE_AGE_MS = 120_000;
 
 /** One copy trade may cost at most the user's per-trade cap. */
 export function checkPerTradeCap(amountUsd: string, maxPerTradeUsd: string): LimitResult {

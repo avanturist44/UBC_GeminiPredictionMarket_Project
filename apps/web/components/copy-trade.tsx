@@ -1,6 +1,6 @@
 'use client';
 
-import { TIP_CHOICES_USDC } from '@thesis/core/browser';
+import { MAX_QUOTE_AGE_MS, TIP_CHOICES_USDC } from '@thesis/core/browser';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { CopyResponse } from '@/lib/copy-trade';
@@ -48,6 +48,10 @@ export function copyBlockedReason(thesis: ThesisCardView, now: Date): string | n
   if (thesis.market.expiryAt && new Date(thesis.market.expiryAt).getTime() - now.getTime() < 2 * 60_000) {
     return 'This market closes in under 2 minutes.';
   }
+  // The server refuses a fill on an old quote, so say so before anyone fills in the dialog.
+  if (now.getTime() - Date.parse(thesis.market.quoteAt) > MAX_QUOTE_AGE_MS) {
+    return 'Prices for this market are not updating right now, so it cannot be copied. Try again in a minute.';
+  }
   if (thesis.currentPrice === null) return `Nobody is selling ${thesis.side.toUpperCase()} right now.`;
   return null;
 }
@@ -83,7 +87,29 @@ function TipProgress({ tipId, amountUsdc }: { tipId: string; amountUsdc: string 
   );
 }
 
-export function CopyTrade({ thesis, viewerIsAuthor }: { thesis: ThesisCardView; viewerIsAuthor: boolean }) {
+/** The blocked reason in a word or two, for the small button on a post. */
+function shortReason(reason: string): string {
+  if (reason.includes('resolved')) return 'Resolved';
+  if (reason.includes('closes in under')) return 'Closing';
+  if (reason.includes('closed')) return 'Closed';
+  if (reason.startsWith('Nobody is selling')) return 'No seller';
+  if (reason.startsWith('Prices for this market')) return 'Prices paused';
+  return 'Unavailable';
+}
+
+/**
+ * `compact` is the button on a post in the feed: one line, the reason it is off in a word.
+ * The thesis page uses the full button with the reason written out under it.
+ */
+export function CopyTrade({
+  thesis,
+  viewerIsAuthor,
+  compact = false,
+}: {
+  thesis: ThesisCardView;
+  viewerIsAuthor: boolean;
+  compact?: boolean;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const { now } = useNow(undefined);
   const { data: me, retry: reloadMe } = useLive<MeResponse>('/api/me', undefined, 15_000);
@@ -153,17 +179,32 @@ export function CopyTrade({ thesis, viewerIsAuthor }: { thesis: ThesisCardView; 
     setProblem(result.error.message);
   }
 
+  if (compact && viewerIsAuthor) return <span className="text-[13px] text-muted-foreground">Your thesis</span>;
+
   return (
-    <div className="space-y-1.5">
-      <Button size="lg" disabled={blocked !== null} onClick={() => dialog.current?.showModal()}>
-        Copy trade
-      </Button>
-      {blocked && <p className="text-sm text-muted-foreground">{blocked}</p>}
+    <div className={compact ? undefined : 'space-y-1.5'}>
+      {compact ? (
+        <Button
+          variant={blocked ? 'secondary' : 'default'}
+          className="h-9 px-4 text-sm disabled:opacity-100 disabled:text-muted-foreground"
+          disabled={blocked !== null}
+          title={blocked ?? undefined}
+          aria-label={blocked ? `Copy trade: ${blocked}` : 'Copy trade'}
+          onClick={() => dialog.current?.showModal()}
+        >
+          {blocked ? shortReason(blocked) : 'Copy trade'}
+        </Button>
+      ) : (
+        <Button size="lg" className="h-10 px-5" disabled={blocked !== null} onClick={() => dialog.current?.showModal()}>
+          Copy trade
+        </Button>
+      )}
+      {blocked && !compact && <p className="text-sm text-muted-foreground">{blocked}</p>}
 
       <dialog
         ref={dialog}
         aria-labelledby="copy-title"
-        className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-xl border bg-background p-5 text-foreground backdrop:bg-black/40"
+        className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-xl border border-border bg-card p-5 text-left text-foreground backdrop:bg-black/60"
       >
         {done ? (
           <div className="space-y-3">
@@ -207,7 +248,7 @@ export function CopyTrade({ thesis, viewerIsAuthor }: { thesis: ThesisCardView; 
                 step="0.01"
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
-                className="w-32 rounded-md border border-input bg-background px-3 py-2 text-base tabular-nums"
+                className="w-32 rounded-lg border border-input bg-background px-3 py-2 text-base tabular-nums"
               />
               <p className="text-sm tabular-nums text-muted-foreground">
                 Up to {usd(cap)} a trade. {usd(leftToday)} of your daily copy limit is left.

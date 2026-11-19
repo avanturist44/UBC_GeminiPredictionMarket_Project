@@ -135,3 +135,45 @@ export function disagreementLines({ marketPrice, ai, human }: Disagreement): str
   }
   return lines;
 }
+
+export interface MarketTopic {
+  /** For the address: `?topic=crypto`. */
+  id: string;
+  /** Gemini's category, as Gemini writes it. */
+  label: string;
+  count: number;
+}
+
+const OTHER_TOPIC: Omit<MarketTopic, 'count'> = { id: 'other', label: 'Other' };
+
+const topicOf = (market: MarketView): Omit<MarketTopic, 'count'> => {
+  const label = market.category?.trim();
+  if (!label) return OTHER_TOPIC;
+  return { id: label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || OTHER_TOPIC.id, label };
+};
+
+/**
+ * The topics the markets on hand belong to, from Gemini's category on each one: the largest
+ * first, then by name. A market with no category counts as Other, which always comes last.
+ */
+export function marketTopics(markets: readonly MarketView[]): MarketTopic[] {
+  const topics = new Map<string, MarketTopic>();
+  for (const market of markets) {
+    const topic = topicOf(market);
+    const found = topics.get(topic.id);
+    if (found) found.count += 1;
+    else topics.set(topic.id, { ...topic, count: 1 });
+  }
+  return [...topics.values()].sort(
+    (a, b) =>
+      Number(a.id === OTHER_TOPIC.id) - Number(b.id === OTHER_TOPIC.id) ||
+      b.count - a.count ||
+      a.label.localeCompare(b.label),
+  );
+}
+
+/** The markets in one topic. `all` keeps every market. */
+export function marketsInTopic(markets: readonly MarketView[], topicId: string): MarketView[] {
+  if (topicId === 'all') return [...markets];
+  return markets.filter((market) => topicOf(market).id === topicId);
+}

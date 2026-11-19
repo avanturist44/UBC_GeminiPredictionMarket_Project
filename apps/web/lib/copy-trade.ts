@@ -1,4 +1,5 @@
 import {
+  MAX_QUOTE_AGE_MS,
   MIN_MINUTES_TO_COPY,
   checkDailyCopyCap,
   checkNotOwnThesis,
@@ -68,7 +69,6 @@ const refuse = (status: number, code: string, message: string, price?: string): 
   error: price ? { code, message, price } : { code, message },
 });
 
-const MAX_QUOTE_AGE_MS = 120_000;
 const startOfUtcDay = (now: Date) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
 function toResponse(trade: TradeRow, repeated: boolean, tip: CopyResponse['tip']): CopyResponse {

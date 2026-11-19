@@ -8,3 +8,4 @@ export * from './gemini/price-stream';
 export { yesMidpoint, yesPrice, type YesQuote } from './tracked';
 export { BODY_MAX, EVIDENCE_MAX, HEADLINE_MAX, MIN_STAKE_USD, checkSideAgainstPrice } from './thesis';
 export * from './user-limits';
+export { COMMENT_MAX } from './social';

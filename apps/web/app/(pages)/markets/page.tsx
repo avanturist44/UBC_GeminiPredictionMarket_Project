@@ -5,13 +5,19 @@ import { loadMarkets } from '@/lib/market-data';
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Markets' };
 
-export default async function MarketsPage() {
+type Props = { searchParams: Promise<{ topic?: string }> };
+
+export default async function MarketsPage({ searchParams }: Props) {
+  const { topic } = await searchParams;
   const loaded = await loadMarkets();
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Markets</h1>
+      <h1 className="text-2xl font-medium">Markets</h1>
       {/* If the first read failed, the list fetches again in the browser and shows the error. */}
-      <MarketsList initial={loaded.ok ? loaded.data : undefined} />
+      <MarketsList
+        initial={loaded.ok ? loaded.data : undefined}
+        initialTopic={topic && /^[a-z0-9-]{1,40}$/.test(topic) ? topic : 'all'}
+      />
     </div>
   );
 }

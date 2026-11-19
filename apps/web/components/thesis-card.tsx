@@ -8,8 +8,8 @@ export function SidePill({ side }: { side: 'yes' | 'no' }) {
   return (
     <span
       className={cn(
-        'inline-flex rounded px-1.5 py-0.5 text-xs font-semibold text-white',
-        side === 'yes' ? 'bg-yes' : 'bg-no',
+        'inline-flex rounded px-1.5 py-0.5 text-xs font-semibold',
+        side === 'yes' ? 'bg-yes/15 text-yes' : 'bg-no/15 text-no',
       )}
     >
       {side.toUpperCase()}

@@ -1,5 +1,7 @@
 'use client';
 
+import { Comments } from '@/components/comments';
+import { LikeButton } from '@/components/like-button';
 import Link from 'next/link';
 import { AuditBadge, AuditPanel } from '@/components/audit';
 import { CopyTrade } from '@/components/copy-trade';
@@ -117,7 +119,7 @@ export function ThesisDetail({ id, initial }: { id: string; initial: ThesisRespo
           </Link>
           {thesis.market.contractLabel && `, ${thesis.market.contractLabel}`}
         </p>
-        <h1 className="text-2xl font-semibold leading-tight tracking-tight">{thesis.headline}</h1>
+        <h1 className="text-2xl leading-tight font-medium">{thesis.headline}</h1>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
           <SidePill side={thesis.side} />
           <span>
@@ -143,7 +145,20 @@ export function ThesisDetail({ id, initial }: { id: string; initial: ThesisRespo
       <p className="max-w-prose whitespace-pre-line leading-relaxed">{thesis.body}</p>
 
       {(thesis.status === 'published' || thesis.status === 'resolved') && (
-        <CopyTrade thesis={thesis} viewerIsAuthor={thesis.viewerIsAuthor} />
+        <div className="flex flex-wrap items-start gap-3">
+          <CopyTrade thesis={thesis} viewerIsAuthor={thesis.viewerIsAuthor} />
+          <LikeButton
+            thesisId={thesis.id}
+            liked={thesis.social.liked}
+            likes={thesis.social.likes}
+            disabled={thesis.viewerIsAuthor}
+          />
+          {thesis.social.copies > 0 && (
+            <span className="inline-flex h-10 items-center text-sm text-muted-foreground tabular-nums">
+              {thesis.social.copies} {thesis.social.copies === 1 ? 'copy' : 'copies'}
+            </span>
+          )}
+        </div>
       )}
 
       <section aria-labelledby="evidence-heading" className="space-y-2">
@@ -228,6 +243,8 @@ export function ThesisDetail({ id, initial }: { id: string; initial: ThesisRespo
           thesis cannot be edited or deleted after it is published.
         </p>
       </section>
+
+      {(thesis.status === 'published' || thesis.status === 'resolved') && <Comments thesisId={thesis.id} />}
     </article>
   );
 }

@@ -40,6 +40,8 @@ export interface ThesisCardView {
     contractLabel: string | null;
     expiryAt: string | null;
     marketState: string | null;
+    /** When the market's quote was last recorded. Copies are refused on a quote older than two minutes. */
+    quoteAt: string;
     resolutionSide: 'yes' | 'no' | null;
   };
   side: 'yes' | 'no';
@@ -57,6 +59,32 @@ export interface ThesisCardView {
   tipsUsdc: string;
   /** The thesis is recorded in the escrow contract, so a copy can carry a tip. */
   tipsOpen: boolean;
+  /** Likes, comments and copies, and whether the viewer has liked it. */
+  social: SocialView;
+  /** The viewer wrote it, so they cannot copy, tip or like it. */
+  viewerIsAuthor: boolean;
+  /** The price of the side argued, from a little before publication to now. Null when nothing was recorded. */
+  spark: SparkView | null;
+}
+
+export interface SocialView {
+  likes: number;
+  comments: number;
+  /** Filled copy trades. */
+  copies: number;
+  liked: boolean;
+}
+
+export interface SparkView {
+  /** Milliseconds since the epoch, and the price of the side argued, 0 to 1. */
+  points: Array<{ t: number; p: number }>;
+  /** When the thesis was published, in milliseconds. */
+  entryT: number | null;
+  /** What the author paid per contract. */
+  entryPrice: number | null;
+  /** The window the line covers, in milliseconds. */
+  from: number;
+  to: number;
 }
 
 export interface AuditClaimView {
@@ -79,7 +107,6 @@ export interface ThesisDetailView extends ThesisCardView {
   registerTx: string | null;
   /** The escrow contract's address on Arc testnet. Null when none is configured. */
   escrowAddress: string | null;
-  viewerIsAuthor: boolean;
 }
 
 export interface ThesisResponse {
@@ -87,9 +114,11 @@ export interface ThesisResponse {
   thesis: ThesisDetailView;
 }
 
+export type FeedKind = 'all' | 'agent' | 'human';
+
 export interface FeedResponse {
   asOf: string;
-  kind: 'agent' | 'human';
+  kind: FeedKind;
   theses: ThesisCardView[];
   /** Pass as `cursor` to get the next page. Null at the end. */
   nextCursor: string | null;
@@ -121,6 +150,27 @@ export interface TipStatusResponse {
   depositTx: string | null;
   /** The transaction that paid it to the author or returned it. */
   settleTx: string | null;
+}
+
+export interface CommentView {
+  id: string;
+  body: string;
+  createdAt: string;
+  displayName: string;
+  /** Written by the thesis's author. */
+  byAuthor: boolean;
+  /** Written by the person viewing. */
+  byViewer: boolean;
+}
+
+export interface CommentsResponse {
+  asOf: string;
+  comments: CommentView[];
+}
+
+export interface LikeResponse {
+  liked: boolean;
+  likes: number;
 }
 
 /** Where a transaction can be read on the Arc testnet explorer. */

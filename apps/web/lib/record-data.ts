@@ -82,7 +82,7 @@ export async function loadAuthor(id: string): Promise<Loaded<AuthorResponse>> {
           agentStatus: standing.agentStatus,
           limits: isAgent ? AGENT_LIMITS : [],
         },
-        theses: views.map(toThesisCard),
+        theses: views.map((view) => toThesisCard(view)),
       },
     };
   } catch (error) {

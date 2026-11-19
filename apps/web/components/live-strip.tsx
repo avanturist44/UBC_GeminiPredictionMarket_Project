@@ -14,8 +14,8 @@ import { cn } from '@/lib/utils';
 export function LiveStrip() {
   const { data } = useLive<ActivityResponse>('/api/activity', undefined, 15_000);
   return (
-    <div className="border-t bg-secondary/60">
-      <div className="mx-auto flex h-9 max-w-3xl items-center gap-3 overflow-x-auto px-4 text-sm whitespace-nowrap">
+    <div className="border-b border-border bg-card">
+      <div className="flex h-9 items-center gap-3 overflow-x-auto px-4 text-[13px] whitespace-nowrap sm:px-6 lg:px-8">
         {data &&
           (data.items.length === 0 ? (
             <p className="text-muted-foreground">

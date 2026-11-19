@@ -3,9 +3,10 @@ import { and, desc, eq, getFeed, getThesisView, isPublicThesis, listAgentAuthors
 import { copiedSince } from './copy-trade';
 import { getDb } from './db';
 import type { Loaded } from './market-data';
+import { loadPostExtras } from './post-extras';
 import { toThesisCard, toThesisDetail } from './thesis-mapping';
 import { readTipBalance } from './tip-balance';
-import type { FeedResponse, MeResponse, ThesisResponse } from './thesis-view';
+import type { FeedKind, FeedResponse, MeResponse, ThesisResponse } from './thesis-view';
 
 /** Loads what the feeds and the thesis page send. Pages and API routes share it. */
 
@@ -33,8 +34,8 @@ const PAGE = 20;
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function loadFeed(
-  kind: 'agent' | 'human',
-  options: { agentKey?: string; cursor?: string } = {},
+  kind: FeedKind,
+  options: { agentKey?: string; cursor?: string; viewer?: UserRow | null } = {},
 ): Promise<Loaded<FeedResponse>> {
   const db = getDb();
   if (!db) return NOT_CONFIGURED;
@@ -42,19 +43,29 @@ export async function loadFeed(
   if (before && Number.isNaN(before.getTime())) {
     return { ok: false, status: 400, error: { code: 'invalid', message: 'The cursor is not a time.' } };
   }
-  const agentKey = options.agentKey && /^[a-z0-9_-]{1,40}$/i.test(options.agentKey) ? options.agentKey : undefined;
+  // An agent filter only means something on the AI feed.
+  const agentKey =
+    kind === 'agent' && options.agentKey && /^[a-z0-9_-]{1,40}$/i.test(options.agentKey) ? options.agentKey : undefined;
+  const viewerUserId = options.viewer?.id ?? null;
   try {
     const [views, agents] = await Promise.all([
       getFeed(db, { kind, agentKey, before, limit: PAGE }),
       kind === 'agent' ? listAgentAuthors(db) : Promise.resolve([]),
     ]);
     const last = views.at(-1);
+    const extras = await loadPostExtras(db, views, viewerUserId);
     return {
       ok: true,
       data: {
         asOf: new Date().toISOString(),
         kind,
-        theses: views.map(toThesisCard),
+        theses: views.map((view) =>
+          toThesisCard(view, {
+            social: extras.social.get(view.thesis.id),
+            spark: extras.sparks.get(view.thesis.id),
+            viewerUserId,
+          }),
+        ),
         nextCursor: views.length === PAGE && last?.thesis.publishedAt ? last.thesis.publishedAt.toISOString() : null,
         agents,
       },
@@ -85,11 +96,16 @@ export async function loadThesis(id: string, viewer: UserRow | null): Promise<Lo
         .limit(1);
       rejectReason = rejected?.reason ?? 'The trade could not be placed. Nothing was charged.';
     }
+    const extras = await loadPostExtras(db, [view], viewer?.id ?? null);
     return {
       ok: true,
       data: {
         asOf: new Date().toISOString(),
-        thesis: toThesisDetail(view, { userId: viewer?.id ?? null, rejectReason }),
+        thesis: toThesisDetail(
+          view,
+          { userId: viewer?.id ?? null, rejectReason },
+          { social: extras.social.get(id), spark: extras.sparks.get(id) },
+        ),
       },
     };
   } catch (error) {

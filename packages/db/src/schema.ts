@@ -356,3 +356,41 @@ export const llmCalls = pgTable(
   },
   (t) => [index('llm_calls_created_idx').on(t.createdAt)],
 ).enableRLS();
+
+/**
+ * Social layer, not in the build plan: a like from a user on a public thesis, at most one
+ * each. Likes carry no money and do not touch an author's record.
+ */
+export const likes = pgTable(
+  'likes',
+  {
+    thesisId: uuid()
+      .notNull()
+      .references(() => theses.id, { onDelete: 'cascade' }),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.thesisId, t.userId] }), index('likes_user_idx').on(t.userId)],
+).enableRLS();
+
+/** A comment on a public thesis. Plain text; screened for inside-information claims on the way in. */
+export const comments = pgTable(
+  'comments',
+  {
+    id: id(),
+    thesisId: uuid()
+      .notNull()
+      .references(() => theses.id, { onDelete: 'cascade' }),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    body: text().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('comments_thesis_created_idx').on(t.thesisId, t.createdAt),
+    check('comments_body_length', sql`char_length(${t.body}) between 1 and 500`),
+  ],
+).enableRLS();

@@ -48,7 +48,7 @@ const market = (overrides: Partial<MarketUpsert> = {}): MarketUpsert => ({
 });
 
 describe('schema', () => {
-  it('creates the eleven tables of the data model, and llm_calls for the spend cap', async () => {
+  it('creates the eleven tables of the data model, llm_calls for the spend cap, and likes and comments', async () => {
     // postgres.js returns the rows as an array, PGlite returns { rows }.
     const result: unknown = await db.execute(
       sql`select table_name from information_schema.tables where table_schema = 'public' order by 1`,
@@ -61,7 +61,9 @@ describe('schema', () => {
       'agent_state',
       'audits',
       'authors',
+      'comments',
       'gemini_connections',
+      'likes',
       'llm_calls',
       'markets',
       'price_points',

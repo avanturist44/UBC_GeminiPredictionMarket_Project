@@ -112,6 +112,7 @@ export function ThesisEditor({
           contractLabel: market.contractLabel,
           expiryAt: market.expiryAt,
           marketState: market.marketState,
+          quoteAt: market.updatedAt,
           resolutionSide: null,
         },
         side,
@@ -124,6 +125,9 @@ export function ThesisEditor({
         position: null,
         tipsUsdc: '0',
         tipsOpen: false,
+        social: { likes: 0, comments: 0, copies: 0, liked: false },
+        viewerIsAuthor: true,
+        spark: null,
       }
     : null;
 
@@ -178,8 +182,8 @@ export function ThesisEditor({
                 'rounded-md border px-4 py-2 text-sm font-semibold',
                 side === option
                   ? option === 'yes'
-                    ? 'border-yes bg-yes text-white'
-                    : 'border-no bg-no text-white'
+                    ? 'border-yes bg-yes text-background'
+                    : 'border-no bg-no text-background'
                   : 'border-input text-muted-foreground',
               )}
             >

@@ -307,7 +307,8 @@ async function loadViews(
 }
 
 export interface FeedOptions {
-  kind: 'agent' | 'human';
+  /** Whose theses: agents, people, or both. */
+  kind: 'agent' | 'human' | 'all';
   /** Only this agent's theses. */
   agentKey?: string;
   /** Return theses published before this time: the `publishedAt` of the last one already shown. */
@@ -315,13 +316,13 @@ export interface FeedOptions {
   limit?: number;
 }
 
-/** Public theses of one kind of author, newest first. */
+/** Public theses, newest first: from agents, from people, or from both. */
 export async function getFeed(db: Db, options: FeedOptions): Promise<ThesisView[]> {
   return loadViews(
     db,
     and(
       inArray(theses.status, PUBLIC_STATUSES),
-      eq(authors.kind, options.kind),
+      options.kind === 'all' ? undefined : eq(authors.kind, options.kind),
       options.agentKey ? eq(authors.agentKey, options.agentKey) : undefined,
       options.before ? lt(theses.publishedAt, options.before) : undefined,
     ),
