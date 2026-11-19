@@ -172,6 +172,32 @@ describe('withSpendCap with the dollar guard', () => {
     expect((await rows()).map((row) => row.costUsd).sort()).toEqual(['0.000000', '0.050000']);
   });
 
+  it('reports each recorded call to onRecorded, and a throwing onRecorded loses nothing', async () => {
+    // Room for two recorded calls (0.244) plus one worst case (0.51), not if a reservation leaked.
+    const guard = createSpendGuard({ db, dailyCapUsd: 0.9, logger });
+    const seen: string[] = [];
+    const reporting = withSpendCap(db, scripted(SONNET, answer()).provider, {
+      dailyTokenCap: 10_000_000,
+      guard,
+      logger,
+      onRecorded: (call) => void seen.push(`${call.purpose} ${call.model} ${call.usage.inputTokens} ${call.costUsd.toFixed(3)}`),
+    });
+    await reporting.generateJson(args());
+    expect(seen).toEqual(['news claude-sonnet-5-5 38000 0.122']);
+
+    const throwing = withSpendCap(db, scripted(SONNET, answer()).provider, {
+      dailyTokenCap: 10_000_000,
+      guard,
+      logger,
+      onRecorded: () => {
+        throw new Error('the printer broke');
+      },
+    });
+    await expect(throwing.generateJson(args())).resolves.toEqual({ ok: true });
+    expect(await rows()).toHaveLength(2);
+    await expect(guard.reserve(SONNET)).resolves.toBeDefined(); // nothing left held
+  });
+
   it('prices by the model that served the call', async () => {
     const { provider } = scripted('gpt-5', answer({ model: 'gpt-5-2025-08-07', searches: 0 }));
     const guard = createSpendGuard({ db, dailyCapUsd: 25, logger });

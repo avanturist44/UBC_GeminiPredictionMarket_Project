@@ -46,6 +46,8 @@ export function withSpendCap(
     excludePrefix?: string;
     /** The daily dollar cap: the one guard the worker shares between every Llm it builds. */
     guard: SpendGuard;
+    /** Told about each call as it is recorded, for a script that prints them. Whatever it throws is ignored. */
+    onRecorded?: (call: { purpose: string; model: string; usage: LlmUsage; costUsd: number }) => void;
     now?: () => Date;
   },
 ): Llm {
@@ -76,6 +78,11 @@ export function withSpendCap(
     } catch (error) {
       // Losing a usage row must not lose the answer that was already paid for.
       options.logger.error(`llm: could not record usage: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    try {
+      options.onRecorded?.({ purpose, model, usage, costUsd });
+    } catch {
+      // Reporting a call must not lose its answer or let its reservation go unsettled.
     }
     return costUsd;
   }
