@@ -1,14 +1,17 @@
-param([ValidateSet('start', 'stop', 'status', 'supervise')][string]$Action = 'status')
+param([ValidateSet('start', 'stop', 'status', 'supervise')][string]$Action = 'status',
+  [ValidateSet('btc', 'theses')][string]$Worker = 'btc')
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
 $taskLocal = Join-Path $taskRoot '.local'
-$taskPidFile = Join-Path $taskLocal 'worker.pid'
-$taskSupervisorFile = Join-Path $taskLocal 'worker-supervisor.pid'
-$taskStop = Join-Path $taskLocal 'worker.stop'
-$taskHealth = Join-Path $taskLocal 'worker.health.json'
-$taskOut = Join-Path $taskLocal 'worker.out.log'
-$taskErr = Join-Path $taskLocal 'worker.err.log'
-$taskSupervisorLog = Join-Path $taskLocal 'worker-supervisor.log'
+$taskPrefix = if ($Worker -eq 'btc') { 'worker' } else { 'thesis-worker' }
+$taskEntry = if ($Worker -eq 'btc') { 'apps/worker/src/index.ts' } else { 'apps/worker/src/thesis-worker.ts' }
+$taskPidFile = Join-Path $taskLocal "$taskPrefix.pid"
+$taskSupervisorFile = Join-Path $taskLocal "$taskPrefix-supervisor.pid"
+$taskStop = Join-Path $taskLocal "$taskPrefix.stop"
+$taskHealth = Join-Path $taskLocal "$taskPrefix.health.json"
+$taskOut = Join-Path $taskLocal "$taskPrefix.out.log"
+$taskErr = Join-Path $taskLocal "$taskPrefix.err.log"
+$taskSupervisorLog = Join-Path $taskLocal "$taskPrefix-supervisor.log"
 New-Item -ItemType Directory -Force -Path $taskLocal | Out-Null
 
 function Get-TaskProcess([string]$File, [string]$Expected) {
@@ -24,7 +27,7 @@ function Write-TaskLog([string]$Message) {
   Add-Content -LiteralPath $taskSupervisorLog -Value "$([DateTime]::UtcNow.ToString('o')) $Message"
 }
 if ($Action -eq 'status') {
-  $taskWorker = Get-TaskProcess $taskPidFile 'apps/worker/src/index.ts'
+  $taskWorker = Get-TaskProcess $taskPidFile $taskEntry
   $taskSupervisor = Get-TaskProcess $taskSupervisorFile 'local-worker.ps1'
   $taskSnapshot = $null
   if (Test-Path -LiteralPath $taskHealth) { try { $taskSnapshot = Get-Content -LiteralPath $taskHealth -Raw | ConvertFrom-Json } catch {} }
@@ -39,12 +42,12 @@ if ($Action -eq 'status') {
 }
 if ($Action -eq 'stop') {
   Set-Content -LiteralPath $taskStop -Value 'stop requested'
-  $taskWorker = Get-TaskProcess $taskPidFile 'apps/worker/src/index.ts'
+  $taskWorker = Get-TaskProcess $taskPidFile $taskEntry
   if ($taskWorker) {
     Wait-Process -Id $taskWorker.ProcessId -Timeout 40 -ErrorAction SilentlyContinue
     if (Get-Process -Id $taskWorker.ProcessId -ErrorAction SilentlyContinue) {
       # The supervisor may already have stopped it. Revalidate before any forced stop.
-      $taskWorker = Get-TaskProcess $taskPidFile 'apps/worker/src/index.ts'
+      $taskWorker = Get-TaskProcess $taskPidFile $taskEntry
       if ($taskWorker) { Stop-Process -Id $taskWorker.ProcessId }
     }
   }
@@ -66,16 +69,17 @@ if (!$taskConnection.Success -or ([Uri]$taskConnection.Groups[1].Value.Trim()).H
 }
 if ($Action -eq 'start') {
   if (Get-TaskProcess $taskSupervisorFile 'local-worker.ps1') { Write-Output 'Local supervisor is already running.'; exit 0 }
-  if (Get-TaskProcess $taskPidFile 'apps/worker/src/index.ts') { throw 'An unmanaged worker is already running. Stop it before starting the supervisor.' }
+  if (Get-TaskProcess $taskPidFile $taskEntry) { throw 'An unmanaged worker is already running. Stop it before starting the supervisor.' }
   if (Test-Path -LiteralPath $taskStop) { Remove-Item -LiteralPath $taskStop }
   $taskShell = (Get-Process -Id $PID).Path
-  $taskSupervisor = Start-Process -FilePath $taskShell -ArgumentList @('-NoLogo', '-NoProfile', '-File', "`"$PSCommandPath`"", 'supervise') -WorkingDirectory $taskRoot -WindowStyle Hidden -PassThru
+  $taskSupervisor = Start-Process -FilePath $taskShell -ArgumentList @('-NoLogo', '-NoProfile', '-File', "`"$PSCommandPath`"", 'supervise', '-Worker', $Worker) -WorkingDirectory $taskRoot -WindowStyle Hidden -PassThru
   Set-Content -LiteralPath $taskSupervisorFile -Value $taskSupervisor.Id
-  Write-Output "Local supervisor started (PID $($taskSupervisor.Id)); logs: .local/worker-supervisor.log"
+  Write-Output "Local $Worker supervisor started (PID $($taskSupervisor.Id)); logs: $taskSupervisorLog"
   exit 0
 }
 
 $taskMutexName = 'Local\ThesisMarketWorker-' + [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($taskRoot))).Substring(0, 16)
+if ($Worker -eq 'theses') { $taskMutexName += '-theses' }
 $taskMutex = [Threading.Mutex]::new($false, $taskMutexName)
 $taskOwnsMutex = $false
 try {
@@ -94,9 +98,9 @@ try {
       }
     }
     $taskStarted = [DateTimeOffset]::UtcNow
-    $taskChild = Start-Process -FilePath (Get-Command node).Source -ArgumentList @('--import', 'tsx', 'apps/worker/src/index.ts') -WorkingDirectory $taskRoot -WindowStyle Hidden -RedirectStandardOutput $taskOut -RedirectStandardError $taskErr -PassThru
+    $taskChild = Start-Process -FilePath (Get-Command node).Source -ArgumentList @('--import', 'tsx', $taskEntry) -WorkingDirectory $taskRoot -WindowStyle Hidden -RedirectStandardOutput $taskOut -RedirectStandardError $taskErr -PassThru
     Set-Content -LiteralPath $taskPidFile -Value $taskChild.Id
-    Write-TaskLog "worker started pid=$($taskChild.Id); paper BTC only; news scheduling disabled"
+    Write-TaskLog "worker started pid=$($taskChild.Id); job=$Worker; paper only; news scheduling disabled"
     while (!$taskChild.WaitForExit(2000)) {
       if (Test-Path -LiteralPath $taskStop) {
         if (!$taskChild.WaitForExit(35000)) { $taskChild.Kill(); Write-TaskLog 'worker forced to stop after graceful-stop deadline' }

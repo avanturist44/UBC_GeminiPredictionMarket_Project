@@ -12,6 +12,7 @@
     "build:web": "pnpm --filter @thesis/web build",
     "start": "pnpm start:worker",
     "start:worker": "pnpm --filter @thesis/worker start",
+    "start:theses": "pnpm --filter @thesis/worker start:theses",
     "db:generate": "pnpm --filter @thesis/db generate",
     "db:migrate": "pnpm --filter @thesis/db migrate",
     "verify:gemini": "tsx scripts/verify-gemini.ts",

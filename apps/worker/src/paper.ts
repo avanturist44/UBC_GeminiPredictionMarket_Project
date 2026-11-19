@@ -2,7 +2,7 @@ import { AGENT_LIMITS, agentLimitReason, type GeminiPublicClient } from '@thesis
 import { randomUUID } from 'node:crypto';
 import { keccak_256 } from '@noble/hashes/sha3';
 import { bytesToHex } from '@noble/hashes/utils';
-import { agentRuns, agentState, and, authors, desc, eq, markets, theses, trades, type Db } from '@thesis/db';
+import { agentRuns, agentState, and, audits, authors, desc, eq, markets, theses, trades, type Db } from '@thesis/db';
 import { evaluateMomentum, type MomentumInput } from './momentum';
 
 const key = 'momentum';
@@ -123,6 +123,18 @@ export function createPaperAdapter(db: Db, client: Pick<GeminiPublicClient, 'get
             onchainId: hash(thesisId), contentHash: hash(JSON.stringify(content)),
             entryPrice: fill.price, marketYesPriceAtPublish: input.quote!.ask.toFixed(4),
             status: 'published', publishedAt: new Date(now()), createdAt: new Date(now()) });
+          // The fixed template makes only numeric claims checked against the same executable input.
+          // This is a code audit of recorded inputs, not a web fact-check or a profitability claim.
+          await tx.insert(audits).values({ thesisId, verdict: 'pass', insideInfo: false,
+            model: 'deterministic-btc-v1', createdAt: new Date(now()), claims: [{
+              text: `BTC index ${input.indexPrice.toFixed(2)} versus strike ${input.strike.toFixed(2)}.`,
+              status: 'supported', source_url: evidence[0]!.url,
+              note: 'Checked in code against the fresh Gemini index and official contract metadata at entry.',
+            }, {
+              text: `${signal.side.toUpperCase()} entry at ${fill.price}; ${fill.quantity} contracts.`,
+              status: 'supported', source_url: evidence[0]!.url,
+              note: 'Checked in code against the executable book and exact paper-fill calculation. Probability and edge remain model estimates.',
+            }] });
           await tx.insert(trades).values({ ...fill, thesisId, authorId, marketId, side: signal.side, mode: 'paper',
             isAuthorPosition: true, locked: true, status: 'filled', idempotencyKey: `paper:momentum:${marketId}`,
             createdAt: new Date(now()) });

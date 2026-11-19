@@ -2,6 +2,8 @@
 
 The BTC worker uses production Gemini public data and simulated fills only. There is no signed order path. `BTC_BOT_MODE=paper` is the default; `log-only` retains the observer without execution. `TRADING_ENABLED=false` blocks entries while settlement continues. Environment changes require restarting the worker.
 
+**Current local acceptance: passed November 18, 2026.** At `2026-11-18T23:23:16.413Z`, the read-only progress checker reported four qualifying paper fills on four logged contracts, three correct official settlements, zero incorrect payouts and `livePaperCriteriaMet=true`. All 192 repository tests passed, including the daily-loss-stop regression. The supervised local worker was running with a connected stream and complete warmup. Hosted acceptance remains pending. See [the verification handoff](verification-2026-11-18.md) for evidence and reproduction commands; earlier sections below are dated historical checkpoints.
+
 ## Execution and accounting
 
 - The existing Gemini socket supplies the Lukka BTC index and YES book. The worker requires 30 consecutive completed one-minute returns (31 minute closes), plus a fresh current index; a restart or missing minute requires warming up again. No historical observations are invented.
@@ -24,7 +26,7 @@ The BTC worker uses production Gemini public data and simulated fills only. Ther
 
 The observed book's spread exceeded 6 cents, so it would correctly skip entry. These observations prove public connectivity, not live paper fills.
 
-**Live Phase 2 exit criteria are still pending.** The initial run had no `.env` or `DATABASE_URL` and failed environment validation. After receiving the team's configuration, a read-only connection check reached the hosted Thesis Market database: all eleven public application tables exist, with 57 markets, zero paper trades, and zero momentum runs at the time checked. The local `localhost:5432` connection returned `ECONNREFUSED`.
+**At this initial checkpoint, live Phase 2 exit criteria were pending.** The initial run had no `.env` or `DATABASE_URL` and failed environment validation. After receiving the team's configuration, a read-only connection check reached the hosted Thesis Market database: all eleven public application tables exist, with 57 markets, zero paper trades, and zero momentum runs at the time checked. The local `localhost:5432` connection returned `ECONNREFUSED`.
 
 The ignored root `.env` preserves `DATABASE_URL` for local development and keeps the hosted connection separately as `PROD_DATABASE_URL`. The worker reads only `DATABASE_URL`; it does not automatically switch to the hosted URL. No hosted migrations or application writes were performed during the connection check. The user selected isolated local Postgres for live-data verification. PostgreSQL 17.12 was installed under `.local/`, bound to `127.0.0.1:5432` with SCRAM password authentication, and the existing migrations were applied to local `thesis_market`. The worker was started against that local database to collect real Gemini input. Completed live warmup, three qualifying live paper entries, and settlement of a live paper position still need observation. Embedded database tests are not a substitute for those checks.
 

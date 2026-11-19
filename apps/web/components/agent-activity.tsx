@@ -20,7 +20,7 @@ export function AgentActivity({ initial }: { initial?: ActivityResponse }) {
   const { now } = useNow(initial?.asOf);
   const [filter, setFilter] = useState('all');
   const events = data?.events ?? [];
-  return <div className="space-y-7">
+  return <div className="space-y-7 [overflow-wrap:anywhere]">
     <div className="space-y-2">
       <p className="flex items-center gap-2 text-sm font-medium text-primary"><ActivityIcon size={16} /> INSIDE THE AGENTS</p>
       <h1 className="text-3xl font-semibold tracking-tight">Watch the decisions unfold.</h1>

@@ -10,6 +10,8 @@
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@thesis/services": "workspace:*",
+    "zod": "^4.6.7",
     "@thesis/core": "workspace:*",
     "@thesis/db": "workspace:*",
     "class-variance-authority": "^0.7.1",

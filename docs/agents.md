@@ -12,13 +12,13 @@ Momentum does not use Grok, Grokbot, or another LLM to decide trades. Its rules 
 
 | Agent or component | Type | Purpose | Current status |
 | --- | --- | --- | --- |
-| BTC `momentum` agent | Deterministic quantitative trading strategy | Estimate the probability of BTC finishing above a 15-minute strike and buy YES or NO when estimated edge clears the limits | Implemented; live paper-trading acceptance pending |
+| BTC `momentum` agent | Deterministic quantitative trading strategy | Estimate the probability of BTC finishing above a 15-minute strike and buy YES or NO when estimated edge clears the limits | Implemented; local live acceptance passed; seven qualifying trades/seven correct settlements at the Phase 3 checkpoint |
 | Paper executor | Execution component used by `momentum` | Simulate a fill at fresh executable quotes, enforce size and risk limits, and write the position and thesis atomically | Implemented and tested |
-| Settlement worker | Official-outcome accounting component | Read Gemini's result and settle paper positions and theses exactly once | Implemented and tested; settlement of a live paper position still pending |
+| Settlement worker | Official-outcome accounting component | Read Gemini's result and settle paper positions and theses exactly once | BTC and guest-author live paper settlement verified, including an independent official outcome and unchanged balance after guest settlement replay |
 | Price recorder and observer | Market-data and monitoring components | Discover markets, collect the index and books, build volatility history, and log skips and health | Running against local Postgres and live Gemini data |
 | `news` agent | Grok 4.7 web-search research with code-controlled policy | Validate evidence-backed forecasts and log hypothetical daily crypto/non-crypto entries | Live cited research verified; log-only, no execution or published theses |
 | `fade` agent | Planned price-move strategy assisted by an LLM and web search | Investigate a sharp price move and consider a reversal when no public explanation is found | Not implemented; deferred |
-| Thesis auditor | Planned evidence-verification agent | Check factual claims and flag unsupported claims or claims of non-public information before publication | Not implemented |
+| Thesis auditor | Grok evidence audit plus deterministic BTC template checks | Check factual claims and flag unsupported claims or claims of non-public information before publication | Human audit/publication verified live; future BTC entries have code checks; legacy BTC positions carry explicit audit warnings; not yet connected to news execution |
 
 The executor, settlement worker, and recorder support the trading agent. They are not separate trading strategies. Although the recorder tracks other markets, current trading is restricted to BTC 15-minute contracts. ETH trading is not enabled.
 
@@ -60,23 +60,23 @@ Despite its `momentum` name, the current formula estimates finish probability fr
 - **Gemini:** live index, order books, market metadata, strikes, and official contract outcomes.
 - **BTC worker and Postgres:** decision rules, simulated bankroll and fills, public thesis records, idempotency, limits, and settlement accounting.
 - **Circle wallet and Arc testnet USDC:** planned tipping and escrow payout flow. The funded Circle wallet is not connected to the current worker, and its USDC balance is separate from the paper bankroll.
-- **LLM provider:** xAI Grok 4.7 is connected for news research. The BTC numeric thesis remains a template. AI auditing and on-chain registration are still pending.
+- **LLM provider:** xAI Grok 4.7 is connected for news research and guest-thesis auditing. BTC numeric theses remain templates with code checks on future entries. On-chain registration is pending. See [the Phase 3 handoff](phase-3-theses-auditor-feeds.md).
 
 ## What has actually been verified
 
-- 185 repository tests and the full typecheck passed during the latest code verification, including local heartbeat/shutdown, news-policy, observer, and Grok adapter tests. A live Grok 4.7 forecast with six cited URLs passed provenance checks and was saved locally; entry was skipped for a missing/stale book. The local BTC worker is now supervised with tested crash and stall recovery.
+- 192 repository tests, package typechecks and the production web build passed at the November 18 checkpoint, including local heartbeat/shutdown, news-policy, observer, Grok adapter and public activity tests. The `/agents` page passed ten headless Chrome check groups across desktop/mobile layouts and recovery states. A live Grok 4.7 forecast with six cited URLs previously passed provenance checks and was saved locally; entry was skipped for a missing/stale book. The local BTC worker is supervised with tested crash and stall recovery.
 - Tests cover YES/NO pricing and payouts, daily loss halting, retries, rollback, warmup, stale inputs, exposure and UTC boundaries, and missing-market logging.
 - Two independent real local Postgres connections produced one fill under concurrent entry attempts and one payout under concurrent settlement attempts. These used an isolated fixture database and do not count as live trading acceptance.
 - Local Postgres is configured, and the background worker has stored live Gemini price points and agent decision logs.
 - The November 18 connectivity check succeeded for Gemini REST, a recent official outcome, BTC index, and book messages. The sampled book was one-sided, which does not satisfy the trading strategy's entry requirements.
-- At the latest progress check, there were **zero paper fills and zero settled paper positions**. The recent worker logs show reconnection and incomplete volatility warmup. Three qualifying live paper trades and a correctly settled live position are still pending.
+- At `2026-11-18T23:23:16.413Z`, the local worker had **four qualifying paper trades and three correct official settlements**, with zero incorrect payouts. The stream was connected and warmup complete. The read-only checker returned `livePaperCriteriaMet=true`; the daily-loss-stop regression also passed. See [the verification handoff](verification-2026-11-18.md). Hosted deployment/acceptance remains pending.
 
 ## Next steps
 
-1. Observe a complete, uninterrupted volatility warmup and fresh executable BTC input.
-2. Let the unchanged strategy and limits produce three qualifying paper trades with linked theses and decision logs.
-3. Verify a position settles from Gemini's official YES/NO result, then verify a repeated settlement does not change payout or PnL twice.
-4. Continue Grok-powered news research in log-only mode. Add auditing and shared limits before enabling news paper execution. Circle/Arc tipping, payouts, and copy trade remain later integrations; fade remains deferred.
+1. Build Phase 4 escrow, Circle/Arc wallets, registration and copy trading. Deploy the web, BTC worker and separate thesis worker to always-on hosting with the intended database, then verify health and paper progress there. Local acceptance does not establish hosted acceptance.
+2. Keep the local worker uninterrupted while collecting further operational evidence. The initial settlement's independent outcome and idempotent replay are documented in the worker runbook.
+3. Resolve the development preview's HMR/client-interactivity issue if development-mode browser work resumes; the production page passed interactive verification.
+4. Continue Grok-powered news research in log-only mode. Connect the shared auditor/publication and financial-limit components before enabling news paper execution. Circle/Arc tipping, payouts, and copy trade remain later integrations; fade remains deferred.
 
 See [the BTC worker runbook](btc-paper-worker.md) for configuration, commands, and operational details. Check current database progress with:
 

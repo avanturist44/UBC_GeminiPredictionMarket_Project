@@ -67,7 +67,7 @@ The adapter requires a completed web-search call and a complete, schema-valid fi
 
 The key is kept only in the ignored local environment file. No key belongs in source, tests, prompts, logs, or Git. The integration follows xAI's official [web-search](https://docs.x.ai/developers/tools/web-search), [structured-output](https://docs.x.ai/developers/model-capabilities/text/structured-outputs), [citation](https://docs.x.ai/developers/tools/citations), and [reasoning](https://docs.x.ai/developers/model-capabilities/text/reasoning) documentation, checked November 18, 2026.
 
-Before enabling news paper execution, add and verify the thesis audit, shared financial limits, idempotent execution, and official settlement for news positions. Research confidence and citations do not replace those controls. Circle escrow and payouts remain separate work.
+Before enabling news paper execution, connect and verify the shared thesis auditor/publication components with news-specific financial limits, idempotent execution and official settlement. [Phase 3](phase-3-theses-auditor-feeds.md) implements that foundation for guest theses; it does not enable news trading. Research confidence and citations do not replace those controls. Circle escrow and payouts remain separate work.
 
 ## Verification and remaining work
 

@@ -17,7 +17,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 /**
- * The eleven tables from the build plan's data model. UUID primary keys, timestamptz
+ * The build plan's data model plus durable publication workflow tables. UUID primary keys, timestamptz
  * for times, numeric for prices and money (never floats). The chain holds only tips,
  * thesis hashes and market outcomes; everything else lives here.
  *
@@ -211,6 +211,7 @@ export const theses = pgTable(
       .on(t.authorId, t.marketId)
       .where(sql`${t.status} in ('published', 'resolved')`),
     index('theses_market_idx').on(t.marketId),
+    index('theses_author_created_idx').on(t.authorId, t.createdAt),
     index('theses_status_published_idx').on(t.status, t.publishedAt),
     check('theses_headline_length', sql`char_length(${t.headline}) <= 90`),
     check('theses_body_length', sql`char_length(${t.body}) <= 1200`),
@@ -326,3 +327,30 @@ export const agentState = pgTable(
   },
   (t) => [primaryKey({ columns: [t.agentKey, t.day] })],
 ).enableRLS();
+
+/** One immutable publication attempt per thesis. A crashed audit is never silently billed again. */
+export const thesisJobs = pgTable('thesis_jobs', {
+  thesisId: uuid().primaryKey().references(() => theses.id, { onDelete: 'cascade' }),
+  stakeUsd: usd().notNull(),
+  status: text().$type<'queued' | 'running' | 'completed' | 'failed'>().notNull().default('queued'),
+  startedAt: ts(),
+  finishedAt: ts(),
+  /** Public, fixed error codes only. No upstream exception text. */
+  errorCode: text(),
+  createdAt: createdAt(),
+}, t => [index('thesis_jobs_status_created_idx').on(t.status, t.createdAt),
+  index('thesis_jobs_started_idx').on(t.startedAt),
+  check('thesis_jobs_stake_range', sql`${t.stakeUsd} >= 1 and ${t.stakeUsd} <= 10`),
+]).enableRLS();
+
+/** Durable per-session write rate; locked with the user row. */
+export const sessionWindows = pgTable('session_windows', {
+  userId: uuid().primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  windowAt: ts().notNull(),
+  writes: integer().notNull().default(0),
+}).enableRLS();
+
+/** Singleton lock serializes audit reservations across workers before metered requests. */
+export const auditControl = pgTable('audit_control', {
+  id: integer().primaryKey(),
+}, t => [check('audit_control_singleton', sql`${t.id} = 1`)]).enableRLS();

@@ -8,7 +8,7 @@ if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 
 const config: NextConfig = {
   // Workspace packages ship TypeScript source.
-  transpilePackages: ['@thesis/core', '@thesis/db'],
+  transpilePackages: ['@thesis/core', '@thesis/db', '@thesis/services'],
   // Their source imports workspace files without extensions.
   outputFileTracingRoot: fileURLToPath(new URL('../../', import.meta.url)),
 };

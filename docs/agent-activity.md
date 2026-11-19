@@ -45,12 +45,12 @@ These are concise decision summaries and observable workflow stages, not private
 - The local endpoint returned actual local Postgres worker records: 27 records at the verification checkpoint, including BTC skips and retained milestones.
 - Seven new tests cover private-field exclusion, blocked paper candidates, hypothetical versus executed decisions, official settlement summaries, warmup inputs, citation provenance, malformed records and news progress.
 
-Visual browser verification remains incomplete. The in-app browser reached a different localhost service; native browser automation then stopped because it could not confidently determine the Windows browser URL. Responsive styling is implemented, but desktop and mobile layouts still need visual review. The feature has not been deployed to the hosted website.
+Headless Chrome production verification subsequently passed at 1440px, 768px, 390px and 320px, including filters, expandable inputs, polling, stale research, retained data after a failed refresh, Retry and the empty state. A long-text fixture exposed narrow-screen overflow; the activity view now inherits `overflow-wrap: anywhere`. Ten browser check groups passed without uncaught browser/hydration errors. See [the November 18 verification handoff](verification-2026-11-18.md) for screenshots, the repeatable script and the unresolved development-preview limitation. The feature has not been deployed to the hosted website.
 
 ## Running locally
 
-Use the existing web development command with the server's `DATABASE_URL` set to the intended database. The web app does not automatically load the repository-root worker `.env`; configure the web process environment without committing credentials. Then visit `/agents`. With no connection, the page displays a connection error and retries. With no recorded runs, it displays an empty state.
+Use the existing web development command with the server's `DATABASE_URL` set to the intended database. The current `next.config.ts` loads the ignored repository-root `.env`; deployed environment variables come from the host. Then visit `/agents`. With no connection, the page displays a connection error and retries. With no recorded runs, it displays an empty state. For repeatable browser acceptance, use the separate production preview described in the handoff.
 
 News scheduling remains disabled in the local supervised worker. A historical news record does not imply that research is currently running. News paper execution, an independent factual audit and Circle escrow integration remain separate work.
 
-The accompanying `docs/btc-paper-worker.md` update records the first live BTC paper entry and its official settlement as a historical checkpoint; it does not claim completion of the three-trade exit criterion.
+The first live BTC paper entry and settlement remain documented as a historical checkpoint. The later November 18 checkpoint confirms four qualifying paper trades and three correct official settlements, satisfying local live paper acceptance.
