@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Thesis Market",
+  "version": "0.2.0",
+  "description": "Prediction market theses directly on X",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:3000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*"
+      ],
+      "js": [
+        "constants.js",
+        "match.js",
+        "card.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

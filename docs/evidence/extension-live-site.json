@@ -1,0 +1,22 @@
+{
+  "checkedAt": "2026-11-19T21:38:46.331Z",
+  "headless": true,
+  "authenticated": false,
+  "ignoreHTTPSErrorsForPublicReadOnlyCheck": true,
+  "results": [
+    {
+      "url": "https://x.com/BitcoinMagazine/status/1972946715830587827",
+      "error": "page.goto: net::ERR_HTTP_RESPONSE_CODE_FAILURE at https://x.com/BitcoinMagazine/status/1972946715830587827",
+      "postArticles": 0,
+      "postTextNodes": 0,
+      "cards": 0
+    },
+    {
+      "url": "https://x.com/federalreserve/status/1963255999097127245",
+      "error": "page.goto: net::ERR_HTTP_RESPONSE_CODE_FAILURE at https://x.com/federalreserve/status/1963255999097127245",
+      "postArticles": 0,
+      "postTextNodes": 0,
+      "cards": 0
+    }
+  ]
+}

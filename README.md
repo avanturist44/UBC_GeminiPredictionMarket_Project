@@ -27,7 +27,7 @@ contracts/         Testnet TipEscrow, Foundry tests and public deployment parame
 docs/              gemini-findings.md: what the live APIs actually do
 ```
 
-`apps/extension/` remains deferred.
+`apps/extension/` contains the redesigned read-only prototype from Ashley's branch. Its actual unpacked extension passed headless post-fixture tests; signed-in X validation and live API wiring remain pending. See [the extension design handoff](docs/extension-design-and-post-testing.md). Agent trading is Nikita's separate workstream.
 
 ## Setup
 

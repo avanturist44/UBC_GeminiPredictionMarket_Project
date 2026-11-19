@@ -1,0 +1,31 @@
+{
+  "checkedAt": "2026-11-19T21:35:21.454Z",
+  "passed": true,
+  "checks": [
+    "actual MV3 service worker, content script and shadow-root card loaded",
+    "Bitcoin, Fed, Ethereum and politics posts; long text; light/dark/dim at 600, 390 and 320px",
+    "irrelevant posts and substring false positives produce no card",
+    "quoted-post text does not incorrectly match the outer post",
+    "recycled post replaces its old market card",
+    "late-arriving post text is processed",
+    "concurrent loads never exceed five mounted cards",
+    "close hides the market across posts and page reloads for the browser session",
+    "API receives only read-only market requests and symbols, never post text",
+    "API outage labels cached card and odds as saved, with safe website links",
+    "missing odds are not 0%, NO renders correctly, untrusted HTML stays inert",
+    "theme updates on the existing card and summary is keyboard accessible"
+  ],
+  "liveSiteAttempts": [
+    {
+      "url": "https://x.com/BitcoinMagazine/status/1972946715830587827",
+      "result": "live page unavailable in isolated headless browser"
+    },
+    {
+      "url": "https://x.com/federalreserve/status/1963255999097127245",
+      "result": "live page unavailable in isolated headless browser"
+    }
+  ],
+  "browserErrors": [],
+  "fixtureMarketData": true,
+  "liveBackendVerified": false
+}
