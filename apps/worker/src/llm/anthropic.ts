@@ -54,8 +54,11 @@ export function createAnthropicProvider(options: AnthropicProviderOptions): LlmP
       // The fallbacks parameter is in beta and not every model or account takes it. A
       // rejected request is sent once more without it, and later calls leave it out.
       if (useFallbacks && error instanceof Anthropic.BadRequestError) {
+        // Left out for later calls only if leaving it out is what made the request work.
+        // A 400 for another reason, such as an account with no credit, fails again here.
+        const response = await client.beta.messages.create(body(false), requestOptions);
         useFallbacks = false;
-        return client.beta.messages.create(body(false), requestOptions);
+        return response;
       }
       throw error;
     }
@@ -104,8 +107,18 @@ export function createAnthropicProvider(options: AnthropicProviderOptions): LlmP
         if (error instanceof Anthropic.RateLimitError) {
           throw new LlmError('provider', 'The language model is rate limited. Try again shortly.');
         }
-        if (error instanceof Anthropic.AuthenticationError) {
-          throw new LlmError('provider', 'The language model rejected the API key.');
+        // No credit, a rejected key, or a request the API will not accept: none of these
+        // gets better by retrying, and the provider's own words say which it is.
+        if (
+          error instanceof Anthropic.AuthenticationError ||
+          error instanceof Anthropic.PermissionDeniedError ||
+          error instanceof Anthropic.BadRequestError
+        ) {
+          const detail = (error.error as { error?: { message?: unknown } } | undefined)?.error?.message;
+          throw new LlmError(
+            'unavailable',
+            `The language model will not serve this request (${error.status}): ${typeof detail === 'string' ? detail.slice(0, 200) : 'no reason given'}`,
+          );
         }
         if (error instanceof Anthropic.APIError) {
           throw new LlmError('provider', `The language model returned an error (${error.status ?? 'no status'}).`);

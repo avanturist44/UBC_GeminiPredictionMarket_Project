@@ -297,6 +297,18 @@ describe('a person’s thesis', () => {
     expect((await tradeOf(id)).rejectReason).toContain('daily limit');
   });
 
+  it('sends the thesis back at once when the model cannot be reached at all, and says why in the log', async () => {
+    const { user, author } = await person();
+    const id = await submit(author, user.id);
+    const { LlmError } = await import('@thesis/core');
+    const run = pipeline(scripted([new LlmError('unavailable', 'Your credit balance is too low.')]).llm);
+    expect(await run.runCycle()).toMatchObject({ returned: 1, waiting: 0, published: 0 });
+    expect(await thesisOf(id)).toMatchObject({ status: 'draft' });
+    expect((await tradeOf(id)).rejectReason).toContain('auditor is unavailable');
+    expect((await getUserById(db, user.id))!.paperBalanceUsd).toBe('1000.0000');
+    expect(logs.join('\n')).toContain('credit balance is too low');
+  });
+
   it('does not let one thesis that cannot be published hold up the ones behind it', async () => {
     const stuck = await person('Stuck');
     const fine = await person('Fine');

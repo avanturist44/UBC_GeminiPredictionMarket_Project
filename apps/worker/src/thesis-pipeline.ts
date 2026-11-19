@@ -416,6 +416,18 @@ export function createThesisPipeline(deps: PipelineDeps): ThesisPipeline {
         summary.returned += 1;
         return;
       }
+      if (error instanceof LlmError && error.code === 'unavailable') {
+        // The model cannot be reached at all (no credit, a bad key). Retrying for minutes
+        // would only keep the author waiting, and publishing unaudited is not an option.
+        await giveUp(
+          row,
+          'The auditor is unavailable right now. Nothing was charged; submit again later.',
+          `The language model is unavailable: ${message}`,
+        );
+        logger.error(`pipeline: the auditor is unavailable: ${message}`);
+        summary.returned += 1;
+        return;
+      }
       if (await failed(row, 'audit', message)) summary.returned += 1;
       else summary.waiting += 1;
       return;

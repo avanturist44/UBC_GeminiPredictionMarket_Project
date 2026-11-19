@@ -34,7 +34,11 @@ export interface LlmProvider {
   complete(request: LlmRequest): Promise<LlmCompletion>;
 }
 
-export type LlmErrorCode = 'timeout' | 'invalid_output' | 'refused' | 'budget' | 'provider';
+/**
+ * `unavailable` means the provider will not serve this account at all right now (no credit,
+ * a rejected key): trying again in a minute will not help, so callers give up at once.
+ */
+export type LlmErrorCode = 'timeout' | 'invalid_output' | 'refused' | 'budget' | 'unavailable' | 'provider';
 
 export class LlmError extends Error {
   constructor(
