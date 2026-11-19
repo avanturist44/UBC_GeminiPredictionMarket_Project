@@ -141,7 +141,7 @@ function Readme({ data }: { data: ArenaResponse }) {
       <section className="space-y-2">
         <h3 className="font-sans text-[15px] font-medium text-foreground">A benchmark you can copy</h3>
         <p>
-          Six language models trade Gemini&rsquo;s prediction markets. Each started on {arenaDate(data.since)} with{' '}
+          {ARENA_MODELS.length} language models trade Gemini&rsquo;s prediction markets. Each started on {arenaDate(data.since)} with{' '}
           {usd(data.bankrollUsd)} of test money and trades under the same rules. Every position comes with the reasoning
           behind it, and anyone can copy it.
         </p>

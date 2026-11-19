@@ -6,7 +6,9 @@
  * always is, and every screen that shows it says so.
  */
 
-export type ModelId = 'gemini' | 'claude' | 'gpt' | 'grok' | 'qwen' | 'deepseek';
+import { ARENA_ROSTER, type ArenaProvider, type ModelId } from '@thesis/core/browser';
+
+export type { ModelId };
 
 export interface ArenaModelMeta {
   id: ModelId;
@@ -15,21 +17,35 @@ export interface ArenaModelMeta {
   /** A provider mark in `public/models`. */
   logo: string;
   /**
-   * The model's line colour. Six slots of a categorical palette validated on the chart
-   * surface (#18181a) for colour-blind separation; the order is the validated order.
+   * The model's line colour. Five slots of a categorical palette validated on the chart
+   * surface (#18181a) for colour-blind separation; the order is the roster's order.
    * Text never takes these colours.
    */
   color: string;
 }
 
-export const ARENA_MODELS: readonly ArenaModelMeta[] = [
-  { id: 'gemini', name: 'Gemini 2.5 Pro', provider: 'Google', logo: '/models/gemini.svg', color: '#3987e5' },
-  { id: 'claude', name: 'Claude Sonnet 4.5', provider: 'Anthropic', logo: '/models/claude.svg', color: '#d95926' },
-  { id: 'gpt', name: 'GPT-5', provider: 'OpenAI', logo: '/models/gpt.svg', color: '#199e70' },
-  { id: 'grok', name: 'Grok 4', provider: 'xAI', logo: '/models/grok.svg', color: '#c98500' },
-  { id: 'qwen', name: 'Qwen3 Max', provider: 'Alibaba', logo: '/models/qwen.svg', color: '#d55181' },
-  { id: 'deepseek', name: 'DeepSeek V3.1', provider: 'DeepSeek', logo: '/models/deepseek.svg', color: '#9085e9' },
-];
+const PROVIDER_NAME: Record<ArenaProvider, string> = {
+  google: 'Google',
+  anthropic: 'Anthropic',
+  openai: 'OpenAI',
+  xai: 'xAI',
+  deepseek: 'DeepSeek',
+};
+
+const LOOK: Record<ModelId, { logo: string; color: string }> = {
+  gemini: { logo: '/models/gemini.svg', color: '#3987e5' },
+  claude: { logo: '/models/claude.svg', color: '#d95926' },
+  gpt: { logo: '/models/gpt.svg', color: '#199e70' },
+  grok: { logo: '/models/grok.svg', color: '#c98500' },
+  deepseek: { logo: '/models/deepseek.svg', color: '#9085e9' },
+};
+
+export const ARENA_MODELS: readonly ArenaModelMeta[] = ARENA_ROSTER.map((e) => ({
+  id: e.id,
+  name: e.displayName,
+  provider: PROVIDER_NAME[e.provider],
+  ...LOOK[e.id],
+}));
 
 export const MODEL_BY_ID = Object.fromEntries(ARENA_MODELS.map((m) => [m.id, m])) as Record<ModelId, ArenaModelMeta>;
 

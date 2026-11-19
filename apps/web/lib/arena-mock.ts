@@ -42,7 +42,6 @@ const BEHAVIOUR: Record<ModelId, Behaviour> = {
   claude: { drift: 0.013, vol: 0.03, beta: 0.4, every: 4.1 },
   gpt: { drift: -0.027, vol: 0.05, beta: 1.5, every: 2.6 },
   grok: { drift: 0.006, vol: 0.045, beta: 1.2, every: 3.0 },
-  qwen: { drift: 0.002, vol: 0.035, beta: -0.5, every: 3.7 },
   deepseek: { drift: 0.021, vol: 0.04, beta: 0.8, every: 3.2 },
 };
 
