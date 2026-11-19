@@ -4,7 +4,7 @@ import { COMMENT_MAX } from '@thesis/core/browser';
 import { useState, type FormEvent } from 'react';
 import { mutate } from 'swr';
 import { LoadError } from '@/components/load-error';
-import { Avatar } from '@/components/post';
+import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/ui/button';
 import { ago } from '@/lib/spark';
 import type { CommentView, CommentsResponse } from '@/lib/thesis-view';

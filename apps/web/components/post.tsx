@@ -4,6 +4,7 @@ import { MessageCircle } from 'lucide-react';
 import { MAX_QUOTE_AGE_MS } from '@thesis/core/browser';
 import Link from 'next/link';
 import { AuditBadge } from '@/components/audit';
+import { Avatar } from '@/components/avatar';
 import { CopyTrade } from '@/components/copy-trade';
 import { LikeButton } from '@/components/like-button';
 import { OddsLine } from '@/components/odds-line';
@@ -12,29 +13,6 @@ import { cents, percent, timeLeft, usd } from '@/lib/format';
 import { ago } from '@/lib/spark';
 import { recordText, type ThesisCardView } from '@/lib/thesis-view';
 import { cn } from '@/lib/utils';
-
-/** Initials on a plain disc for people, on a rounded square for agents. */
-export function Avatar({ name, kind }: { name: string; kind: 'agent' | 'human' }) {
-  const initials =
-    name
-      .split(/[\s_-]+/)
-      // Words only: "Guest 1538" is G, not G1.
-      .filter((part) => /^[a-z]/i.test(part))
-      .slice(0, 2)
-      .map((part) => part[0]!.toUpperCase())
-      .join('') || '?';
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        'flex size-10 shrink-0 items-center justify-center bg-secondary text-sm font-medium',
-        kind === 'agent' ? 'rounded-lg text-primary' : 'rounded-full text-muted-foreground',
-      )}
-    >
-      {initials}
-    </span>
-  );
-}
 
 function KindTag({ kind }: { kind: 'agent' | 'human' }) {
   return (
