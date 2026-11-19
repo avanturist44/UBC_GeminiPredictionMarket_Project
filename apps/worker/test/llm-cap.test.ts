@@ -20,7 +20,7 @@ beforeEach(async () => {
 afterEach(() => close());
 
 const call = (purpose: string, inputTokens: number) =>
-  recordLlmCall(db, { purpose, model: 'm', inputTokens, outputTokens: 0 });
+  recordLlmCall(db, { purpose, model: 'm', inputTokens, outputTokens: 0, costUsd: '0' });
 
 describe('withSpendCap scopes', () => {
   it("arena calls never count against the auditor's cap", async () => {

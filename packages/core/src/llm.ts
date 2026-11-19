@@ -22,6 +22,12 @@ export interface LlmCompletion {
    * Google's terms require it to be shown with the answer.
    */
   searchSuggestionsHtml?: string;
+  /**
+   * Web searches the call ran, as the provider reported them, for pricing the call. When a
+   * provider does not say, the adapter counts the most it allows; when this is absent, the
+   * spend cap assumes the most too (WORST_CALL in llm-prices.ts).
+   */
+  searches?: number;
 }
 
 export interface LlmRequest {
@@ -64,8 +70,11 @@ export interface GenerateJsonArgs<T> {
   user: string;
   schema: z.ZodType<T>;
   useSearch?: boolean;
-  /** Called once with the completion whose reply validated, before the value is returned. */
-  onCompletion?: (completion: LlmCompletion) => void;
+  /**
+   * Called once with the completion whose reply validated, and awaited before the value is
+   * returned. Whatever it throws or rejects with is caught: the answer is still returned.
+   */
+  onCompletion?: (completion: LlmCompletion) => void | Promise<void>;
 }
 
 export interface Llm {
@@ -170,7 +179,7 @@ export function createLlm(options: CreateLlmOptions): Llm {
           const parsed = args.schema.safeParse(extractJson(completion.text));
           if (parsed.success) {
             try {
-              args.onCompletion?.(completion);
+              await args.onCompletion?.(completion);
             } catch {
               // What the caller does with the completion must not lose an answer already paid for.
             }

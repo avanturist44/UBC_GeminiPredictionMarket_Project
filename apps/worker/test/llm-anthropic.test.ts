@@ -1,7 +1,7 @@
 import { LlmError } from '@thesis/core';
 import { describe, expect, it } from 'vitest';
 import { createAnthropicProvider } from '../src/llm/anthropic';
-import { failure, fakeFetch, json, request } from './fake-fetch';
+import { failure, fakeFetch, json, queued, request } from './fake-fetch';
 
 const KEY = 'sk-test-0123456789abcdef';
 const DEEPSEEK_SEARCH = { type: 'deepseek_web_search', name: 'deepseek_web_search' };
@@ -42,7 +42,13 @@ describe('createAnthropicProvider', () => {
     // Server-side fallbacks are Anthropic's own beta: another endpoint is not sent it.
     expect(calls[0]!.body).not.toHaveProperty('fallbacks');
     expect(calls[0]!.headers.get('anthropic-beta')).toBeNull();
-    expect(completion).toEqual({ text: '{"ok":true}', model: 'deepseek-flash', usage: { inputTokens: 540, outputTokens: 60 } });
+    // DeepSeek does not say how many searches it ran, so the most one call may run is counted.
+    expect(completion).toEqual({
+      text: '{"ok":true}',
+      model: 'deepseek-flash',
+      usage: { inputTokens: 540, outputTokens: 60 },
+      searches: 5,
+    });
   });
 
   it("uses Anthropic's web search and fallbacks when no endpoint is given", async () => {
@@ -53,6 +59,33 @@ describe('createAnthropicProvider', () => {
     expect(calls[0]!.url).toMatch(/^https:\/\/api\.anthropic\.com\/v1\/messages/);
     expect(calls[0]!.body.tools).toEqual([{ type: 'web_search_20260209', name: 'web_search', max_uses: 5 }]);
     expect(calls[0]!.body.fallbacks).toBe('default');
+    expect(calls[0]!.body.max_tokens).toBe(16_000);
+  });
+
+  it('reports the searches each turn ran, from usage.server_tool_use', async () => {
+    const searched = (count: number, stop: string) =>
+      message({
+        model: 'claude-sonnet-5-5',
+        stop_reason: stop,
+        usage: { input_tokens: 100, output_tokens: 10, server_tool_use: { web_search_requests: count, web_fetch_requests: 0 } },
+      });
+    // A long search pauses once and is resumed: both turns' searches count.
+    const { fetch } = queued([json(200, searched(2, 'pause_turn')), json(200, searched(1, 'end_turn')), json(200, message())]);
+    const claude = createAnthropicProvider({ model: 'claude-sonnet-5-5', apiKey: KEY, fetch });
+
+    expect((await claude.complete(request({ useSearch: true }))).searches).toBe(3);
+    // A call that was not given search ran none.
+    expect((await claude.complete(request({ useSearch: false }))).searches).toBe(0);
+  });
+
+  it('refuses another endpoint without its own key, so Anthropic credentials from the environment never reach it', () => {
+    const create = () =>
+      createAnthropicProvider({ model: 'deepseek-flash', baseUrl: 'https://api.deepseek.com/anthropic', searchTool: DEEPSEEK_SEARCH });
+    expect(create).toThrow(/apiKey/);
+    expect(create).not.toThrow(LlmError);
+    expect(() =>
+      createAnthropicProvider({ model: 'deepseek-flash', apiKey: '', baseUrl: 'https://api.deepseek.com/anthropic' }),
+    ).toThrow(/apiKey/);
   });
 
   it("maps DeepSeek's insufficient balance (402) to unavailable, without the key", async () => {

@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { LlmError, type LlmCompletion, type LlmProvider, type LlmRequest } from '@thesis/core';
+import { LlmError, WORST_CALL, type LlmCompletion, type LlmProvider, type LlmRequest } from '@thesis/core';
 import { redact } from './http';
 
 /**
@@ -14,15 +14,23 @@ import { redact } from './http';
  *   if the account or model does not accept that parameter, calls go on without it.
  * - Another endpoint that speaks the Anthropic API (DeepSeek's) is used through `baseUrl`,
  *   with its own hosted search tool in `searchTool`. Fallbacks are Anthropic's own and are
- *   not requested there.
+ *   not requested there. Such an endpoint must be given its own key.
+ * - Every reply is capped at WORST_CALL.outputTokens, so no call costs more than the daily
+ *   dollar cap assumes.
  */
 
 export interface AnthropicProviderOptions {
   model: string;
-  /** Omit to use the SDK's own credential lookup (ANTHROPIC_API_KEY and friends). */
+  /**
+   * Omit to use the SDK's own credential lookup (ANTHROPIC_API_KEY and friends). Required with
+   * `baseUrl`, so Anthropic credentials from the environment are never sent to another endpoint.
+   */
   apiKey?: string;
   effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
-  /** Most web searches one call may run. Applies to Anthropic's own search tool only. */
+  /**
+   * Most web searches one request may run (default WORST_CALL.searches). Applies to Anthropic's
+   * own search tool only, and is what a request that does not report its searches is counted as.
+   */
   maxSearches?: number;
   /** An Anthropic-compatible endpoint, such as https://api.deepseek.com/anthropic. Anthropic's when omitted. */
   baseUrl?: string;
@@ -38,16 +46,22 @@ const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 const MAX_CONTINUATIONS = 3;
 
 export function createAnthropicProvider(options: AnthropicProviderOptions): LlmProvider {
+  if (options.baseUrl && !options.apiKey) {
+    // Without a key passed in, the SDK reads ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN and
+    // would send it to that endpoint.
+    throw new Error('createAnthropicProvider: an endpoint given in baseUrl needs its own apiKey.');
+  }
   const client = new Anthropic({
     ...(options.apiKey ? { apiKey: options.apiKey } : {}),
     ...(options.baseUrl ? { baseURL: options.baseUrl } : {}),
     ...(options.fetch ? { fetch: options.fetch } : {}),
   });
   const effort = options.effort ?? 'medium';
+  const maxSearches = options.maxSearches ?? WORST_CALL.searches;
   // Another endpoint's search tool is not in the SDK's types, so it is sent as given.
   const searchTool: Anthropic.Beta.BetaToolUnion = options.searchTool
     ? (options.searchTool as unknown as Anthropic.Beta.BetaToolUnion)
-    : { type: 'web_search_20260209', name: 'web_search', max_uses: options.maxSearches ?? 5 };
+    : { type: 'web_search_20260209', name: 'web_search', max_uses: maxSearches };
   let useFallbacks = !options.baseUrl;
 
   async function request(
@@ -56,7 +70,7 @@ export function createAnthropicProvider(options: AnthropicProviderOptions): LlmP
   ): Promise<Anthropic.Beta.BetaMessage> {
     const body = (withFallbacks: boolean): Anthropic.Beta.MessageCreateParamsNonStreaming => ({
       model: options.model,
-      max_tokens: 16_000,
+      max_tokens: WORST_CALL.outputTokens,
       system: input.system,
       messages,
       output_config: { effort },
@@ -88,6 +102,7 @@ export function createAnthropicProvider(options: AnthropicProviderOptions): LlmP
       let messages: Anthropic.Beta.BetaMessageParam[] = [user];
       let inputTokens = 0;
       let outputTokens = 0;
+      let searches = 0;
 
       try {
         for (let turn = 0; ; turn += 1) {
@@ -96,6 +111,8 @@ export function createAnthropicProvider(options: AnthropicProviderOptions): LlmP
           inputTokens +=
             usage.input_tokens + (usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0);
           outputTokens += usage.output_tokens;
+          // An endpoint that does not report its searches (DeepSeek's) is counted at the most.
+          if (input.useSearch) searches += usage.server_tool_use?.web_search_requests ?? maxSearches;
 
           if (response.stop_reason === 'pause_turn' && turn < MAX_CONTINUATIONS) {
             // The server paused a long search. Sending its own reply back resumes it.
@@ -113,7 +130,7 @@ export function createAnthropicProvider(options: AnthropicProviderOptions): LlmP
             .filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === 'text')
             .map((block) => block.text)
             .join('');
-          return { text, model: response.model, usage: { inputTokens, outputTokens } };
+          return { text, model: response.model, usage: { inputTokens, outputTokens }, searches };
         }
       } catch (error) {
         if (error instanceof LlmError) throw error;

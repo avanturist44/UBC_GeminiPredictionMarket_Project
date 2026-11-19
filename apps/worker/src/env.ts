@@ -17,6 +17,8 @@ const EnvSchema = z.object({
   LLM_API_KEY: blank(z.string().optional()),
   LLM_EFFORT: blank(z.enum(['low', 'medium', 'high', 'xhigh', 'max']).default('medium')),
   LLM_DAILY_TOKEN_CAP: blank(z.coerce.number().int().positive().default(2_000_000)),
+  /** US dollars of model spend allowed per UTC day, across every model call the worker makes. */
+  LLM_DAILY_USD_CAP: blank(z.coerce.number().positive().default(25)),
   // The agents search the web on every look, which is where most of the spend goes, so
   // they run on a cheaper model than the auditor and only as often as set here.
   LLM_AGENT_MODEL: blank(z.string().default('claude-sonnet-5-5')),

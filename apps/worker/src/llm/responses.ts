@@ -1,4 +1,4 @@
-import { LlmError, type LlmCompletion, type LlmProvider, type LlmRequest, type LlmUsage } from '@thesis/core';
+import { LlmError, WORST_CALL, type LlmCompletion, type LlmProvider, type LlmRequest, type LlmUsage } from '@thesis/core';
 import { httpError, postJson } from './http';
 
 /**
@@ -11,6 +11,8 @@ import { httpError, postJson } from './http';
  *   the shape; the wrapper in packages/core still validates it.
  * - A refusal is reported as an error, never read as an answer. Errors never carry the key or
  *   the request.
+ * - Every reply is capped at WORST_CALL.outputTokens (`max_output_tokens`). OpenAI counts
+ *   reasoning inside that cap; xAI documents it as applying to visible output only.
  */
 
 export interface ResponsesProviderOptions {
@@ -26,7 +28,13 @@ interface ResponsesReply {
   status?: string;
   incomplete_details?: { reason?: string } | null;
   output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>;
-  usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
+    /** xAI's count of the server-side tools a response ran. */
+    server_side_tool_usage_details?: { web_search_calls?: number };
+  };
 }
 
 export function createResponsesProvider(options: ResponsesProviderOptions): LlmProvider {
@@ -42,13 +50,14 @@ export function createResponsesProvider(options: ResponsesProviderOptions): LlmP
         instructions: input.system,
         input: input.user,
         ...(input.useSearch ? { tools: [{ type: 'web_search' }] } : {}),
+        max_output_tokens: WORST_CALL.outputTokens,
         text: { format: { type: 'json_schema', name: 'reply', schema: withoutMetaKeys(input.jsonSchema), strict: true } },
       };
 
       const headers = { authorization: `Bearer ${options.apiKey}` };
       const { status, reply } = await postJson(send, url, headers, body, input.timeoutMs);
       if (status < 200 || status >= 300) throw failed(status, reply, options.apiKey);
-      return read((reply ?? {}) as ResponsesReply, options.model);
+      return read((reply ?? {}) as ResponsesReply, options.model, input.useSearch);
     },
   };
 }
@@ -65,7 +74,7 @@ function withoutMetaKeys(schema: unknown): unknown {
   return bare;
 }
 
-function read(reply: ResponsesReply, requested: string): LlmCompletion {
+function read(reply: ResponsesReply, requested: string, useSearch: boolean): LlmCompletion {
   const usage = usageOf(reply.usage);
   const content = (reply.output ?? []).filter((item) => item.type === 'message').flatMap((item) => item.content ?? []);
 
@@ -80,7 +89,19 @@ function read(reply: ResponsesReply, requested: string): LlmCompletion {
     .filter((part) => part.type === 'output_text')
     .map((part) => part.text ?? '')
     .join('');
-  return { text, model: reply.model ?? requested, usage };
+  return { text, model: reply.model ?? requested, usage, searches: searchesOf(reply, useSearch) };
+}
+
+/**
+ * OpenAI lists each search as a web_search_call output item; xAI counts them in usage. Taking
+ * the larger counts them once with either. A reply with no output list says nothing, so a
+ * search call is counted at the most one call is assumed to run.
+ */
+function searchesOf(reply: ResponsesReply, useSearch: boolean): number {
+  if (!Array.isArray(reply.output)) return useSearch ? WORST_CALL.searches : 0;
+  const items = reply.output.filter((item) => item.type === 'web_search_call').length;
+  const reported = reply.usage?.server_side_tool_usage_details?.web_search_calls;
+  return Math.max(items, typeof reported === 'number' ? reported : 0);
 }
 
 /**

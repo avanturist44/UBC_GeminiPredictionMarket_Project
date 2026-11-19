@@ -57,6 +57,13 @@
       "when": 1795065735451,
       "tag": "0007_likes_comments",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795127947379,
+      "tag": "0008_llm_call_cost",
+      "breakpoints": true
     }
   ]
 }

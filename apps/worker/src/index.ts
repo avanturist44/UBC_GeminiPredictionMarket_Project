@@ -7,6 +7,7 @@ import { createEscrowChain } from './chain';
 import { createCircleWallets } from './circle';
 import { loadEnv } from './env';
 import { createWorkerLlm } from './llm';
+import { createSpendGuard } from './llm/spend-guard';
 import { createOnchain, type Onchain } from './onchain';
 import { createQuoteRecorder } from './quotes';
 import { runRecorderCycle, type Logger } from './recorder';
@@ -55,6 +56,11 @@ const stream = createPriceStream({
   logger,
 });
 
+/**
+ * The daily dollar cap over every model call this worker makes, whichever model and whatever for.
+ * There is one, and every Llm built here is given it.
+ */
+const spendGuard = createSpendGuard({ db, dailyCapUsd: env.LLM_DAILY_USD_CAP, logger });
 const llmSettings = {
   provider: env.LLM_PROVIDER ?? (env.LLM_API_KEY ? ('anthropic' as const) : ('none' as const)),
   apiKey: env.LLM_API_KEY,
@@ -64,9 +70,9 @@ const llmSettings = {
   excludePrefix: 'arena:',
 };
 /** The auditor's model. */
-const llm = createWorkerLlm(db, { ...llmSettings, model: env.LLM_MODEL }, logger);
-/** The agents' model: cheaper, because every look reads several web pages. Same daily cap. */
-const agentLlm = createWorkerLlm(db, { ...llmSettings, model: env.LLM_AGENT_MODEL }, logger);
+const llm = createWorkerLlm(db, { ...llmSettings, model: env.LLM_MODEL }, logger, spendGuard);
+/** The agents' model: cheaper, because every look reads several web pages. Same daily caps. */
+const agentLlm = createWorkerLlm(db, { ...llmSettings, model: env.LLM_AGENT_MODEL }, logger, spendGuard);
 const enabledAgents = new Set(
   env.ENABLED_AGENTS.split(',')
     .map((name) => name.trim().toLowerCase())
@@ -166,6 +172,7 @@ log('info', 'worker started', {
   intervalMs: env.RECORDER_INTERVAL_MS,
   stream: env.GEMINI_WS_URL,
   auditor: llm ? llm.model : 'phrase screen only (no language model configured)',
+  llmDailyUsdCap: env.LLM_DAILY_USD_CAP,
   tradingEnabled: env.TRADING_ENABLED,
   rules: DEFAULT_TRACKED_RULES.map((rule) => rule.key),
 });

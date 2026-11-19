@@ -161,11 +161,21 @@ export async function createAuditingThesis(db: Db, thesis: NewThesis): Promise<v
   });
 }
 
+/** One model call's row. `costUsd` is what it cost in US dollars, as a decimal string. */
 export async function recordLlmCall(
   db: Db,
-  call: { purpose: string; model: string; inputTokens: number; outputTokens: number },
+  call: { purpose: string; model: string; inputTokens: number; outputTokens: number; costUsd: string },
 ): Promise<void> {
   await db.insert(llmCalls).values(call);
+}
+
+/** US dollars spent on model calls since `since`, whatever they were for. */
+export async function llmCostSince(db: Db, since: Date): Promise<number> {
+  const [row] = await db
+    .select({ cost: sql<string>`coalesce(sum(${llmCalls.costUsd}), 0)::text` })
+    .from(llmCalls)
+    .where(sql`${llmCalls.createdAt} >= ${since.toISOString()}::timestamptz`);
+  return Number(row?.cost ?? 0);
 }
 
 /** Matches `prefix` literally in a SQL `like`: `%`, `_` and the escape character are escaped. */

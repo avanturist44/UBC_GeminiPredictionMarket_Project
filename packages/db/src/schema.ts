@@ -352,6 +352,8 @@ export const llmCalls = pgTable(
     model: text().notNull(),
     inputTokens: integer().notNull(),
     outputTokens: integer().notNull(),
+    /** What the call cost in US dollars, priced in packages/core/src/llm-prices.ts. */
+    costUsd: numeric({ precision: 12, scale: 6 }).notNull().default('0'),
     createdAt: createdAt(),
   },
   (t) => [index('llm_calls_created_idx').on(t.createdAt)],

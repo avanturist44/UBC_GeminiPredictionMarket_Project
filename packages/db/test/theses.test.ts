@@ -15,6 +15,7 @@ import {
   getThesisView,
   getUserById,
   hasOpenThesis,
+  llmCostSince,
   llmTokensSince,
   recordLlmCall,
   theses,
@@ -185,10 +186,17 @@ describe('getMarketBySymbol', () => {
 
 describe('language-model usage', () => {
   it('adds up input and output tokens since a time', async () => {
-    await recordLlmCall(db, { purpose: 'audit-screen', model: 'm', inputTokens: 1000, outputTokens: 200 });
-    await recordLlmCall(db, { purpose: 'news', model: 'm', inputTokens: 5000, outputTokens: 800 });
+    await recordLlmCall(db, { purpose: 'audit-screen', model: 'm', inputTokens: 1000, outputTokens: 200, costUsd: '0' });
+    await recordLlmCall(db, { purpose: 'news', model: 'm', inputTokens: 5000, outputTokens: 800, costUsd: '0' });
     expect(await llmTokensSince(db, new Date(Date.now() - 60_000))).toBe(7000);
     expect(await llmTokensSince(db, new Date(Date.now() + 60_000))).toBe(0);
+  });
+
+  it('adds up what the calls cost since a time, across every purpose', async () => {
+    await recordLlmCall(db, { purpose: 'audit-check', model: 'm', inputTokens: 1, outputTokens: 1, costUsd: '0.122' });
+    await recordLlmCall(db, { purpose: 'arena:gpt', model: 'm', inputTokens: 1, outputTokens: 1, costUsd: '0.000004' });
+    expect(await llmCostSince(db, new Date(Date.now() - 60_000))).toBeCloseTo(0.122004, 6);
+    expect(await llmCostSince(db, new Date(Date.now() + 60_000))).toBe(0);
   });
 });
 

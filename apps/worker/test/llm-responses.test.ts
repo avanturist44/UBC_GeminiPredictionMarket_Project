@@ -44,13 +44,43 @@ describe('createResponsesProvider', () => {
     expect(calls[1]!.body).not.toHaveProperty('tools');
   });
 
+  it('caps every reply at 16,000 output tokens', async () => {
+    const { fetch, calls } = fakeFetch(() => json(200, completed()));
+    const provider = gpt(fetch);
+    await provider.complete(request({ useSearch: true }));
+    await provider.complete(request({ useSearch: false }));
+    expect(calls.map((call) => call.body.max_output_tokens)).toEqual([16_000, 16_000]);
+  });
+
   it('returns output_text and usage input_tokens/output_tokens', async () => {
     const { fetch } = fakeFetch(() => json(200, completed()));
-    expect(await gpt(fetch).complete(request())).toEqual({
+    expect(await gpt(fetch).complete(request({ useSearch: true }))).toEqual({
       text: '{"ok":true}',
       model: 'gpt-5-2025-08-07',
       usage: { inputTokens: 1200, outputTokens: 340 },
+      searches: 1,
     });
+  });
+
+  it('counts web_search_call items, or the searches xAI reports in usage', async () => {
+    const message = completed().output[1]!;
+    const search = (id: string) => ({ type: 'web_search_call', id, status: 'completed' });
+    const xaiUsage = {
+      input_tokens: 32,
+      output_tokens: 9,
+      total_tokens: 41,
+      num_server_side_tools_used: 4,
+      server_side_tool_usage_details: { web_search_calls: 4, x_search_calls: 0 },
+    };
+    const { fetch } = queued([
+      json(200, completed({ output: [search('ws_1'), search('ws_2'), search('ws_3'), message] })),
+      json(200, completed({ output: [message], usage: xaiUsage })),
+      json(200, completed({ output: [message] })),
+    ]);
+    const provider = gpt(fetch);
+    expect((await provider.complete(request({ useSearch: true }))).searches).toBe(3);
+    expect((await provider.complete(request({ useSearch: true }))).searches).toBe(4);
+    expect((await provider.complete(request({ useSearch: true }))).searches).toBe(0);
   });
 
   it('counts the reasoning tokens xAI reports outside output_tokens', async () => {

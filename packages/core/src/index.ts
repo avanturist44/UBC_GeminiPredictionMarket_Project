@@ -7,6 +7,7 @@ export * from './tracked';
 export * from './money';
 export * from './thesis';
 export * from './llm';
+export * from './llm-prices';
 export * from './auditor';
 export * from './agents';
 export * from './user-limits';

@@ -41,10 +41,11 @@ describe('createGoogleProvider', () => {
       systemInstruction: { parts: [{ text: 'SYSTEM PROMPT' }] },
       contents: [{ role: 'user', parts: [{ text: 'USER MESSAGE' }] }],
       tools: [{ google_search: {} }],
+      generationConfig: { maxOutputTokens: 16_000 },
     });
-    // No responseSchema: the shape comes from the JSON rule in the system prompt.
     expect(calls[1]!.body).not.toHaveProperty('tools');
-    expect(calls[1]!.body).not.toHaveProperty('generationConfig');
+    // Only the output cap: no responseSchema, the shape comes from the JSON rule in the system prompt.
+    expect(calls[1]!.body.generationConfig).toEqual({ maxOutputTokens: 16_000 });
   });
 
   it('reads usageMetadata.promptTokenCount and candidatesTokenCount', async () => {
@@ -76,6 +77,16 @@ describe('createGoogleProvider', () => {
 
     expect((await provider.complete(request({ useSearch: true }))).searchSuggestionsHtml).toBe(SUGGESTIONS);
     expect(await provider.complete(request({ useSearch: true }))).not.toHaveProperty('searchSuggestionsHtml');
+  });
+
+  it('counts one search for a grounded answer and none for an ungrounded one', async () => {
+    const [first] = grounded().candidates;
+    const ungrounded = grounded({ candidates: [{ ...first, groundingMetadata: undefined }] });
+    const { fetch } = queued([json(200, grounded()), json(200, ungrounded)]);
+    const provider = gemini(fetch);
+
+    expect((await provider.complete(request({ useSearch: true }))).searches).toBe(1);
+    expect((await provider.complete(request({ useSearch: true }))).searches).toBe(0);
   });
 
   it('reports a blocked prompt or a safety stop as refused, and a cut-off reply as a provider error', async () => {

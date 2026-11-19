@@ -1,4 +1,4 @@
-import { LlmError, type LlmCompletion, type LlmProvider, type LlmRequest, type LlmUsage } from '@thesis/core';
+import { LlmError, WORST_CALL, type LlmCompletion, type LlmProvider, type LlmRequest, type LlmUsage } from '@thesis/core';
 import { httpError, postJson } from './http';
 
 /**
@@ -12,6 +12,8 @@ import { httpError, postJson } from './http';
  *   to be shown with it. They are returned as `searchSuggestionsHtml`.
  * - A blocked prompt or reply is reported as a refusal, never read as an answer. Errors never
  *   carry the key or the request; the key travels in a header, not the address.
+ * - Every reply is capped at WORST_CALL.outputTokens (`generationConfig.maxOutputTokens`).
+ * - Google bills grounding per grounded prompt, so a grounded answer counts as one search.
  */
 
 export interface GoogleProviderOptions {
@@ -53,6 +55,7 @@ export function createGoogleProvider(options: GoogleProviderOptions): LlmProvide
         systemInstruction: { parts: [{ text: input.system }] },
         contents: [{ role: 'user', parts: [{ text: input.user }] }],
         ...(input.useSearch ? { tools: [{ google_search: {} }] } : {}),
+        generationConfig: { maxOutputTokens: WORST_CALL.outputTokens },
       };
 
       const headers = { 'x-goog-api-key': options.apiKey };
@@ -88,6 +91,7 @@ function read(reply: GenerateContentReply, requested: string): LlmCompletion {
     text,
     model: reply.modelVersion ?? requested,
     usage,
+    searches: candidate.groundingMetadata ? 1 : 0,
     ...(typeof suggestions === 'string' && suggestions ? { searchSuggestionsHtml: suggestions } : {}),
   };
 }
