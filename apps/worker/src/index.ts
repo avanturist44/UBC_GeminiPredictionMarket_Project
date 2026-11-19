@@ -19,7 +19,7 @@ import { createThesisPipeline, type BookQuote } from './thesis-pipeline';
  * - the price recorder: a REST poll every 30 seconds and a WebSocket stream of live quotes;
  * - the thesis pipeline: audits every waiting thesis, fills its author's position, publishes;
  * - the resolver: when Gemini reports a result, marks theses right or wrong and pays positions;
- * - the `news` and `fade` agents, when a language model is configured.
+ * - the `news` agent (and `fade`, if switched on), when a language model is configured.
  * The on-chain registrar and tip settlement are added once the escrow is deployed.
  */
 
@@ -55,17 +55,22 @@ const stream = createPriceStream({
   logger,
 });
 
-const llm = createWorkerLlm(
-  db,
-  {
-    provider: env.LLM_PROVIDER ?? (env.LLM_API_KEY ? 'anthropic' : 'none'),
-    model: env.LLM_MODEL,
-    apiKey: env.LLM_API_KEY,
-    effort: env.LLM_EFFORT,
-    dailyTokenCap: env.LLM_DAILY_TOKEN_CAP,
-  },
-  logger,
+const llmSettings = {
+  provider: env.LLM_PROVIDER ?? (env.LLM_API_KEY ? ('anthropic' as const) : ('none' as const)),
+  apiKey: env.LLM_API_KEY,
+  effort: env.LLM_EFFORT,
+  dailyTokenCap: env.LLM_DAILY_TOKEN_CAP,
+};
+/** The auditor's model. */
+const llm = createWorkerLlm(db, { ...llmSettings, model: env.LLM_MODEL }, logger);
+/** The agents' model: cheaper, because every look reads several web pages. Same daily cap. */
+const agentLlm = createWorkerLlm(db, { ...llmSettings, model: env.LLM_AGENT_MODEL }, logger);
+const enabledAgents = new Set(
+  env.ENABLED_AGENTS.split(',')
+    .map((name) => name.trim().toLowerCase())
+    .filter((name) => name === 'news' || name === 'fade'),
 );
+const agents = agentLlm ? [...enabledAgents] : [];
 const tradingEnabled = () => env.TRADING_ENABLED;
 
 // The on-chain jobs run only when the contract, both keys and Circle are all configured.
@@ -151,7 +156,8 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 }
 
 log('info', 'worker started', {
-  jobs: ['price-recorder', 'thesis-pipeline', 'resolver', ...(llm ? ['news', 'fade'] : []), ...(onchain ? ['tips', 'tip-settlement'] : [])],
+  jobs: ['price-recorder', 'thesis-pipeline', 'resolver', ...agents, ...(onchain ? ['tips', 'tip-settlement'] : [])],
+  agentModel: agents.length > 0 ? env.LLM_AGENT_MODEL : 'no agents running',
   escrow: env.ESCROW_ADDRESS ?? 'not configured: theses are published without an on-chain record, and tips are off',
   intervalMs: env.RECORDER_INTERVAL_MS,
   stream: env.GEMINI_WS_URL,
@@ -180,14 +186,19 @@ if (onchain) {
     if (summary.paid > 0 || summary.refunded > 0) log('info', 'tip settlement', { ...summary });
   });
 }
-if (llm) {
-  const agentDeps = { db, llm, tradingEnabled, logger };
-  every('news agent', 15 * 60_000, 60_000, async () => {
-    log('info', 'news agent', { ...(await runNewsCycle(agentDeps)) });
-  });
-  every('fade agent', 5 * 60_000, 90_000, async () => {
-    log('info', 'fade agent', { ...(await runFadeCycle(agentDeps)) });
-  });
+if (agentLlm) {
+  const agentDeps = { db, llm: agentLlm, tradingEnabled, logger };
+  if (enabledAgents.has('news')) {
+    every('news agent', env.NEWS_INTERVAL_MINUTES * 60_000, 60_000, async () => {
+      log('info', 'news agent', { ...(await runNewsCycle(agentDeps)) });
+    });
+  }
+  // Off by default: the build plan lists `fade` among the first things to cut.
+  if (enabledAgents.has('fade')) {
+    every('fade agent', 5 * 60_000, 90_000, async () => {
+      log('info', 'fade agent', { ...(await runFadeCycle(agentDeps)) });
+    });
+  }
 }
 
 // Contracts recorded by an earlier run can be streamed before the first poll finishes.

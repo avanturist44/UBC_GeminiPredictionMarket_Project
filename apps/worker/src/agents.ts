@@ -40,7 +40,9 @@ import {
 import type { Logger } from './recorder';
 
 /**
- * Worker job 2, the two agents that read: `news` and `fade`.
+ * Worker job 2, the two agents that read: `news` and `fade`. By default only `news` runs,
+ * once an hour, on the cheaper agent model: see ENABLED_AGENTS, NEWS_INTERVAL_MINUTES and
+ * LLM_AGENT_MODEL. Each look reads several web pages, which is what a model call costs.
  *
  * Each cycle looks at one market, asks the model one question with web search, and decides
  * in code whether there is a trade. A trade is submitted exactly as a person's thesis is:
