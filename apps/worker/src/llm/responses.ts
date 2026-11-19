@@ -13,9 +13,13 @@ import { httpError, postJson } from './http';
  *   the request.
  * - Every reply is capped at WORST_CALL.outputTokens (`max_output_tokens`). OpenAI counts
  *   reasoning inside that cap; xAI documents it as applying to visible output only.
+ * - A search call is bounded at WORST_CALL.searches, in the field each vendor documents (see
+ *   searchBound).
  */
 
 export interface ResponsesProviderOptions {
+  /** Who serves `baseUrl`. The two bound a call's searches with different request fields. */
+  vendor: 'openai' | 'xai';
   baseUrl: string;
   apiKey: string;
   model: string;
@@ -49,7 +53,7 @@ export function createResponsesProvider(options: ResponsesProviderOptions): LlmP
         model: options.model,
         instructions: input.system,
         input: input.user,
-        ...(input.useSearch ? { tools: [{ type: 'web_search' }] } : {}),
+        ...(input.useSearch ? { tools: [{ type: 'web_search' }], ...searchBound(options.vendor) } : {}),
         max_output_tokens: WORST_CALL.outputTokens,
         text: { format: { type: 'json_schema', name: 'reply', schema: withoutMetaKeys(input.jsonSchema), strict: true } },
       };
@@ -60,6 +64,17 @@ export function createResponsesProvider(options: ResponsesProviderOptions): LlmP
       return read((reply ?? {}) as ResponsesReply, options.model, input.useSearch);
     },
   };
+}
+
+/**
+ * The most searches one call may run. OpenAI's `max_tool_calls` caps calls to built-in tools
+ * ("any further attempts to call a tool by the model will be ignored"). xAI lists
+ * `max_tool_calls` only in the response, and documents `max_turns` for requests instead: it caps
+ * the agentic turns, after which the model answers from what it has, but a turn may run several
+ * searches in parallel, so for Grok this bounds turns rather than searches.
+ */
+function searchBound(vendor: ResponsesProviderOptions['vendor']): Record<string, number> {
+  return vendor === 'openai' ? { max_tool_calls: WORST_CALL.searches } : { max_turns: WORST_CALL.searches };
 }
 
 /**

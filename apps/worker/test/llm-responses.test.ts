@@ -28,10 +28,12 @@ const completed = (overrides: Record<string, unknown> = {}) => ({
 });
 
 const gpt = (fetch: typeof globalThis.fetch) =>
-  createResponsesProvider({ baseUrl: 'https://api.openai.com/v1', apiKey: KEY, model: 'gpt-5', fetch });
+  createResponsesProvider({ vendor: 'openai', baseUrl: 'https://api.openai.com/v1', apiKey: KEY, model: 'gpt-5', fetch });
+const grok = (fetch: typeof globalThis.fetch) =>
+  createResponsesProvider({ vendor: 'xai', baseUrl: 'https://api.x.ai/v1', apiKey: KEY, model: 'grok-4.7', fetch });
 
 describe('createResponsesProvider', () => {
-  it('sends the web_search tool only when asked', async () => {
+  it('sends the web_search tool only when asked, with at most five tool calls', async () => {
     const { fetch, calls } = fakeFetch(() => json(200, completed()));
     const provider = gpt(fetch);
     await provider.complete(request({ useSearch: true }));
@@ -41,7 +43,22 @@ describe('createResponsesProvider', () => {
     expect(calls[0]!.headers.get('authorization')).toBe(`Bearer ${KEY}`);
     expect(calls[0]!.body).toMatchObject({ model: 'gpt-5', instructions: 'SYSTEM PROMPT', input: 'USER MESSAGE' });
     expect(calls[0]!.body.tools).toEqual([{ type: 'web_search' }]);
+    expect(calls[0]!.body.max_tool_calls).toBe(5);
+    expect(calls[0]!.body).not.toHaveProperty('max_turns');
     expect(calls[1]!.body).not.toHaveProperty('tools');
+    expect(calls[1]!.body).not.toHaveProperty('max_tool_calls');
+  });
+
+  it("bounds xAI's search with max_turns, the field xAI documents, instead of max_tool_calls", async () => {
+    const { fetch, calls } = fakeFetch(() => json(200, completed({ model: 'grok-4.7' })));
+    const provider = grok(fetch);
+    await provider.complete(request({ useSearch: true }));
+    await provider.complete(request({ useSearch: false }));
+
+    expect(calls[0]!.body.tools).toEqual([{ type: 'web_search' }]);
+    expect(calls[0]!.body.max_turns).toBe(5);
+    expect(calls[0]!.body).not.toHaveProperty('max_tool_calls');
+    expect(calls[1]!.body).not.toHaveProperty('max_turns');
   });
 
   it('caps every reply at 16,000 output tokens', async () => {
@@ -87,8 +104,7 @@ describe('createResponsesProvider', () => {
     // xAI's own example: total_tokens = input + output + reasoning, so reasoning is not in output_tokens.
     const usage = { input_tokens: 32, output_tokens: 9, output_tokens_details: { reasoning_tokens: 110 }, total_tokens: 151 };
     const { fetch, calls } = fakeFetch(() => json(200, completed({ model: 'grok-4.7', usage })));
-    const grok = createResponsesProvider({ baseUrl: 'https://api.x.ai/v1', apiKey: KEY, model: 'grok-4.7', fetch });
-    const completion = await grok.complete(request({ useSearch: true }));
+    const completion = await grok(fetch).complete(request({ useSearch: true }));
     expect(calls[0]!.url).toBe('https://api.x.ai/v1/responses');
     expect(completion.model).toBe('grok-4.7');
     expect(completion.usage).toEqual({ inputTokens: 32, outputTokens: 119 });

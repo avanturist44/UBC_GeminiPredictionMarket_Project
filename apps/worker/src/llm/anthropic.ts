@@ -28,8 +28,9 @@ export interface AnthropicProviderOptions {
   apiKey?: string;
   effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
   /**
-   * Most web searches one request may run (default WORST_CALL.searches). Applies to Anthropic's
-   * own search tool only, and is what a request that does not report its searches is counted as.
+   * Most web searches one call may run, across a paused search and its continuations (default
+   * WORST_CALL.searches). Sent as max_uses with Anthropic's own search tool only. A request that
+   * does not report its searches is counted as having run them all.
    */
   maxSearches?: number;
   /** An Anthropic-compatible endpoint, such as https://api.deepseek.com/anthropic. Anthropic's when omitted. */
@@ -59,14 +60,17 @@ export function createAnthropicProvider(options: AnthropicProviderOptions): LlmP
   const effort = options.effort ?? 'medium';
   const maxSearches = options.maxSearches ?? WORST_CALL.searches;
   // Another endpoint's search tool is not in the SDK's types, so it is sent as given.
-  const searchTool: Anthropic.Beta.BetaToolUnion = options.searchTool
-    ? (options.searchTool as unknown as Anthropic.Beta.BetaToolUnion)
-    : { type: 'web_search_20260209', name: 'web_search', max_uses: maxSearches };
+  const searchTool = (allowance: number): Anthropic.Beta.BetaToolUnion =>
+    options.searchTool
+      ? (options.searchTool as unknown as Anthropic.Beta.BetaToolUnion)
+      : { type: 'web_search_20260209', name: 'web_search', max_uses: allowance };
   let useFallbacks = !options.baseUrl;
 
+  /** `searchAllowance`: how many of the call's searches this request may still run. */
   async function request(
     input: LlmRequest,
     messages: Anthropic.Beta.BetaMessageParam[],
+    searchAllowance: number,
   ): Promise<Anthropic.Beta.BetaMessage> {
     const body = (withFallbacks: boolean): Anthropic.Beta.MessageCreateParamsNonStreaming => ({
       model: options.model,
@@ -74,7 +78,7 @@ export function createAnthropicProvider(options: AnthropicProviderOptions): LlmP
       system: input.system,
       messages,
       output_config: { effort },
-      ...(input.useSearch ? { tools: [searchTool] } : {}),
+      ...(input.useSearch ? { tools: [searchTool(searchAllowance)] } : {}),
       ...(withFallbacks ? { betas: [FALLBACK_BETA], fallbacks: 'default' } : {}),
     });
     const requestOptions = { timeout: input.timeoutMs, maxRetries: 1 };
@@ -106,7 +110,8 @@ export function createAnthropicProvider(options: AnthropicProviderOptions): LlmP
 
       try {
         for (let turn = 0; ; turn += 1) {
-          const response = await request(input, messages);
+          // max_uses counts per request, so a resumed request gets only what the call has left.
+          const response = await request(input, messages, maxSearches - searches);
           const usage = response.usage;
           inputTokens +=
             usage.input_tokens + (usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0);
@@ -114,8 +119,10 @@ export function createAnthropicProvider(options: AnthropicProviderOptions): LlmP
           // An endpoint that does not report its searches (DeepSeek's) is counted at the most.
           if (input.useSearch) searches += usage.server_tool_use?.web_search_requests ?? maxSearches;
 
-          if (response.stop_reason === 'pause_turn' && turn < MAX_CONTINUATIONS) {
-            // The server paused a long search. Sending its own reply back resumes it.
+          // The server paused a long search. Sending its own reply back resumes it, while the
+          // call has searches left. A paused reply is unfinished, so once they are used up the
+          // call fails below as stopped early, rather than return part of an answer.
+          if (response.stop_reason === 'pause_turn' && turn < MAX_CONTINUATIONS && searches < maxSearches) {
             messages = [user, { role: 'assistant', content: response.content as Anthropic.Beta.BetaContentBlockParam[] }];
             continue;
           }

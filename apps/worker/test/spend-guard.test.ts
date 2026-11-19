@@ -7,8 +7,10 @@ import { withSpendCap } from '../src/llm';
 import { createSpendGuard } from '../src/llm/spend-guard';
 
 const logger = { info: () => {}, warn: () => {}, error: () => {} };
-/** The worst single call on this model costs 0.12 + 0.16 + 0.05 = $0.33. */
+/** The worst single call on this model costs 0.30 + 0.16 + 0.05 = $0.51. */
 const SONNET = 'claude-sonnet-5-5';
+/** A cap with room for one worst-case Sonnet call at a time (0.51), not two (1.02). */
+const ROOM_FOR_ONE = 0.7;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const startOfToday = () => {
   const now = new Date();
@@ -29,24 +31,24 @@ describe('createSpendGuard', () => {
   it("refuses a call once the day's spend plus its worst case would pass the cap", async () => {
     await spent('0.80');
     const guard = createSpendGuard({ db, dailyCapUsd: 1, logger });
-    await expect(guard.reserve(SONNET)).rejects.toMatchObject({ code: 'budget' }); // 0.80 + 0.33 > 1
+    await expect(guard.reserve(SONNET)).rejects.toMatchObject({ code: 'budget' }); // 0.80 + 0.51 > 1
     await expect(guard.reserve(SONNET)).rejects.toBeInstanceOf(LlmError);
   });
 
   it('counts calls still in flight', async () => {
-    const guard = createSpendGuard({ db, dailyCapUsd: 1, logger });
-    for (let i = 0; i < 3; i += 1) await guard.reserve(SONNET); // 3 × 0.33 = 0.99
-    await expect(guard.reserve(SONNET)).rejects.toMatchObject({ code: 'budget' });
+    const guard = createSpendGuard({ db, dailyCapUsd: 1.53, logger });
+    for (let i = 0; i < 3; i += 1) await guard.reserve(SONNET); // 3 × 0.51 = 1.53, exactly the cap
+    await expect(guard.reserve(SONNET)).rejects.toMatchObject({ code: 'budget' }); // 2.04 > 1.53
   });
 
   it('settling frees the reservation and the recorded cost is what counts', async () => {
-    const guard = createSpendGuard({ db, dailyCapUsd: 0.5, logger });
+    const guard = createSpendGuard({ db, dailyCapUsd: ROOM_FOR_ONE, logger });
     const call = await guard.reserve(SONNET);
-    await expect(guard.reserve(SONNET)).rejects.toMatchObject({ code: 'budget' }); // 0.33 + 0.33 > 0.5
+    await expect(guard.reserve(SONNET)).rejects.toMatchObject({ code: 'budget' }); // 0.51 + 0.51 > 0.7
     await spent('0.12');
     call.settle(0.12);
     expect(await llmCostSince(db, startOfToday())).toBeCloseTo(0.12, 6);
-    await expect(guard.reserve(SONNET)).resolves.toBeDefined(); // 0.12 + 0.33 <= 0.5
+    await expect(guard.reserve(SONNET)).resolves.toBeDefined(); // 0.12 + 0.51 <= 0.7
   });
 
   it("yesterday's spend does not count", async () => {
@@ -59,16 +61,16 @@ describe('createSpendGuard', () => {
   });
 
   it("still counts a call that ended while the day's spend was being read", async () => {
-    const guard = createSpendGuard({ db, dailyCapUsd: 0.5, logger });
+    const guard = createSpendGuard({ db, dailyCapUsd: ROOM_FOR_ONE, logger });
     const first = await guard.reserve(SONNET);
     const second = guard.reserve(SONNET); // reading the day's spend
     // The first call ends now; its row may not be in what the second read sees.
     first.settle(0.33);
-    await expect(second).rejects.toMatchObject({ code: 'budget' });
+    await expect(second).rejects.toMatchObject({ code: 'budget' }); // 0.33 + 0.51 > 0.7
   });
 
   it('settles each reservation once, and a cost that is not a number does not break the count', async () => {
-    const guard = createSpendGuard({ db, dailyCapUsd: 0.5, logger });
+    const guard = createSpendGuard({ db, dailyCapUsd: ROOM_FOR_ONE, logger });
     const call = await guard.reserve(SONNET);
     call.settle(0);
     call.settle(0); // a second settle must not free room the guard never held
@@ -82,9 +84,9 @@ describe('createSpendGuard', () => {
   it('warns when a call cost more than was held for it', async () => {
     const warnings: string[] = [];
     const guard = createSpendGuard({ db, dailyCapUsd: 25, logger: { ...logger, warn: (m: string) => void warnings.push(m) } });
-    (await guard.reserve(SONNET)).settle(0.2);
-    expect(warnings).toEqual([]);
     (await guard.reserve(SONNET)).settle(0.5);
+    expect(warnings).toEqual([]);
+    (await guard.reserve(SONNET)).settle(0.6); // more than the 0.51 held
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain(SONNET);
   });
@@ -131,8 +133,7 @@ describe('withSpendCap with the dollar guard', () => {
   });
 
   it('a failed call frees its reservation', async () => {
-    // Room for one call at a time.
-    const guard = createSpendGuard({ db, dailyCapUsd: 0.5, logger });
+    const guard = createSpendGuard({ db, dailyCapUsd: ROOM_FOR_ONE, logger });
     const { provider } = scripted(SONNET, async () => {
       throw new Error('socket hang up');
     });
@@ -150,7 +151,7 @@ describe('withSpendCap with the dollar guard', () => {
   });
 
   it('prices and records a failed call that used tokens, counting the most searches', async () => {
-    const guard = createSpendGuard({ db, dailyCapUsd: 0.5, logger });
+    const guard = createSpendGuard({ db, dailyCapUsd: ROOM_FOR_ONE, logger });
     const { provider } = scripted(SONNET, async () => {
       throw new LlmError('refused', 'The language model declined the request.', { inputTokens: 10_000, outputTokens: 1_000 });
     });
@@ -159,12 +160,13 @@ describe('withSpendCap with the dollar guard', () => {
     // 0.02 + 0.01 + 5 searches at 0.01: the error does not say how many searches ran.
     expect(await rows()).toMatchObject([{ costUsd: '0.080000' }]);
     expect(await llmCostSince(db, startOfToday())).toBeCloseTo(0.08, 6);
-    await expect(guard.reserve(SONNET)).resolves.toBeDefined(); // 0.08 + 0.33 <= 0.5
+    await expect(guard.reserve(SONNET)).resolves.toBeDefined(); // 0.08 + 0.51 <= 0.7
   });
 
   it('assumes the most searches when a search call does not say, and none when search was off', async () => {
     const { provider } = scripted(SONNET, answer({ searches: undefined, usage: { inputTokens: 0, outputTokens: 0 } }));
-    const llm = withSpendCap(db, provider, { dailyTokenCap: 10_000_000, logger });
+    const guard = createSpendGuard({ db, dailyCapUsd: 25, logger });
+    const llm = withSpendCap(db, provider, { dailyTokenCap: 10_000_000, guard, logger });
     await llm.generateJson(args(true));
     await llm.generateJson(args(false));
     expect((await rows()).map((row) => row.costUsd).sort()).toEqual(['0.000000', '0.050000']);
@@ -172,7 +174,8 @@ describe('withSpendCap with the dollar guard', () => {
 
   it('prices by the model that served the call', async () => {
     const { provider } = scripted('gpt-5', answer({ model: 'gpt-5-2025-08-07', searches: 0 }));
-    await withSpendCap(db, provider, { dailyTokenCap: 10_000_000, logger }).generateJson(args());
+    const guard = createSpendGuard({ db, dailyCapUsd: 25, logger });
+    await withSpendCap(db, provider, { dailyTokenCap: 10_000_000, guard, logger }).generateJson(args());
     // 38,000 × 1.25 + 1,600 × 10 per million.
     expect(await rows()).toMatchObject([{ model: 'gpt-5-2025-08-07', costUsd: '0.063500' }]);
   });

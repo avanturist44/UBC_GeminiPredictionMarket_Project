@@ -4,6 +4,7 @@ import { createTestDb } from '@thesis/db/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { withSpendCap } from '../src/llm';
+import { createSpendGuard } from '../src/llm/spend-guard';
 
 const logger = { info: () => {}, warn: () => {}, error: () => {} };
 const fakeProvider = (): LlmProvider => ({
@@ -14,8 +15,11 @@ const args = (purpose: string) => ({ purpose, system: 's', user: 'u', schema: z.
 
 let db: Db;
 let close: () => Promise<void>;
+/** A dollar cap far above anything these tests spend: only the token caps are under test here. */
+let guard: ReturnType<typeof createSpendGuard>;
 beforeEach(async () => {
   ({ db, close } = await createTestDb());
+  guard = createSpendGuard({ db, dailyCapUsd: 1000, logger });
 });
 afterEach(() => close());
 
@@ -25,19 +29,19 @@ const call = (purpose: string, inputTokens: number) =>
 describe('withSpendCap scopes', () => {
   it("arena calls never count against the auditor's cap", async () => {
     await call('arena:gpt', 900);
-    const auditor = withSpendCap(db, fakeProvider(), { dailyTokenCap: 1000, excludePrefix: 'arena:', logger });
+    const auditor = withSpendCap(db, fakeProvider(), { dailyTokenCap: 1000, excludePrefix: 'arena:', guard, logger });
     await expect(auditor.generateJson(args('audit-screen'))).resolves.toBeDefined();
     // More arena usage, past the cap: the auditor is still unaffected, an unscoped cap is not.
     await call('arena:claude', 200);
     await expect(auditor.generateJson(args('audit-screen'))).resolves.toBeDefined();
-    const unscoped = withSpendCap(db, fakeProvider(), { dailyTokenCap: 1000, logger });
+    const unscoped = withSpendCap(db, fakeProvider(), { dailyTokenCap: 1000, guard, logger });
     await expect(unscoped.generateJson(args('audit-screen'))).rejects.toMatchObject({ code: 'budget' });
   });
 
   it('a model at its own cap is refused while the others continue', async () => {
     await call('arena:gpt', 500);
-    const gpt = withSpendCap(db, fakeProvider(), { dailyTokenCap: 500, purposePrefix: 'arena:gpt', logger });
-    const claude = withSpendCap(db, fakeProvider(), { dailyTokenCap: 500, purposePrefix: 'arena:claude', logger });
+    const gpt = withSpendCap(db, fakeProvider(), { dailyTokenCap: 500, purposePrefix: 'arena:gpt', guard, logger });
+    const claude = withSpendCap(db, fakeProvider(), { dailyTokenCap: 500, purposePrefix: 'arena:claude', guard, logger });
     await expect(gpt.generateJson(args('arena:gpt'))).rejects.toMatchObject({ code: 'budget' });
     await expect(claude.generateJson(args('arena:claude'))).resolves.toBeDefined();
   });
@@ -51,5 +55,10 @@ describe('withSpendCap scopes', () => {
     expect(await llmTokensSince(db, since, { excludePrefix: 'arena_' })).toBe(107);
     expect(await llmTokensSince(db, since, { purposePrefix: 'arena:' })).toBe(7);
     expect(await llmTokensSince(db, since)).toBe(107);
+  });
+
+  it('cannot be built without the dollar guard, so no model client goes uncapped', () => {
+    // @ts-expect-error the guard is required
+    expect(() => withSpendCap(db, fakeProvider(), { dailyTokenCap: 1000, logger })).toThrow(/guard/);
   });
 });

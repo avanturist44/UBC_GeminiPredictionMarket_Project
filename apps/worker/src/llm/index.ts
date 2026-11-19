@@ -44,11 +44,14 @@ export function withSpendCap(
     purposePrefix?: string;
     /** Do not count calls whose purpose starts with this (keeps arena spend off the auditor's cap). */
     excludePrefix?: string;
-    /** The daily dollar cap, shared by every Llm the worker builds. */
-    guard?: SpendGuard;
+    /** The daily dollar cap: the one guard the worker shares between every Llm it builds. */
+    guard: SpendGuard;
     now?: () => Date;
   },
 ): Llm {
+  // Checked at run time too, so a model client cannot be built uncapped whatever the types say.
+  if (!options.guard) throw new Error('withSpendCap needs the spend guard (createSpendGuard).');
+  const { guard } = options;
   const now = options.now ?? (() => new Date());
 
   async function beforeCall(): Promise<void> {
@@ -86,7 +89,7 @@ export function withSpendCap(
   const metered = (purpose: string): LlmProvider => ({
     model: provider.model,
     async complete(request) {
-      const reservation = await options.guard?.reserve(provider.model);
+      const reservation = await guard.reserve(provider.model);
       // A provider that does not say how many searches it ran is counted at the most.
       const unsaidSearches = request.useSearch ? WORST_CALL.searches : 0;
       let costUsd = 0;
@@ -101,7 +104,7 @@ export function withSpendCap(
         }
         throw error;
       } finally {
-        reservation?.settle(costUsd);
+        reservation.settle(costUsd);
       }
     },
   });

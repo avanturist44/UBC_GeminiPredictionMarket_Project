@@ -22,6 +22,14 @@ const message = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+/** A Claude reply whose request ran `count` searches and stopped for `stop`. */
+const searched = (count: number, stop: string) =>
+  message({
+    model: 'claude-sonnet-5-5',
+    stop_reason: stop,
+    usage: { input_tokens: 100, output_tokens: 10, server_tool_use: { web_search_requests: count, web_fetch_requests: 0 } },
+  });
+
 describe('createAnthropicProvider', () => {
   it('uses baseUrl and searchTool when given', async () => {
     const { fetch, calls } = fakeFetch(() => json(200, message()));
@@ -63,19 +71,31 @@ describe('createAnthropicProvider', () => {
   });
 
   it('reports the searches each turn ran, from usage.server_tool_use', async () => {
-    const searched = (count: number, stop: string) =>
-      message({
-        model: 'claude-sonnet-5-5',
-        stop_reason: stop,
-        usage: { input_tokens: 100, output_tokens: 10, server_tool_use: { web_search_requests: count, web_fetch_requests: 0 } },
-      });
     // A long search pauses once and is resumed: both turns' searches count.
-    const { fetch } = queued([json(200, searched(2, 'pause_turn')), json(200, searched(1, 'end_turn')), json(200, message())]);
+    const { fetch, calls } = queued([json(200, searched(2, 'pause_turn')), json(200, searched(1, 'end_turn')), json(200, message())]);
     const claude = createAnthropicProvider({ model: 'claude-sonnet-5-5', apiKey: KEY, fetch });
 
     expect((await claude.complete(request({ useSearch: true }))).searches).toBe(3);
+    // The resumed request may run only what is left of the call's five searches.
+    expect(calls.map((call) => (call.body.tools as Array<{ max_uses?: number }>)[0]!.max_uses)).toEqual([5, 3]);
     // A call that was not given search ran none.
     expect((await claude.complete(request({ useSearch: false }))).searches).toBe(0);
+  });
+
+  it('stops resuming a paused search once the call has used its five searches', async () => {
+    const { fetch, calls } = queued([
+      json(200, searched(3, 'pause_turn')),
+      json(200, searched(2, 'pause_turn')),
+      json(200, searched(0, 'end_turn')),
+    ]);
+    const claude = createAnthropicProvider({ model: 'claude-sonnet-5-5', apiKey: KEY, fetch });
+
+    const error = await failure(claude.complete(request({ useSearch: true })));
+    // No third request: the paused answer is unfinished, so the call fails, with what it spent.
+    expect(calls).toHaveLength(2);
+    expect(calls[1]!.body.tools).toEqual([{ type: 'web_search_20260209', name: 'web_search', max_uses: 2 }]);
+    expect(error).toMatchObject({ code: 'provider', usage: { inputTokens: 200, outputTokens: 20 } });
+    expect(error!.message).toContain('pause_turn');
   });
 
   it('refuses another endpoint without its own key, so Anthropic credentials from the environment never reach it', () => {

@@ -23,9 +23,9 @@ describe('model prices', () => {
     expect(priceFor('gpt-50')).toEqual(UNKNOWN_MODEL_PRICE);
   });
 
-  it('prices the worst single call at 60,000 input and 16,000 output tokens with 5 searches', () => {
-    expect(WORST_CALL).toEqual({ inputTokens: 60_000, outputTokens: 16_000, searches: 5 });
-    expect(worstCallCostUsd('claude-sonnet-5-5')).toBeCloseTo(0.33, 6);
-    expect(worstCallCostUsd('mystery-model')).toBeCloseTo(0.3 + 0.4 + 0.05, 6);
+  it('prices the worst single call at 150,000 input and 16,000 output tokens with 5 searches', () => {
+    expect(WORST_CALL).toEqual({ inputTokens: 150_000, outputTokens: 16_000, searches: 5 });
+    expect(worstCallCostUsd('claude-sonnet-5-5')).toBeCloseTo(0.3 + 0.16 + 0.05, 6);
+    expect(worstCallCostUsd('mystery-model')).toBeCloseTo(0.75 + 0.4 + 0.05, 6);
   });
 });

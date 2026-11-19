@@ -29,9 +29,12 @@ export const UNKNOWN_MODEL_PRICE: ModelPrice = { inputPerMillion: 5, outputPerMi
 
 /**
  * The most one call is assumed to use, and so what the cap holds back before sending it. The
- * adapters cap every reply at `outputTokens`, and Anthropic's search at `searches`.
+ * adapters cap every reply at `outputTokens`, and a call's searches at `searches` wherever the
+ * provider has a field for it (xAI bounds turns instead). Input is not capped by any provider:
+ * 150,000 is well above the largest search call seen (about 54,000) and leaves room for
+ * reasoning that a provider's output cap does not bound (xAI's).
  */
-export const WORST_CALL = { inputTokens: 60_000, outputTokens: 16_000, searches: 5 } as const;
+export const WORST_CALL = { inputTokens: 150_000, outputTokens: 16_000, searches: 5 } as const;
 
 /**
  * The price of a model id as listed, or as a provider serves it with a version or date after it
