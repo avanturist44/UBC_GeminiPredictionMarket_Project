@@ -1,8 +1,9 @@
-import { MARKET_STATES, TIP_ESCROW_ABI } from '@thesis/core';
+import { MARKET_STATES, TIP_ESCROW_ABI, redactRpcUrls } from '@thesis/core';
 import {
   createPublicClient,
   createWalletClient,
   defineChain,
+  fallback,
   http,
   type Address,
   type Hex,
@@ -21,10 +22,15 @@ import { privateKeyToAccount } from 'viem/accounts';
  * the worker's jobs safe to re-run.
  *
  * All amounts are USDC with 6 decimals (the ERC-20 interface). Test money only.
+ *
+ * Calls go to the first RPC node and move down the list when one fails or rate-limits
+ * (`arcRpcUrls` puts the dedicated endpoint first and Arc's public nodes after it). Errors
+ * never carry an RPC URL's path, which holds a provider's access token.
  */
 
 export interface ChainSettings {
-  rpcUrl: string;
+  /** RPC nodes in order of preference. See `arcRpcUrls`. */
+  rpcUrls: string[];
   chainId: number;
   escrowAddress: Address;
   usdcAddress: Address;
@@ -87,14 +93,21 @@ const ERC20_ABI = [
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 export function createEscrowChain(settings: ChainSettings): EscrowChain {
+  const urls = settings.rpcUrls;
+  if (urls.length === 0) throw new Error('No Arc RPC URL configured');
   const chain = defineChain({
     id: settings.chainId,
     name: 'Arc Testnet',
     // USDC is Arc's gas token. As the native currency it has 18 decimals.
     nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
-    rpcUrls: { default: { http: [settings.rpcUrl] } },
+    rpcUrls: { default: { http: urls } },
   });
-  const transport = http(settings.rpcUrl);
+  // Each node gets viem's own retries (with backoff, including on rate limits) before the
+  // next node is tried.
+  const transport = fallback(
+    urls.map((url) => http(url, { timeout: 15_000, retryCount: 2 })),
+    { retryCount: 1 },
+  );
   const reader = createPublicClient({ chain, transport });
   const registrar = createWalletClient({ chain, transport, account: privateKeyToAccount(settings.registrarKey) });
   const resolver = createWalletClient({ chain, transport, account: privateKeyToAccount(settings.resolverKey) });
@@ -176,5 +189,23 @@ export function createEscrowChain(settings: ChainSettings): EscrowChain {
       return confirmed(await resolver.writeContract({ ...escrow, functionName: 'refund', args: [id, tipper] }));
     },
   };
-  return api;
+  return withRedactedErrors(api, urls);
+}
+
+/** The same object, except every error it throws has the RPC URLs' paths hidden. */
+function withRedactedErrors(api: EscrowChain, urls: readonly string[]): EscrowChain {
+  const guarded = { ...api };
+  for (const key of Object.keys(api) as Array<keyof EscrowChain>) {
+    const value = api[key];
+    if (typeof value !== 'function') continue;
+    const fn = value as (...args: unknown[]) => Promise<unknown>;
+    (guarded as Record<string, unknown>)[key] = async (...args: unknown[]) => {
+      try {
+        return await fn(...args);
+      } catch (error) {
+        throw new Error(redactRpcUrls(error instanceof Error ? error.message : String(error), urls));
+      }
+    };
+  }
+  return guarded;
 }

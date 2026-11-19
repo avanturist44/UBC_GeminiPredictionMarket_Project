@@ -17,7 +17,7 @@ import {
 } from '@thesis/db';
 import type { Address, Hex } from 'viem';
 import type { EscrowChain } from './chain';
-import type { CircleWallets } from './circle';
+import { CircleRefused, type CircleWallets } from './circle';
 import type { Logger } from './recorder';
 
 /**
@@ -53,6 +53,17 @@ const APPROVAL_UNITS = '20000000';
 /** Stored when a call was found already done on-chain and its transaction hash is not known. */
 export const ALREADY_ONCHAIN = 'already-on-chain';
 const YEAR_MS = 365 * 86_400_000;
+/**
+ * How long a tip that has not reached Circle yet is retried through outages before it is
+ * given up. Short enough that a user is told within the visit, long enough to ride out a
+ * busy RPC node or a Circle hiccup.
+ */
+export const TIP_RETRY_WINDOW_MS = 10 * 60_000;
+
+/** A tip that cannot be sent, whatever is retried: there is no point trying again. */
+class TipRefused extends Error {}
+
+const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** A stable UUID from a label, so a retried Circle call is the same call and runs once. */
 export function stableKey(label: string): string {
@@ -89,7 +100,7 @@ export function createOnchain(deps: OnchainDeps): Onchain {
     const tx = await circle.transaction(id);
     if (tx.state === 'pending') return false;
     inFlight.delete(slot);
-    if (tx.state === 'failed') throw new Error(tx.error ?? 'the Circle transaction failed');
+    if (tx.state === 'failed') throw new TipRefused(tx.error ?? 'the Circle transaction failed');
     return true;
   }
 
@@ -118,7 +129,7 @@ export function createOnchain(deps: OnchainDeps): Onchain {
    */
   async function tipperWallet(userId: string, units: bigint): Promise<{ walletId: string; address: Address } | null> {
     const [user] = await db.select().from(users).where(eq(users.id, userId));
-    if (!user) throw new Error('the tipper no longer exists');
+    if (!user) throw new TipRefused('the tipper no longer exists');
     let walletId = user.circleWalletId;
     let address = user.walletAddress;
     if (!walletId || !address) {
@@ -132,7 +143,7 @@ export function createOnchain(deps: OnchainDeps): Onchain {
       // The welcome amount is sent once per wallet: the key is the same on every retry.
       const sent = await finished(`fund:${walletId}`, () => circle.fundFromTreasury(owner, welcome, stableKey(`fund:${walletId}`)));
       if (!sent) return null;
-      if ((await chain.usdcBalance(owner)) < units) throw new Error('the wallet has too little test USDC left for this tip');
+      if ((await chain.usdcBalance(owner)) < units) throw new TipRefused('the wallet has too little test USDC left for this tip');
     }
     if ((await chain.usdcAllowance(owner)) < units) {
       const approved = await finished(`approve:${walletId}`, () =>
@@ -154,6 +165,44 @@ export function createOnchain(deps: OnchainDeps): Onchain {
   async function failTip(tipId: string, reason: string): Promise<void> {
     await db.update(tips).set({ status: 'failed' }).where(and(eq(tips.id, tipId), eq(tips.status, 'pending')));
     logger.warn(`tips: tip ${tipId} failed: ${reason}`);
+  }
+
+  /**
+   * A tip that has not reached Circle hit an error. Fails it if the error is final or the
+   * tip has run out of time; otherwise leaves it pending for the next cycle. Returns
+   * whether it was failed.
+   */
+  async function handleTipError(tip: { id: string; userId: string; createdAt: Date }, onchainId: string, error: unknown): Promise<boolean> {
+    const reason = errorText(error);
+    if (error instanceof TipRefused || error instanceof CircleRefused) {
+      await failTip(tip.id, reason);
+      return true;
+    }
+    if (now().getTime() - tip.createdAt.getTime() < TIP_RETRY_WINDOW_MS) {
+      logger.warn(`tips: tip ${tip.id} waits, will retry: ${reason}`);
+      return false;
+    }
+    // Out of time. One case must not be given up: Circle may have taken the tip even though
+    // its answer was lost, so look at the escrow before saying it failed.
+    const [user] = await db.select({ address: users.walletAddress }).from(users).where(eq(users.id, tip.userId));
+    if (user?.address) {
+      let held: bigint;
+      try {
+        held = await chain.tipOf(onchainId as Hex, user.address as Address);
+      } catch {
+        logger.warn(`tips: tip ${tip.id} is out of time, but the escrow cannot be read to confirm; will retry: ${reason}`);
+        return false;
+      }
+      if (held > 0n) {
+        logger.error(
+          `tips: tip ${tip.id} could not be confirmed, but the escrow already holds a tip from ${user.address} ` +
+            `on this thesis. Left pending for a person to check: ${reason}`,
+        );
+        return false;
+      }
+    }
+    await failTip(tip.id, `gave up after ${TIP_RETRY_WINDOW_MS / 60_000} minutes of retrying: ${reason}`);
+    return true;
   }
 
   return {
@@ -180,8 +229,10 @@ export function createOnchain(deps: OnchainDeps): Onchain {
         .limit(10);
 
       for (const { tip, thesis } of pending) {
-        try {
-          if (tip.circleTxId) {
+        if (tip.circleTxId) {
+          // The tip is with Circle, so the money may already be in escrow. Only Circle's own
+          // final answer decides it; failing to ask is never a reason to fail the tip.
+          try {
             const tx = await circle.transaction(tip.circleTxId);
             if (tx.state === 'complete') {
               await db.update(tips).set({ status: 'escrowed', depositTx: tx.txHash }).where(and(eq(tips.id, tip.id), eq(tips.status, 'pending')));
@@ -190,8 +241,13 @@ export function createOnchain(deps: OnchainDeps): Onchain {
               await failTip(tip.id, tx.error ?? 'the tip transaction failed');
               summary.failed += 1;
             } else summary.waiting += 1;
-            continue;
+          } catch (error) {
+            logger.warn(`tips: tip ${tip.id} is with Circle; its state could not be read, will retry: ${errorText(error)}`);
+            summary.waiting += 1;
           }
+          continue;
+        }
+        try {
           if (!thesis.registerTx) {
             await failTip(tip.id, 'the thesis is not registered on-chain');
             summary.failed += 1;
@@ -214,8 +270,8 @@ export function createOnchain(deps: OnchainDeps): Onchain {
           await db.update(tips).set({ circleTxId }).where(eq(tips.id, tip.id));
           summary.waiting += 1;
         } catch (error) {
-          await failTip(tip.id, error instanceof Error ? error.message : String(error));
-          summary.failed += 1;
+          if (await handleTipError(tip, thesis.onchainId, error)) summary.failed += 1;
+          else summary.waiting += 1;
         }
       }
       return summary;

@@ -5,7 +5,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { marketOnchainId, thesisOnchainId } from '@thesis/core';
+import { arcRpcUrls, marketOnchainId, thesisOnchainId } from '@thesis/core';
 import type { Address, Hex } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { createEscrowChain } from './chain';
@@ -39,7 +39,7 @@ async function wait(circle: CircleWallets, id: string, label: string): Promise<s
 (async () => {
   const usdcAddress = (process.env.USDC_ADDRESS || '0x3600000000000000000000000000000000000000') as Address;
   const chain = createEscrowChain({
-    rpcUrl: process.env.ARC_RPC_URL || 'https://rpc.testnet.arc.io',
+    rpcUrls: arcRpcUrls(process.env.ARC_RPC_URL),
     chainId: Number(process.env.ARC_CHAIN_ID || 5042002),
     escrowAddress: need('ESCROW_ADDRESS') as Address,
     usdcAddress,

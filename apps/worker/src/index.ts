@@ -1,4 +1,4 @@
-import { DEFAULT_TRACKED_RULES, createGeminiPublicClient, streamSymbolKey } from '@thesis/core';
+import { DEFAULT_TRACKED_RULES, arcRpcUrls, createGeminiPublicClient, streamSymbolKey } from '@thesis/core';
 import { createDb, listLiveTrackedMarkets } from '@thesis/db';
 import { runMigrations } from '@thesis/db/migrate';
 import type { Address, Hex } from 'viem';
@@ -89,7 +89,7 @@ if (
     logger,
     welcomeUsdc: env.WELCOME_USDC,
     chain: createEscrowChain({
-      rpcUrl: env.ARC_RPC_URL,
+      rpcUrls: arcRpcUrls(env.ARC_RPC_URL),
       chainId: env.ARC_CHAIN_ID,
       escrowAddress: env.ESCROW_ADDRESS as Address,
       usdcAddress: env.USDC_ADDRESS as Address,
@@ -159,6 +159,8 @@ log('info', 'worker started', {
   jobs: ['price-recorder', 'thesis-pipeline', 'resolver', ...agents, ...(onchain ? ['tips', 'tip-settlement'] : [])],
   agentModel: agents.length > 0 ? env.LLM_AGENT_MODEL : 'no agents running',
   escrow: env.ESCROW_ADDRESS ?? 'not configured: theses are published without an on-chain record, and tips are off',
+  // Hosts only: a dedicated endpoint's path holds its access token.
+  arcRpc: arcRpcUrls(env.ARC_RPC_URL).map((url) => new URL(url).host),
   intervalMs: env.RECORDER_INTERVAL_MS,
   stream: env.GEMINI_WS_URL,
   auditor: llm ? llm.model : 'phrase screen only (no language model configured)',

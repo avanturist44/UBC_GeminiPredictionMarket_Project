@@ -16,7 +16,7 @@ import {
 import { createTestDb } from '@thesis/db/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { EscrowChain } from '../src/chain';
-import type { CircleTx, CircleWallets } from '../src/circle';
+import { CircleRefused, type CircleTx, type CircleWallets } from '../src/circle';
 import { ALREADY_ONCHAIN, createOnchain, stableKey } from '../src/onchain';
 
 const SYMBOL = 'GEMI-BRENT2611182200-HI90';
@@ -206,11 +206,23 @@ const tipRow = async (thesisId: string, userId: string, amountUsdc = '0.25') =>
   (await db.insert(tips).values({ thesisId, userId, amountUsdc }).returning())[0]!;
 const tipsOf = (thesisId: string) => db.select().from(tips).where(eq(tips.thesisId, thesisId));
 
-function setup() {
+function setup(options: { now?: () => Date } = {}) {
   const { chain, state } = fakeChain();
   const circleFake = fakeCircle(state);
-  const onchain = createOnchain({ db, chain, circle: circleFake.circle, logger });
-  return { onchain, state, ...circleFake };
+  const onchain = createOnchain({ db, chain, circle: circleFake.circle, logger, now: options.now });
+  return { onchain, chain, state, ...circleFake };
+}
+
+/** Makes `count` calls fail the way a busy RPC node or an unreachable Circle API does, then recovers. */
+function flaky<A extends unknown[], R>(fn: (...args: A) => Promise<R>, count: number, message = 'rate limit exceeded') {
+  let left = count;
+  return async (...args: A): Promise<R> => {
+    if (left > 0) {
+      left -= 1;
+      throw new Error(message);
+    }
+    return fn(...args);
+  };
 }
 
 describe('register', () => {
@@ -361,6 +373,113 @@ describe('runTipCycle', () => {
     await onchain.runTipCycle();
     expect((await tipsOf(second.id))[0]).toMatchObject({ status: 'failed' });
     expect(logs.join('\n')).toContain('too little test USDC');
+  });
+});
+
+describe('runTipCycle when a service stumbles', () => {
+  const WALLET = '0x0000000000000000000000000000000000000001';
+  const later = (minutes: number) => () => new Date(Date.now() + minutes * 60_000);
+
+  it('keeps the tip pending through a failed chain read, and sends it once the node answers again', async () => {
+    const { onchain, chain, state } = setup();
+    const author = await ensureAgentAuthor(db, { agentKey: 'news', displayName: 'News', strategySummary: 's' });
+    const thesis = await thesisBy(author.id);
+    const tipper = await createGuestUser(db, 'Tipper');
+    await tipRow(thesis.id, tipper.id);
+    chain.usdcBalance = flaky(chain.usdcBalance, 2);
+
+    expect(await onchain.runTipCycle()).toEqual({ escrowed: 0, failed: 0, waiting: 1 });
+    expect(await onchain.runTipCycle()).toEqual({ escrowed: 0, failed: 0, waiting: 1 });
+    expect((await tipsOf(thesis.id))[0]).toMatchObject({ status: 'pending' });
+    for (let i = 0; i < 3; i += 1) await onchain.runTipCycle();
+    expect((await tipsOf(thesis.id))[0]).toMatchObject({ status: 'escrowed' });
+    expect(state.held.get(`${thesis.onchainId}:${WALLET}`)).toBe(250_000n);
+    expect(logs.join('\n')).toContain('rate limit exceeded');
+  });
+
+  it('keeps the tip pending when Circle cannot be reached to send it, and sends it exactly once later', async () => {
+    const { onchain, circle, sent } = setup();
+    const author = await ensureAgentAuthor(db, { agentKey: 'news', displayName: 'News', strategySummary: 's' });
+    const thesis = await thesisBy(author.id);
+    const tipper = await createGuestUser(db, 'Tipper');
+    await tipRow(thesis.id, tipper.id);
+    circle.execute = flaky(circle.execute, 3, 'connect ETIMEDOUT');
+
+    for (let i = 0; i < 3; i += 1) expect((await onchain.runTipCycle()).failed).toBe(0);
+    for (let i = 0; i < 4; i += 1) await onchain.runTipCycle();
+    expect((await tipsOf(thesis.id))[0]).toMatchObject({ status: 'escrowed' });
+    expect(sent.filter((s) => s.kind === 'tip')).toHaveLength(1);
+  });
+
+  it('never fails a tip already handed to Circle because Circle could not be asked about it', async () => {
+    const { chain, state } = fakeChain();
+    const circleFake = fakeCircle(state);
+    const author = await ensureAgentAuthor(db, { agentKey: 'news', displayName: 'News', strategySummary: 's' });
+    const thesis = await thesisBy(author.id);
+    const tipper = await createGuestUser(db, 'Tipper');
+    await tipRow(thesis.id, tipper.id);
+    circleFake.manual();
+    const onchain = createOnchain({ db, chain, circle: circleFake.circle, logger });
+    for (let i = 0; i < 3; i += 1) {
+      await onchain.runTipCycle();
+      circleFake.finishAll();
+    }
+    // The tip is with Circle now. An hour of failed status checks must not fail it:
+    // the money may already be in escrow.
+    expect((await tipsOf(thesis.id))[0]!.circleTxId).not.toBeNull();
+    const transaction = circleFake.circle.transaction;
+    circleFake.circle.transaction = async () => {
+      throw new Error('503 Service Unavailable');
+    };
+    const anHourOn = createOnchain({ db, chain, circle: circleFake.circle, logger, now: later(60) });
+    expect(await anHourOn.runTipCycle()).toEqual({ escrowed: 0, failed: 0, waiting: 1 });
+    expect((await tipsOf(thesis.id))[0]).toMatchObject({ status: 'pending' });
+
+    circleFake.circle.transaction = transaction;
+    expect(await anHourOn.runTipCycle()).toEqual({ escrowed: 1, failed: 0, waiting: 0 });
+  });
+
+  it('fails a tip at once when Circle refuses the request outright', async () => {
+    const { onchain, circle } = setup();
+    const author = await ensureAgentAuthor(db, { agentKey: 'news', displayName: 'News', strategySummary: 's' });
+    const thesis = await thesisBy(author.id);
+    const tipper = await createGuestUser(db, 'Tipper');
+    await tipRow(thesis.id, tipper.id);
+    circle.execute = async () => {
+      throw new CircleRefused('Circle refused the request (155123): estimation failed');
+    };
+    for (let i = 0; i < 2; i += 1) await onchain.runTipCycle();
+    expect((await tipsOf(thesis.id))[0]).toMatchObject({ status: 'failed' });
+    expect(logs.join('\n')).toContain('estimation failed');
+  });
+
+  it('gives up on a tip it could not send within ten minutes', async () => {
+    const { onchain, chain } = setup({ now: later(11) });
+    const author = await ensureAgentAuthor(db, { agentKey: 'news', displayName: 'News', strategySummary: 's' });
+    const thesis = await thesisBy(author.id);
+    const tipper = await createGuestUser(db, 'Tipper');
+    await tipRow(thesis.id, tipper.id);
+    chain.usdcBalance = async () => {
+      throw new Error('rate limit exceeded');
+    };
+    expect(await onchain.runTipCycle()).toEqual({ escrowed: 0, failed: 1, waiting: 0 });
+    expect((await tipsOf(thesis.id))[0]).toMatchObject({ status: 'failed' });
+  });
+
+  it('does not give up when the chain already holds a tip from that wallet on that thesis', async () => {
+    const { onchain, chain, state } = setup({ now: later(11) });
+    const author = await ensureAgentAuthor(db, { agentKey: 'news', displayName: 'News', strategySummary: 's' });
+    const thesis = await thesisBy(author.id);
+    const tipper = await createGuestUser(db, 'Tipper');
+    await tipRow(thesis.id, tipper.id);
+    // Circle may have taken the tip even though its answer never arrived.
+    state.held.set(`${thesis.onchainId}:${WALLET}`, 250_000n);
+    chain.usdcBalance = async () => {
+      throw new Error('rate limit exceeded');
+    };
+    expect(await onchain.runTipCycle()).toEqual({ escrowed: 0, failed: 0, waiting: 1 });
+    expect((await tipsOf(thesis.id))[0]).toMatchObject({ status: 'pending' });
+    expect(logs.join('\n')).toContain('already holds');
   });
 });
 

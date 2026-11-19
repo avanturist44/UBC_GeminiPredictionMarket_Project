@@ -153,3 +153,44 @@ export const TIP_ESCROW_ABI = [
 
 /** The contract's MarketState enum, in order. */
 export const MARKET_STATES = ['open', 'yesWon', 'noWon', 'void'] as const;
+
+/** Arc testnet's public RPC nodes. Both answered with chain ID 5042002 in Phase 0. */
+export const ARC_PUBLIC_RPC_URLS = ['https://rpc.testnet.arc.io', 'https://rpc.testnet.arc.network'] as const;
+
+/**
+ * The Arc RPC nodes to use, in order: the configured one first (`ARC_RPC_URL`, meant to be a
+ * dedicated QuickNode endpoint), then Arc's public nodes as fallbacks, so losing one
+ * provider slows a call down instead of failing it.
+ */
+export function arcRpcUrls(configured?: string | null): string[] {
+  const seen = new Set<string>();
+  const urls: string[] = [];
+  for (const url of [configured?.trim(), ...ARC_PUBLIC_RPC_URLS]) {
+    if (!url) continue;
+    const key = url.replace(/\/+$/, '').toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    urls.push(url);
+  }
+  return urls;
+}
+
+/**
+ * Hides the path of every given RPC URL in a message. A QuickNode URL carries its access
+ * token in the path, and viem puts the URL in its error messages, which end up in logs.
+ */
+export function redactRpcUrls(message: string, urls: readonly string[]): string {
+  let out = message;
+  for (const url of urls) {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      continue;
+    }
+    if (parsed.pathname.replace(/\/+/g, '') === '' && !parsed.search) continue;
+    const hidden = `${parsed.origin}/[hidden]`;
+    for (const form of [url, url.replace(/\/+$/, '')]) out = out.split(form).join(hidden);
+  }
+  return out;
+}
