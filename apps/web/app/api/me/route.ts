@@ -8,5 +8,5 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ code: 'no_session', message: 'No session.' }, { status: 401 });
-  return NextResponse.json(toMe(user), { headers: { 'cache-control': 'no-store' } });
+  return NextResponse.json(await toMe(user), { headers: { 'cache-control': 'no-store' } });
 }

@@ -53,6 +53,7 @@ export function toThesisCard(view: ThesisView): ThesisCardView {
         }
       : null,
     tipsUsdc: view.tipsUsdc,
+    tipsOpen: thesis.status === 'published' && thesis.registerTx !== null && Boolean(process.env.ESCROW_ADDRESS),
   };
 }
 
@@ -82,6 +83,7 @@ export function toThesisDetail(
     contentHash: view.thesis.contentHash,
     onchainId: view.thesis.onchainId,
     registerTx: view.thesis.registerTx,
+    escrowAddress: process.env.ESCROW_ADDRESS ?? null,
     viewerIsAuthor,
   };
 }

@@ -401,6 +401,53 @@ describe('a person’s thesis', () => {
   });
 });
 
+describe('with the escrow configured', () => {
+  function chained(register: PipelineDeps['register'], llm = scripted([CLEAN]).llm) {
+    return createThesisPipeline({ db, llm, tradingEnabled: () => enabled, now: () => now, register, logger: { info: () => {}, warn: (m) => logs.push(m), error: (m) => logs.push(m) } });
+  }
+
+  it('records the thesis on-chain before publishing, and keeps the transaction', async () => {
+    const { user, author } = await person();
+    const id = await submit(author, user.id);
+    const seen: string[] = [];
+    await chained(async (row) => {
+      // At the moment of registration the thesis is not public yet.
+      seen.push((await thesisOf(row.thesis.id)).status);
+      return '0xregistered';
+    }).runCycle();
+    expect(seen).toEqual(['auditing']);
+    expect(await thesisOf(id)).toMatchObject({ status: 'published', registerTx: '0xregistered' });
+  });
+
+  it('does not publish while registration is failing, and charges nothing', async () => {
+    const { user, author } = await person();
+    const id = await submit(author, user.id);
+    let attempts = 0;
+    const run = chained(async () => {
+      attempts += 1;
+      if (attempts < 2) throw new Error('RPC unreachable');
+      return '0xregistered';
+    });
+    expect(await run.runCycle()).toMatchObject({ waiting: 1, published: 0 });
+    expect(await thesisOf(id)).toMatchObject({ status: 'auditing', registerTx: null });
+    expect((await getUserById(db, user.id))!.paperBalanceUsd).toBe('1000.0000');
+    now = new Date(now.getTime() + 60_000);
+    expect(await run.runCycle()).toMatchObject({ published: 1 });
+    expect(await thesisOf(id)).toMatchObject({ status: 'published', registerTx: '0xregistered' });
+  });
+
+  it('never registers a blocked thesis', async () => {
+    const { user, author } = await person();
+    await submit(author, user.id, { body: 'A friend at the refinery told me output is about to drop.' });
+    let registered = 0;
+    await chained(async () => {
+      registered += 1;
+      return '0x';
+    }, scripted([]).llm).runCycle();
+    expect(registered).toBe(0);
+  });
+});
+
 describe('an agent’s thesis', () => {
   it('is filled from the agent’s bankroll under its limits, and every outcome is logged', async () => {
     const author = await agent('news');

@@ -72,13 +72,23 @@ Last run: 2026-11-17T23:31:49.951Z by `pnpm verify:gemini`.
 | order | Can a prediction market order be placed in the sandbox, and how is a NO order priced? | **yes** | Gemini accepted a sandbox order: buy NO, quantity 1, price 0.97 (the quoted NO ask; YES bid was 0.03) on GEMI-BTC15M2611172345-UP. It filled 1 at 0.97, so for outcome "no" the order price is the NO price. The response has no fee field, so item 5 stays open. Response: {"orderId":"145853902320985497","hashOrderId":"LdpAy6Oa5LA4","clientOrderId":"37f9693e-bf27-4225-822c-9fac7c7a7e41","globalOrderId":"a57fceae8540118ee8648e7fa0a9ca0276ca5afcca8e25557f7e55043f49c662","status":"filled","symbol":"GEMI-BTC15M2611172345-UP","side":"buy","outcome":"no","orderType":"limit","timeInForce":"immediate-or-cancel","quantity":"1","filledQuantity":"1","remainingQuantity":"0","price":"0.97","avgExecutionPrice":"0.97","createdAt":"2026-11-17T23:32:46.214Z","updatedAt":"2026-11-17T23:32:46.214Z"}. |
 <!-- verify:end -->
 
+## Arc and Circle, checked for Phase 4
+
+Checked on November 18, 2026, with `pnpm --filter @thesis/worker verify:escrow` against the deployed escrow.
+
+| Question | What happened |
+| --- | --- |
+| Does a Circle smart contract account on Arc testnet transact without holding gas? (item 11) | Yes. A new account was sent 2 USDC, approved the escrow and tipped 0.25 USDC. Its balance afterwards was exactly 1.75 USDC: no gas was taken from it. Each call completed in about 4 seconds |
+| Is USDC the same balance through both interfaces? | Yes. The treasury showed 100 USDC as the native token (18 decimals) and 100 through the ERC-20 at `0x3600…0000` (6 decimals). An ERC-20 transfer to a plain account also gives it gas. The app uses the 6-decimal interface only |
+| Which explorer verifies source? | `https://explorer.testnet.arc.io` (Blockscout). `forge verify-contract --verifier blockscout --verifier-url https://explorer.testnet.arc.io/api/` verified the contract; `testnet.arcscan.app` rejected the same request |
+| How long does the whole tip take for a new user? | About 20 seconds from confirming the copy to the tip showing as escrowed: wallet created, funded, approved, tip sent |
+
 ## Still open, and who can close it
 
 | # | Question | What is needed |
 | --- | --- | --- |
 | 5 | Fees on prediction market orders | Gemini at office hours. The sandbox order response has no fee field, and the SDK's prediction market models name fees only for maker rebates |
 | 3 | Full OAuth flow in the sandbox | Register an OAuth app at `https://exchange.sandbox.gemini.com/settings/api`. The authorize and token paths exist |
-| 11 | Does a Circle smart contract account on Arc testnet need gas? | A Circle API key and entity secret (Phase 4), or Circle at office hours |
 | 12 | X selectors for the extension | A signed-in browser (Phase 6) |
 | — | Does live data with simulated fills satisfy the Gemini bounty? | Ask Gemini on the first day of office hours. This is the main risk of choosing paper mode |
 

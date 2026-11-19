@@ -1,5 +1,6 @@
 import 'server-only';
 import { and, desc, eq, getFeed, getThesisView, isPublicThesis, listAgentAuthors, trades, type UserRow } from '@thesis/db';
+import { copiedSince } from './copy-trade';
 import { getDb } from './db';
 import type { Loaded } from './market-data';
 import { toThesisCard, toThesisDetail } from './thesis-mapping';
@@ -95,11 +96,16 @@ export async function loadThesis(id: string, viewer: UserRow | null): Promise<Lo
   }
 }
 
-export function toMe(user: UserRow): MeResponse {
+export async function toMe(user: UserRow): Promise<MeResponse> {
+  const db = getDb();
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   return {
     id: user.id,
     displayName: user.displayName,
     paperBalanceUsd: user.paperBalanceUsd,
     maxPerTradeUsd: user.maxPerTradeUsd,
+    dailyCopyCapUsd: user.dailyCopyCapUsd,
+    copiedTodayUsd: db ? await copiedSince(db, user.id, today) : '0.0000',
   };
 }

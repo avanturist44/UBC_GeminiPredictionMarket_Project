@@ -51,7 +51,10 @@ import type { Logger } from './recorder';
  * trade happens, its side, size and price are decided in this file from numbers the author
  * or agent committed to before the audit. The auditor's model has no say in any of them.
  *
- * On-chain registration (Phase 4) belongs between the fill and the publish.
+ * When the escrow is configured, a thesis is recorded on-chain before it is published, so a
+ * tip can never arrive for a thesis the contract does not know. Registration comes before
+ * the fill: the fill and the publish stay one database transaction, and a registration
+ * whose trade then cannot be placed is harmless, because an unpublished thesis takes no tips.
  */
 
 export interface BookQuote {
@@ -70,6 +73,11 @@ export interface PipelineDeps {
   /** The stream's live top of book for a symbol, with sizes. */
   book?: (instrumentSymbol: string) => BookQuote | undefined;
   tradingEnabled: () => boolean;
+  /**
+   * Records the thesis in the escrow contract and returns the transaction hash. Left out
+   * when no contract is configured: theses are then published without an on-chain record.
+   */
+  register?: (row: { thesis: ThesisRow; author: AuthorRow; market: MarketRecord }) => Promise<string>;
   logger: Logger;
   now?: () => Date;
 }
@@ -212,7 +220,7 @@ export function createThesisPipeline(deps: PipelineDeps): ThesisPipeline {
   }
 
   /** Fills the author's trade and publishes, or sends the thesis back, in one transaction. */
-  async function settle(row: Waiting): Promise<Outcome> {
+  async function settle(row: Waiting, registerTx: string | null): Promise<Outcome> {
     if (!deps.tradingEnabled()) return { kind: 'waiting' };
     const at = now();
 
@@ -345,6 +353,7 @@ export function createThesisPipeline(deps: PipelineDeps): ThesisPipeline {
         .set({
           status: 'published',
           publishedAt: at,
+          registerTx,
           entryPrice: ask,
           marketYesPriceAtPublish: mid !== null ? mid.toFixed(4) : (quote.yesAsk ?? quote.yesBid),
         })
@@ -421,7 +430,8 @@ export function createThesisPipeline(deps: PipelineDeps): ThesisPipeline {
 
     let outcome: Outcome;
     try {
-      outcome = await settle(row);
+      const registerTx = deps.register && deps.tradingEnabled() ? await deps.register(row) : null;
+      outcome = await settle(row, registerTx);
     } catch (error) {
       if (await failed(row, 'publish', error instanceof Error ? error.message : String(error))) summary.returned += 1;
       else summary.waiting += 1;

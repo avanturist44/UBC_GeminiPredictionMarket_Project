@@ -123,6 +123,7 @@ export function ThesisEditor({
         audit: null,
         position: null,
         tipsUsdc: '0',
+        tipsOpen: false,
       }
     : null;
 

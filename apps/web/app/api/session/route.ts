@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   const db = getDb();
   if (!db || !sessionsConfigured()) return error(503, 'not_configured', 'Sessions are not set up on this server.');
   const existing = await getSessionUser();
-  if (existing) return NextResponse.json(toMe(existing));
+  if (existing) return NextResponse.json(await toMe(existing));
 
   // No session yet, so the limit is per client address.
   const client = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   try {
     const user = await createGuestUser(db, displayName);
     await startSession(user);
-    return NextResponse.json(toMe(user), { status: 201 });
+    return NextResponse.json(await toMe(user), { status: 201 });
   } catch (cause) {
     console.error('session creation failed', cause);
     return error(503, 'db_error', 'The session could not be created. Try again in a moment.');

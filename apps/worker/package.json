@@ -7,13 +7,16 @@
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
-    "verify:llm": "tsx src/verify-llm.ts"
+    "verify:llm": "tsx src/verify-llm.ts",
+    "verify:escrow": "tsx src/verify-escrow.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.10.0",
+    "@circle-fin/developer-controlled-wallets": "10.8.1",
     "@thesis/core": "workspace:*",
     "@thesis/db": "workspace:*",
     "tsx": "^4.23.15",
+    "viem": "^2.58.0",
     "ws": "^8.23.0",
     "zod": "^4.6.7"
   },

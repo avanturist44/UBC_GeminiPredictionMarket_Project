@@ -1,11 +1,16 @@
 import { DEFAULT_TRACKED_RULES, createGeminiPublicClient, streamSymbolKey } from '@thesis/core';
 import { createDb, listLiveTrackedMarkets } from '@thesis/db';
 import { runMigrations } from '@thesis/db/migrate';
+import type { Address, Hex } from 'viem';
 import { runFadeCycle, runNewsCycle } from './agents';
+import { createEscrowChain } from './chain';
+import { createCircleWallets } from './circle';
 import { loadEnv } from './env';
 import { createWorkerLlm } from './llm';
+import { createOnchain, type Onchain } from './onchain';
 import { createQuoteRecorder } from './quotes';
 import { runRecorderCycle, type Logger } from './recorder';
+import { runResolverCycle } from './resolver';
 import { createPriceStream } from './stream';
 import { createThesisPipeline, type BookQuote } from './thesis-pipeline';
 
@@ -13,8 +18,9 @@ import { createThesisPipeline, type BookQuote } from './thesis-pipeline';
  * The always-on worker. It runs:
  * - the price recorder: a REST poll every 30 seconds and a WebSocket stream of live quotes;
  * - the thesis pipeline: audits every waiting thesis, fills its author's position, publishes;
+ * - the resolver: when Gemini reports a result, marks theses right or wrong and pays positions;
  * - the `news` and `fade` agents, when a language model is configured.
- * The registrar and the resolver are added in later phases.
+ * The on-chain registrar and tip settlement are added once the escrow is deployed.
  */
 
 const log = (level: string, message: string, extra: object = {}) =>
@@ -61,11 +67,46 @@ const llm = createWorkerLlm(
   logger,
 );
 const tradingEnabled = () => env.TRADING_ENABLED;
+
+// The on-chain jobs run only when the contract, both keys and Circle are all configured.
+let onchain: Onchain | null = null;
+if (
+  env.ESCROW_ADDRESS &&
+  env.REGISTRAR_KEY &&
+  env.RESOLVER_KEY &&
+  env.CIRCLE_API_KEY &&
+  env.CIRCLE_ENTITY_SECRET &&
+  env.CIRCLE_WALLET_SET_ID &&
+  env.CIRCLE_TREASURY_WALLET_ID
+) {
+  onchain = createOnchain({
+    db,
+    logger,
+    welcomeUsdc: env.WELCOME_USDC,
+    chain: createEscrowChain({
+      rpcUrl: env.ARC_RPC_URL,
+      chainId: env.ARC_CHAIN_ID,
+      escrowAddress: env.ESCROW_ADDRESS as Address,
+      usdcAddress: env.USDC_ADDRESS as Address,
+      registrarKey: env.REGISTRAR_KEY as Hex,
+      resolverKey: env.RESOLVER_KEY as Hex,
+    }),
+    circle: createCircleWallets({
+      apiKey: env.CIRCLE_API_KEY,
+      entitySecret: env.CIRCLE_ENTITY_SECRET,
+      walletSetId: env.CIRCLE_WALLET_SET_ID,
+      treasuryWalletId: env.CIRCLE_TREASURY_WALLET_ID,
+      usdcAddress: env.USDC_ADDRESS,
+    }),
+  });
+}
+
 const pipeline = createThesisPipeline({
   db,
   llm,
   book: (symbol) => books.get(streamSymbolKey(symbol)),
   tradingEnabled,
+  register: onchain?.register,
   logger,
 });
 
@@ -110,7 +151,8 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 }
 
 log('info', 'worker started', {
-  jobs: ['price-recorder', 'thesis-pipeline', ...(llm ? ['news', 'fade'] : [])],
+  jobs: ['price-recorder', 'thesis-pipeline', 'resolver', ...(llm ? ['news', 'fade'] : []), ...(onchain ? ['tips', 'tip-settlement'] : [])],
+  escrow: env.ESCROW_ADDRESS ?? 'not configured: theses are published without an on-chain record, and tips are off',
   intervalMs: env.RECORDER_INTERVAL_MS,
   stream: env.GEMINI_WS_URL,
   auditor: llm ? llm.model : 'phrase screen only (no language model configured)',
@@ -118,10 +160,26 @@ log('info', 'worker started', {
   rules: DEFAULT_TRACKED_RULES.map((rule) => rule.key),
 });
 
+every('resolver', 30_000, 20_000, async () => {
+  // Three markets a cycle: the recorder shares the same request budget with Gemini.
+  const summary = await runResolverCycle({ db, client, logger, batch: 3 });
+  if (summary.resolved > 0) log('info', 'resolver', { ...summary });
+});
 every('thesis pipeline', 3000, 3000, async () => {
   const summary = await pipeline.runCycle();
   if (Object.values(summary).some((count) => count > 0)) log('info', 'thesis pipeline', { ...summary });
 });
+if (onchain) {
+  const jobs = onchain;
+  every('tips', 5000, 5000, async () => {
+    const summary = await jobs.runTipCycle();
+    if (summary.escrowed > 0 || summary.failed > 0) log('info', 'tips', { ...summary });
+  });
+  every('tip settlement', 30_000, 25_000, async () => {
+    const summary = await jobs.runSettlementCycle();
+    if (summary.paid > 0 || summary.refunded > 0) log('info', 'tip settlement', { ...summary });
+  });
+}
 if (llm) {
   const agentDeps = { db, llm, tradingEnabled, logger };
   every('news agent', 15 * 60_000, 60_000, async () => {

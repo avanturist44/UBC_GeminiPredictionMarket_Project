@@ -16,7 +16,7 @@ export default async function WritePage({ searchParams }: Props) {
       <h1 className="text-2xl font-semibold tracking-tight">Write a thesis</h1>
       <ThesisEditor
         markets={markets.ok ? markets.data : undefined}
-        me={user ? toMe(user) : null}
+        me={user ? await toMe(user) : null}
         initialSymbol={market}
       />
     </div>

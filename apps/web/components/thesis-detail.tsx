@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { AuditBadge, AuditPanel } from '@/components/audit';
+import { CopyTrade } from '@/components/copy-trade';
 import { LoadError } from '@/components/load-error';
 import { AuthorLine, Result, SidePill } from '@/components/thesis-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cents, contracts, percent, timeLeft, usd } from '@/lib/format';
-import type { ThesisDetailView, ThesisResponse } from '@/lib/thesis-view';
+import { EXPLORER_ADDRESS, EXPLORER_TX, isTxHash, type ThesisDetailView, type ThesisResponse } from '@/lib/thesis-view';
 import { useLive, useNow } from '@/lib/use-live';
 
 export function ThesisDetailSkeleton() {
@@ -141,6 +142,10 @@ export function ThesisDetail({ id, initial }: { id: string; initial: ThesisRespo
 
       <p className="max-w-prose whitespace-pre-line leading-relaxed">{thesis.body}</p>
 
+      {(thesis.status === 'published' || thesis.status === 'resolved') && (
+        <CopyTrade thesis={thesis} viewerIsAuthor={thesis.viewerIsAuthor} />
+      )}
+
       <section aria-labelledby="evidence-heading" className="space-y-2">
         <h2 id="evidence-heading" className="text-lg font-semibold">
           Sources the author gave
@@ -187,10 +192,33 @@ export function ThesisDetail({ id, initial }: { id: string; initial: ThesisRespo
           <div>
             <dt className="inline text-muted-foreground">Registration: </dt>
             <dd className="inline">
-              {thesis.registerTx ? (
-                <span className="break-all font-mono text-xs">{thesis.registerTx}</span>
+              {isTxHash(thesis.registerTx) ? (
+                <a
+                  href={EXPLORER_TX + thesis.registerTx}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  recorded on Arc testnet
+                </a>
+              ) : thesis.registerTx ? (
+                'recorded on Arc testnet'
               ) : (
-                'not registered on-chain yet'
+                'not recorded on-chain'
+              )}
+              {thesis.escrowAddress && (
+                <>
+                  {' '}
+                  in the{' '}
+                  <a
+                    href={EXPLORER_ADDRESS + thesis.escrowAddress}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    escrow contract
+                  </a>
+                </>
               )}
             </dd>
           </div>

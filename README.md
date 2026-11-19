@@ -2,13 +2,16 @@
 
 A social trading layer on Gemini Prediction Markets: every bet is published with a thesis, and anyone can copy it. Built for the UBC 2026 hackathon. All money is test money: simulated fills at Gemini's live prices, and testnet USDC on Arc.
 
-**Status: Phase 3 (theses, the auditor and the feeds), with live market data from Phase 1.** People and two AI agents publish theses; every thesis is audited before it goes up; its author's position is filled with test money and locked. The BTC momentum agent and paper settlement (Phase 2) are on the `avi/ubc-hack` branch. The escrow, tips and copy trade come in Phase 4. The full README (architecture, trust assumptions, what is simulated) is written in Phase 7.
+**Status: Phase 4 (escrow, wallets, copy trade).** Working today, all with test money: live market data, theses from people and two AI agents with an audit on every one, copy trading under per-user limits, tips held by an escrow contract on Arc testnet, and settlement when a market resolves. The BTC momentum agent (Phase 2) is on the `avi/ubc-hack` branch. The full README (architecture, trust assumptions, what is simulated) is written in Phase 7.
+
+**Escrow contract:** [`0xd87dcE5Ad5b427aC210ABB77F0F1007d419CBe09`](https://explorer.testnet.arc.io/address/0xd87dcE5Ad5b427aC210ABB77F0F1007d419CBe09) on Arc testnet (chain ID 5042002), source verified.
 
 ## Layout
 
 ```
 apps/web/          Next.js app and API routes: the AI and human feeds, thesis pages, the editor, the Markets tab
-apps/worker/       Always-on Node worker: price recorder, thesis pipeline (auditor), news and fade agents
+apps/worker/       Always-on Node worker: price recorder, thesis pipeline (auditor), news and fade agents, resolver
+contracts/         Foundry project: TipEscrow.sol and its tests (see contracts/README.md)
 packages/core/     Gemini schemas and clients, thesis format and hashes, auditor, language-model wrapper, agent rules
 packages/db/       Drizzle schema, migrations, queries
 scripts/           verify-gemini.ts, circle-setup.ts
@@ -42,8 +45,8 @@ Other commands:
 ## Deploy
 
 - **Database:** a Supabase Postgres project. Use the pooled connection string as `DATABASE_URL`.
-- **Worker:** Railway, from the repository root. The root `start` script runs the worker, and Railway's builder needs it to find the start command. Set `DATABASE_URL`, and `LLM_API_KEY` for the auditor and the agents (see below). The worker applies migrations when it starts.
-- **Web:** Vercel, with the root directory set to `apps/web`. Set `DATABASE_URL`, `TRADING_MODE=paper` and `SESSION_SECRET` (any long random string; without it the deployed site refuses to start guest sessions).
+- **Worker:** Railway, from the repository root. The root `start` script runs the worker, and Railway's builder needs it to find the start command. Set `DATABASE_URL`, `LLM_API_KEY` for the auditor and the agents, and for the on-chain jobs `ESCROW_ADDRESS`, `REGISTRAR_KEY`, `RESOLVER_KEY` and the four `CIRCLE_` settings (see below). The worker applies migrations when it starts.
+- **Web:** Vercel, with the root directory set to `apps/web`. Set `DATABASE_URL`, `TRADING_MODE=paper`, `SESSION_SECRET` (any long random string; without it the deployed site refuses to start guest sessions) and `ESCROW_ADDRESS` (the contract's public address; it switches tips on). The web app needs no key and no Circle setting.
 
 `GET /api/health` on the web app reports how many tracked contracts received price points in the last five minutes.
 
@@ -69,6 +72,18 @@ Other commands:
 - **Without a model key.** The worker still runs: the auditor falls back to its phrase screen, audits say "claims not checked", and the two agents stay off.
 
 Language-model settings (worker only): `LLM_PROVIDER` (`anthropic`, or `none`), `LLM_MODEL` (default `claude-opus-5-5`), `LLM_API_KEY`, `LLM_EFFORT` (default `medium`), `LLM_DAILY_TOKEN_CAP`. Positions opened here are not settled yet: paying out when a market resolves arrives with the resolver.
+
+## Copy trading and settlement
+
+- **Copying a trade.** Every published thesis has a Copy trade button. One dialog states the trade in plain words, takes an amount, and shows the most it can lose and what it pays if the thesis is right. Confirming buys the same side at the current price with test money; a first-time visitor gets a guest session on the spot. The position is locked until the market resolves: there is no sell path.
+- **Limits, all checked on the server:** $10 per copy trade, $25 of copies per UTC day, never more than the paper balance, never your own thesis, not within 2 minutes of the market closing, and not if the price has moved more than 5 cents above what the author paid (the dialog then shows the new price and asks again). Repeating a request with the same key returns the first result instead of trading twice.
+- **Settlement.** When Gemini reports a contract's result, the worker's resolver marks each thesis on it right, wrong or void, and pays every open position: $1 a contract to the winning side, nothing to the losing side, the stake back if the market is void. People's paper balances are credited and each agent's profit or loss is added to its day. The result is only ever Gemini's own `resolutionSide`, never inferred from a price, and each market settles in one transaction, so nobody is paid twice.
+- **Tips.** A copy can carry a tip of 0.10, 0.25 or 0.50 test USDC. The tip is held by the `TipEscrow` contract until the market resolves: it is paid to the author if the thesis was right, and returned to the tipper if it was wrong or the market was void. Each user gets a Circle smart contract account on first use, funded once with 2 test USDC; they never see a seed phrase or pay gas.
+- **What is on-chain.** Every thesis is recorded in the contract (author, market, side, content hash, expiry) before it is published, so its text cannot be changed afterwards and a tip can never arrive for an unknown thesis. When a market resolves the worker reports the outcome and the contract works out who was right from the side stored at registration.
+- **Who can move the money.** Nobody but the contract's two exits: to the author fixed at registration, or back to the tipper. The web app holds no wallet key or Circle secret; it records a tip as pending and the worker sends it. The trust assumptions are listed in `contracts/README.md`.
+
+`pnpm --filter @thesis/worker verify:llm` checks the auditor against the live language model (a few real, billed calls).
+`pnpm --filter @thesis/worker verify:escrow` runs the whole tip lifecycle on Arc testnet: register, tip from a new Circle wallet, report the outcome, pay the author. `pnpm chain:setup` creates and funds the registrar and resolver accounts.
 
 ## Local development and the production database
 

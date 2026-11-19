@@ -55,6 +55,8 @@ export interface ThesisCardView {
   position: { quantity: string; costUsd: string; payoutUsd: string | null; status: string } | null;
   /** Test USDC from copiers, held in escrow or already paid out. */
   tipsUsdc: string;
+  /** The thesis is recorded in the escrow contract, so a copy can carry a tip. */
+  tipsOpen: boolean;
 }
 
 export interface AuditClaimView {
@@ -75,6 +77,8 @@ export interface ThesisDetailView extends ThesisCardView {
   contentHash: string | null;
   onchainId: string;
   registerTx: string | null;
+  /** The escrow contract's address on Arc testnet. Null when none is configured. */
+  escrowAddress: string | null;
   viewerIsAuthor: boolean;
 }
 
@@ -98,7 +102,26 @@ export interface MeResponse {
   displayName: string;
   paperBalanceUsd: string;
   maxPerTradeUsd: string;
+  dailyCopyCapUsd: string;
+  /** What the user's copy trades have cost so far this UTC day. */
+  copiedTodayUsd: string;
 }
+
+export interface TipStatusResponse {
+  id: string;
+  status: 'pending' | 'escrowed' | 'paid' | 'refunded' | 'failed';
+  amountUsdc: string;
+  /** The transaction that moved the tip into escrow. */
+  depositTx: string | null;
+  /** The transaction that paid it to the author or returned it. */
+  settleTx: string | null;
+}
+
+/** Where a transaction can be read on the Arc testnet explorer. */
+export const EXPLORER_TX = 'https://explorer.testnet.arc.io/tx/';
+export const EXPLORER_ADDRESS = 'https://explorer.testnet.arc.io/address/';
+/** True for a real transaction hash, as opposed to a marker that a call was already done. */
+export const isTxHash = (value: string | null | undefined): value is string => !!value && /^0x[0-9a-fA-F]{64}$/.test(value);
 
 export interface SubmitResponse {
   id: string;

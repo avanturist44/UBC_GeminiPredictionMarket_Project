@@ -17,7 +17,8 @@
     "verify:gemini": "tsx scripts/verify-gemini.ts",
     "circle:setup": "tsx scripts/circle-setup.ts",
     "test": "vitest run",
-    "typecheck": "pnpm -r typecheck && tsc -p scripts/tsconfig.json"
+    "typecheck": "pnpm -r typecheck && tsc -p scripts/tsconfig.json",
+    "chain:setup": "tsx scripts/chain-setup.ts"
   },
   "devDependencies": {
     "@circle-fin/developer-controlled-wallets": "10.8.1",
@@ -26,6 +27,7 @@
     "@types/node": "^22.19.0",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
+    "viem": "^2.58.0",
     "vitest": "^5.1.0",
     "ws": "^8.23.0"
   }

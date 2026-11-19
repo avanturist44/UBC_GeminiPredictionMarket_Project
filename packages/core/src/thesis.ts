@@ -69,6 +69,11 @@ export function thesisOnchainId(thesisId: string): string {
   return keccakHex(thesisId.toLowerCase());
 }
 
+/** A market's id on-chain: keccak256 of its instrument symbol, verbatim. */
+export function marketOnchainId(instrumentSymbol: string): string {
+  return keccakHex(instrumentSymbol);
+}
+
 /**
  * keccak256 of the canonical JSON of `{ market, side, probability_yes, headline, body,
  * evidence }`. `market` is the instrument symbol and the probability has four decimals.
