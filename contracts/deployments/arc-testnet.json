@@ -1,0 +1,14 @@
+{
+  "chainId": 5042002,
+  "address": "0xeEde0F6495f4e370D50f32D656Daf7Bc3D8F8125",
+  "transactionHash": "0xcebb3f7b60bdf61abe40dbb990adddc35b205bdede9cb677c8c7d66a94afe23b",
+  "registrar": "0x0c6685d5957E93099D5844f9B111dF09cE61Ef37",
+  "resolver": "0x0c6685d5957E93099D5844f9B111dF09cE61Ef37",
+  "deployer": "0xcdBE7e61Aefd9A954b67ec14053dD2c3C9D7FDE3",
+  "usdc": "0x3600000000000000000000000000000000000000",
+  "codeHash": "0x8ee000dd60464a525b25b453279d53f6aba5e412c592c5e25fb687fbd1af9830",
+  "compiler": "0.8.28",
+  "optimizerRuns": 200,
+  "blockNumber": "72984142",
+  "deployedAt": "2026-11-19T10:02:14.271Z"
+}

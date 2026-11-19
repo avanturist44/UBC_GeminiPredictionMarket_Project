@@ -10,6 +10,7 @@ next-env.d.ts
 .env
 .env.*
 !.env.example
+recovery_file_*.dat
 
 .DS_Store
 .vercel/

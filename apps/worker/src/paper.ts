@@ -2,7 +2,7 @@ import { AGENT_LIMITS, agentLimitReason, type GeminiPublicClient } from '@thesis
 import { randomUUID } from 'node:crypto';
 import { keccak_256 } from '@noble/hashes/sha3';
 import { bytesToHex } from '@noble/hashes/utils';
-import { agentRuns, agentState, and, audits, authors, desc, eq, markets, theses, trades, type Db } from '@thesis/db';
+import { agentRuns, agentState, and, audits, authors, desc, eq, markets, sql, theses, trades, type Db } from '@thesis/db';
 import { evaluateMomentum, type MomentumInput } from './momentum';
 
 const key = 'momentum';
@@ -45,7 +45,7 @@ export interface TradingAdapter {
 }
 
 export function createPaperAdapter(db: Db, client: Pick<GeminiPublicClient, 'getEvent'>,
-  options: { enabled: () => boolean; now?: () => number }) : TradingAdapter {
+  options: { enabled: () => boolean; now?: () => number; registrationRequired?: boolean }) : TradingAdapter {
   const now = options.now ?? Date.now;
   async function locked<T>(fn: (tx: Db, authorId: string) => Promise<T>): Promise<T> {
     return db.transaction(async (tx) => {
@@ -122,7 +122,7 @@ export function createPaperAdapter(db: Db, client: Pick<GeminiPublicClient, 'get
           await tx.insert(theses).values({ id: thesisId, authorId, marketId, ...content,
             onchainId: hash(thesisId), contentHash: hash(JSON.stringify(content)),
             entryPrice: fill.price, marketYesPriceAtPublish: input.quote!.ask.toFixed(4),
-            status: 'published', publishedAt: new Date(now()), createdAt: new Date(now()) });
+            status: options.registrationRequired ? 'auditing' : 'published', publishedAt: options.registrationRequired ? null : new Date(now()), createdAt: new Date(now()) });
           // The fixed template makes only numeric claims checked against the same executable input.
           // This is a code audit of recorded inputs, not a web fact-check or a profitability claim.
           await tx.insert(audits).values({ thesisId, verdict: 'pass', insideInfo: false,
@@ -190,7 +190,8 @@ export function createPaperAdapter(db: Db, client: Pick<GeminiPublicClient, 'get
             const payout = voided ? units(fill.costUsd) : fill.side === side ? units(fill.quantity) : 0n;
             pnl += payout - units(fill.costUsd);
             await tx.update(trades).set({ status: 'settled', payoutUsd: decimal(payout) }).where(eq(trades.id, fill.id));
-            if (fill.thesisId) await tx.update(theses).set({ status: 'resolved',
+            if (fill.thesisId) await tx.update(theses).set({
+              status: options.registrationRequired ? sql`case when ${theses.registerTx} is null then 'draft'::thesis_status else 'resolved'::thesis_status end` : 'resolved',
               outcome: voided ? 'void' : fill.side === side ? 'right' : 'wrong' }).where(eq(theses.id, fill.thesisId));
           }
           if (!fills.length) return 0;

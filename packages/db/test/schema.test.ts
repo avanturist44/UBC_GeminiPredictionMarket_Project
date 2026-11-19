@@ -62,15 +62,20 @@ describe('schema', () => {
       'audit_control',
       'audits',
       'authors',
+      'chain_actions',
+      'chain_control',
+      'copy_requests',
       'gemini_connections',
       'markets',
       'price_points',
       'session_windows',
       'theses',
       'thesis_jobs',
+      'thesis_registrations',
       'tips',
       'trades',
       'users',
+      'wallet_accounts',
     ]);
   });
 

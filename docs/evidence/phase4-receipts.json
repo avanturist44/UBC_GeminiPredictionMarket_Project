@@ -1,0 +1,19 @@
+{
+  "checkedAt": "2026-11-19T19:15:42.980Z",
+  "contract": "0xeEde0F6495f4e370D50f32D656Daf7Bc3D8F8125",
+  "chainId": 5042002,
+  "cases": [
+    {
+      "thesisId": "c5871843-1400-4006-a1f5-b94f3361bbb5",
+      "market": "GEMI-BTC15M2611191915-UP",
+      "side": "yes",
+      "officialOutcome": "no",
+      "amountUsdc": "0.100000",
+      "status": "refunded",
+      "depositTx": "0x49a8bd3980e14fa58e7eae5aeb5ce5b8e5a95f4ba6e262fc6af76fe66253bdfd",
+      "settleTx": "0x40b11664b6ef1fb179d2beafa35025bcab84fbea0fbcd6b0dd53ff0ed09c8bc8",
+      "remainingThesisPool": "0",
+      "receiptProof": true
+    }
+  ]
+}

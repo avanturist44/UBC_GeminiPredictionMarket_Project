@@ -6,12 +6,12 @@
  *
  * Needs CIRCLE_API_KEY and CIRCLE_ENTITY_SECRET in .env. Safe to re-run: anything already
  * named in .env (CIRCLE_WALLET_SET_ID, CIRCLE_TREASURY_WALLET_ID) is looked up, not recreated.
- * Prints the two IDs and the treasury address; it never prints a secret.
+ * Saves the two IDs in the ignored root .env and prints them with the treasury address; it never prints a secret.
  *
  * The treasury is an EOA, as in Circle's guide: it holds faucet USDC, which is also Arc's gas
  * token, so it pays its own gas. User wallets (Phase 4) are smart contract accounts instead.
  */
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
 
@@ -19,6 +19,15 @@ const BLOCKCHAIN = 'ARC-TESTNET';
 
 const rootEnv = fileURLToPath(new URL('../.env', import.meta.url));
 if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
+
+/** Persist public wallet IDs immediately so a partial setup can be resumed without duplicates. */
+function saveId(key: 'CIRCLE_WALLET_SET_ID' | 'CIRCLE_TREASURY_WALLET_ID', value: string) {
+  if (!/^[0-9a-f-]{36}$/i.test(value)) throw new Error('Circle returned an invalid wallet identifier');
+  const source = readFileSync(rootEnv, 'utf8');
+  const pattern = new RegExp(`^(?:export\\s+)?${key}\\s*=.*$`, 'm');
+  const line = `${key}=${value}`;
+  writeFileSync(rootEnv, pattern.test(source) ? source.replace(pattern, line) : `${source.trimEnd()}\n${line}\n`);
+}
 
 async function main(): Promise<void> {
   const apiKey = process.env.CIRCLE_API_KEY;
@@ -35,6 +44,7 @@ async function main(): Promise<void> {
     const res = await client.createWalletSet({ name: 'Thesis Market' });
     walletSetId = res.data?.walletSet?.id;
     if (!walletSetId) throw new Error('Wallet set creation failed: no ID returned');
+    saveId('CIRCLE_WALLET_SET_ID', walletSetId);
     console.log(`Wallet set: created ${walletSetId}`);
   }
 
@@ -55,6 +65,7 @@ async function main(): Promise<void> {
     const wallet = res.data?.wallets?.[0];
     if (!wallet?.id) throw new Error('Treasury wallet creation failed: no ID returned');
     treasuryId = wallet.id;
+    saveId('CIRCLE_TREASURY_WALLET_ID', treasuryId);
     address = wallet.address;
     console.log(`Treasury wallet: created ${treasuryId}`);
   }
@@ -67,7 +78,7 @@ async function main(): Promise<void> {
 
 main().catch((err: unknown) => {
   const e = err as { message?: string; response?: { status?: number; data?: unknown } };
-  console.error('Error:', e.message ?? err);
-  if (e.response?.data) console.error('Circle said:', JSON.stringify(e.response.data));
+  console.error('Circle setup failed. Check the configured test key and registered entity secret; saved wallet IDs were preserved.');
+  if (e.response?.status) console.error('HTTP status:', e.response.status);
   process.exit(1);
 });

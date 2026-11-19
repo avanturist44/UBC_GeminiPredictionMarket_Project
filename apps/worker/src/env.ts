@@ -10,6 +10,7 @@ const EnvSchema = z.object({
   TRADING_MODE: z.literal('paper').default('paper'),
   TRADING_ENABLED: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
   BTC_BOT_MODE: z.enum(['log-only', 'paper']).default('paper'),
+  ESCROW_ENABLED: z.enum(['true', 'false']).default('false').transform(value => value === 'true'),
   NEWS_AGENT_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   LLM_PROVIDER: z.preprocess((value) => value === '' ? undefined : value, z.literal('xai').optional()),
   LLM_MODEL: z.preprocess((value) => value === '' ? undefined : value, z.string().min(1).max(100).default('grok-4.7')),

@@ -7,6 +7,16 @@ import { getDb } from './db';
 
 export const SESSION_COOKIE = 'thesis_session';
 export const PUBLICATION_MESSAGES: Record<string, string> = {
+  chain_not_configured: 'Arc testnet copying is not configured yet.', testnet_only: 'This application only supports Arc testnet.',
+  escrow_mismatch: 'The escrow configuration could not be verified. Copying is paused.',
+  thesis_not_copyable: 'This thesis is not registered for copying, or is no longer open.', own_thesis: 'You cannot copy or tip your own thesis.',
+  wallet_not_ready: 'Prepare your test wallet before adding a USDC tip.', wallet_unavailable: 'Your test wallet is unavailable.',
+  wallet_daily_limit: 'Today’s test-wallet funding allowance has been reached. You can still copy with no tip.',
+  insufficient_usdc: 'Your test wallet has insufficient available USDC or allowance for this tip.', tip_limit: 'The five-USDC tip limit for this thesis would be exceeded.',
+  quote_expired: 'The quote has expired. Review a fresh quote before confirming.', price_moved: 'The price moved. Review the new quote and confirm again.',
+  quote_changed: 'The book changed during confirmation. Review a fresh quote.', quote_unavailable: 'A fresh executable quote is unavailable. Try again shortly.',
+  per_trade_limit: 'The amount exceeds your per-trade paper limit.', daily_limit: 'This would exceed your daily paper spending cap.',
+  insufficient_balance: 'Your simulated balance is insufficient.', no_fill: 'Available market size or quantity rules prevented a fill.',
   session_required: 'Create a guest session to continue.', session_not_configured: 'Guest sessions are not configured yet.',
   not_configured: 'A database connection is required.', invalid_input: 'Check the thesis fields and source URL.',
   invalid_cursor: 'This feed cursor is invalid.', invalid_origin: 'Submit from this website.',

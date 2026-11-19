@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start:escrow": "tsx src/escrow-worker.ts",
     "start:theses": "tsx src/thesis-worker.ts",
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",

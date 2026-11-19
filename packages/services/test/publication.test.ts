@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { audits, authors, eq, markets, theses, thesisJobs, trades, users, type Db } from '@thesis/db';
+import { audits, authors, chainActions, eq, markets, theses, thesisJobs, thesisRegistrations, trades, users, type Db } from '@thesis/db';
 import { createTestDb } from '../../db/src/testing';
 import { createGuest, submitThesis, ThesisSubmissionSchema } from '../src/publication';
 import { processThesisJob } from '../src/queue';
@@ -139,6 +139,24 @@ describe('audited paper publication', () => {
     expect(feed.theses.every(t => ['published', 'resolved'].includes(t.status) && t.publication === null)).toBe(true);
     expect(JSON.stringify(feed)).not.toMatch(/paperBalanceUsd|circleWalletId|userId/);
     await expect(listThesisFeed(db, { kind: 'human', cursor: 'invalid' })).rejects.toMatchObject({ code: 'invalid_cursor' });
+  });
+  it('waits for confirmed registration, then reuses its audit without another paid call', async () => {
+    const f = await setup(); await submitThesis(db, f.user.id, f.input, now);
+    const escrow = '0x1111111111111111111111111111111111111111'; let calls = 0;
+    const options = { requireRegistration: escrow, provider: { audit: async () => { calls++; return checked; } },
+      quote: async () => ({ read: () => f.quote, close() {} }), enabled: () => true, now: () => now };
+    expect(await processThesisJob(db, options)).toMatchObject({ stage: 'registering' });
+    expect(await db.select().from(trades).where(eq(trades.thesisId, f.input.idempotencyKey))).toHaveLength(0);
+    const key = `registration-fixture:${f.input.idempotencyKey}`;
+    await db.insert(chainActions).values({ key, kind: 'register', walletId: randomUUID(), contractAddress: escrow, status: 'confirmed' });
+    await db.insert(thesisRegistrations).values({ thesisId: f.input.idempotencyKey, escrowAddress: escrow,
+      authorAddress: '0x2222222222222222222222222222222222222222', marketHash: `0x${'ab'.repeat(32)}`, contentHash: `0x${'cd'.repeat(32)}`,
+      expiryAt: f.market.expiryAt!, actionKey: key, confirmedAt: new Date(now) });
+    await db.update(theses).set({ registerTx: `0x${'ab'.repeat(32)}` }).where(eq(theses.id, f.input.idempotencyKey));
+    expect(await processThesisJob(db, { ...options, quote: async () => ({ read: () => ({ ...f.quote, bid: 0.4 }), close() {} }) })).toMatchObject({ stage: 'waiting_for_book' });
+    expect(await db.select().from(trades).where(eq(trades.thesisId, f.input.idempotencyKey))).toHaveLength(0);
+    expect(await processThesisJob(db, options)).toMatchObject({ verdict: 'flagged' }); expect(calls).toBe(1);
+    expect((await getThesisView(db, f.input.idempotencyKey))?.status).toBe('published');
   });
   it('recovers interrupted jobs without repeating paid work or hiding committed publication', async () => {
     const f = await setup(); await ready(f);

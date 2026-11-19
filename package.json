@@ -13,6 +13,7 @@
     "start": "pnpm start:worker",
     "start:worker": "pnpm --filter @thesis/worker start",
     "start:theses": "pnpm --filter @thesis/worker start:theses",
+    "start:escrow": "pnpm --filter @thesis/worker start:escrow",
     "db:generate": "pnpm --filter @thesis/db generate",
     "db:migrate": "pnpm --filter @thesis/db migrate",
     "verify:gemini": "tsx scripts/verify-gemini.ts",
@@ -23,10 +24,12 @@
   "devDependencies": {
     "@circle-fin/developer-controlled-wallets": "10.8.1",
     "@gemini-markets/sdk": "0.1.1",
+    "@openzeppelin/contracts": "5.4.0",
     "@thesis/core": "workspace:*",
     "@types/node": "^22.19.0",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
+    "viem": "^2.58.1",
     "vitest": "^5.1.0",
     "ws": "^8.23.0"
   }

@@ -1,8 +1,8 @@
 # Thesis Market
 
-A social trading layer on Gemini Prediction Markets: every paper bet is published with a thesis. Built for the UBC 2026 hackathon. Fills use simulated dollars at Gemini's live prices; the planned tipping and copy-trade flow uses Arc testnet USDC.
+A social trading layer on Gemini Prediction Markets: every paper bet is published with a thesis. Built for the UBC 2026 hackathon. Fills use simulated dollars at Gemini's live prices; optional copy-trade tips use Arc testnet USDC.
 
-**Status on `avi/ubc-hack`: Phase 3 core thesis/auditor/feed acceptance passed locally.** AI and Human feeds, thesis details, guest sessions, the editor, Grok auditing and locked human paper positions are implemented. A real local submission passed through the live audit/quote/publication path with a $0.9996 simulated fill; insider content was blocked privately and a false factual claim was flagged. All 216 tests, workspace typecheck and production web build passed. Headless desktop/mobile checks and real Postgres concurrency checks passed. BTC live acceptance remains satisfied, with seven qualifying trades and seven correct official settlements at the latest checkpoint. Hosted deployment, news execution, Circle/USDC escrow and copy trading remain pending. See [the Phase 3 handoff](docs/phase-3-theses-auditor-feeds.md), [earlier UI verification](docs/verification-2026-11-18.md) and [BTC worker details](docs/btc-paper-worker.md).
+**Status on `avi/ubc-hack`: Phase 4 escrow and copy trading are implemented locally.** Circle wallets, deployed Arc testnet escrow, registration before publication, explicit copy confirmation, durable tip transactions and official-outcome accounting are connected. All 232 tests, workspace typecheck and the production build passed; Foundry passed 10 contract tests including 256 fuzz cases. Headless desktop/mobile confirmation and real Postgres concurrency checks passed. See [the Phase 4 handoff and live evidence](docs/phase-4-escrow-copy-trading.md) for acceptance details and remaining limits. Hosted deployment, public explorer source publication and news execution remain pending. Earlier work is recorded in [Phase 3](docs/phase-3-theses-auditor-feeds.md) and [BTC worker details](docs/btc-paper-worker.md).
 
 ### Gemini, the trading agent, and Circle
 
@@ -10,23 +10,24 @@ See [agent types and current implementation status](docs/agents.md) for the BTC 
 
 The second agent has a [Grok-powered log-only news research pipeline](docs/news-agent.md) for daily BTC/ETH and non-crypto markets. Grok 4.7 performs web research and returns structured forecasts; code validates citation provenance and computes hypothetical entries. A live cited forecast is verified. `NEWS_AGENT_ENABLED=false` remains the default; configure `LLM_PROVIDER=xai`, `LLM_MODEL=grok-4.7`, and server-only `XAI_API_KEY` to use the adapter.
 
-Gemini provides prediction market data and official outcomes. The current BTC agent makes its entry decisions with the deterministic momentum model and simulates fills in Postgres. A Circle wallet and Arc testnet USDC belong to the planned tipping and payout flow; the funded wallet is not yet connected to this worker. A Circle wallet balance does not fund the worker's simulated $1,000 paper bankroll or submit a Gemini order.
+Gemini provides prediction market data and official outcomes. The BTC agent makes its entry decisions with the deterministic momentum model and simulates fills in Postgres. Circle-managed wallets fund optional Arc testnet tips; the separate escrow worker registers theses, verifies deposits and processes payouts/refunds. Circle USDC is separate from the simulated paper bankroll.
 
-Grok is integrated for news research and thesis auditing. A separate publication worker audits guest submissions before fresh-quote paper execution and publication. News execution still needs to be connected to this pipeline. Circle escrow and copy trading remain later work; paper execution does not complete those integrations.
+Grok is integrated for news research and thesis auditing. A separate publication worker audits guest submissions before on-chain registration, fresh-quote paper execution and publication when escrow is enabled. News execution still needs to be connected to this pipeline.
 
 ## Layout
 
 ```
 apps/web/          Markets, feeds, thesis details/editor, activity and API routes
-apps/worker/       BTC recorder/trader and a separate thesis audit/publication worker
+apps/worker/       Separate BTC, thesis audit/publication and escrow workers
 packages/core/     Gemini client and stream schemas, ticker rules, tracked markets, agent limits
-packages/services/ Guest sessions, auditing, publication, human paper execution and feeds
+packages/services/ Sessions, auditing, publication, paper copies, Circle and escrow outbox
 packages/db/       Drizzle schema, migrations, queries
-scripts/           verify-gemini.ts, circle-setup.ts
+scripts/           Setup, resumable deployment and integration verification
+contracts/         Testnet TipEscrow, Foundry tests and public deployment parameters
 docs/              gemini-findings.md: what the live APIs actually do
 ```
 
-`apps/extension/` and `contracts/` are added in their own phases.
+`apps/extension/` remains deferred.
 
 ## Setup
 
@@ -35,7 +36,7 @@ Needs Node 22.4 or newer, pnpm 10 (`corepack enable`), and a Postgres database.
 ```bash
 pnpm install
 cp .env.example .env          # set DATABASE_URL
-pnpm db:migrate               # creates the fourteen application/workflow tables
+pnpm db:migrate               # creates the nineteen application/workflow tables
 pnpm dev:worker               # records prices: a poll every 30 seconds and a live stream
 pnpm dev:web                  # http://localhost:3000, markets at /markets
 ```
@@ -47,6 +48,7 @@ Other commands:
 | `pnpm test` | Unit tests, including parsing of recorded Gemini responses and recorder tests on an in-memory Postgres |
 | `pnpm typecheck` | Type-checks every package and the scripts |
 | `pnpm start:theses` | Separate thesis audit/publication and guest paper-settlement worker; requires configured auditing |
+| `pnpm start:escrow` | Separate Circle wallet, registration, tip and official-outcome escrow worker; requires testnet configuration |
 | `corepack pnpm --filter @thesis/worker verify:btc` | Checks live BTC REST, index, book sizes and a recent official outcome without submitting orders |
 | `corepack pnpm --filter @thesis/worker check:btc-paper` | Reads BTC paper-fill, decision-log and settlement progress; exit 2 means acceptance is still pending |
 | `corepack pnpm --filter @thesis/worker observe:news` | Runs one log-only news observation; can make a metered Grok search request when configured, subject to cadence and caps |
@@ -66,9 +68,9 @@ Other commands:
 
 See [the Phase 3 runbook](docs/phase-3-theses-auditor-feeds.md) for guest signing, the audit worker, limits, screenshots and verification evidence. Local setup uses `node scripts/setup-local-theses.mjs` and `.\scripts\local-worker.ps1 start -Worker theses`; the original BTC supervisor remains independent. Audits use server-only Grok credentials and make bounded metered calls for queued submissions. News scheduling remains disabled.
 
-### Next: escrow, copy trading and hosted verification
+### Escrow, copy trading and hosted verification
 
-Local live-data acceptance is complete; hosted acceptance remains separate. Phase 4 adds Circle/Arc USDC escrow, registration and copy trading. See [the Phase 3 handoff](docs/phase-3-theses-auditor-feeds.md) for the current checkpoint and [the November 18 UI handoff](docs/verification-2026-11-18.md) for earlier verification.
+The [Phase 4 handoff](docs/phase-4-escrow-copy-trading.md) covers testnet setup, contract trust, limits, recovery and live receipt evidence. Hosted acceptance remains separate. Run the BTC, thesis and escrow processes independently with the intended shared database before verifying a hosted deployment.
 
 For the currently selected **local** verification database, use `.\scripts\local-worker.ps1 start` and `.\scripts\local-worker.ps1 status` in PowerShell 7. This runs a supervised BTC paper worker with archived logs, heartbeat reporting, and restart-on-exit/stall behavior. Scheduled Grok research stays disabled in this local supervisor. See [the worker runbook](docs/btc-paper-worker.md#managed-local-worker). The helper refuses remote database URLs.
 

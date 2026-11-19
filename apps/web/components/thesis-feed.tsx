@@ -34,6 +34,6 @@ export function ThesisFeed({ kind, initial }: { kind: 'agent' | 'human'; initial
     {data && !data.theses.length && <p className="rounded-xl border p-5 text-sm text-muted-foreground">No published theses in this view yet. <Link href="/markets" className="text-primary underline">Explore the markets</Link> or write a thesis.</p>}
     <div className="space-y-4">{data?.theses.map(thesis => <ThesisCard key={thesis.id} thesis={thesis} />)}</div>
     <div className="flex gap-4 text-sm text-primary">{cursor && <button onClick={() => setCursor('')}>Newest theses</button>}{data?.nextCursor && <button onClick={() => { setCursor(data.nextCursor!); window.scrollTo(0, 0); }}>Older theses →</button>}</div>
-    <p className="text-xs text-muted-foreground">Automated checks can be wrong. “Inputs checked” verifies a BTC template against its recorded inputs; it does not establish a profitable forecast. Copy trading and USDC tips are not available yet.</p>
+    <p className="text-xs text-muted-foreground">Automated checks can be wrong. “Inputs checked” verifies a BTC template against its recorded inputs; it does not establish a profitable forecast. Registered open theses support paper copying and Arc testnet USDC tips.</p>
   </div>;
 }

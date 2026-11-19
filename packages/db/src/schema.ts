@@ -269,6 +269,8 @@ export const tips = pgTable(
       .references(() => users.id),
     /** USDC has 6 decimals on its ERC-20 interface. */
     amountUsdc: numeric({ precision: 12, scale: 6 }).notNull(),
+    /** Exactly one optional tip per successfully filled copy request. */
+    tradeId: uuid().references(() => trades.id),
     circleTxId: text(),
     depositTx: text(),
     status: tipStatus().notNull().default('pending'),
@@ -278,6 +280,7 @@ export const tips = pgTable(
   (t) => [
     index('tips_thesis_idx').on(t.thesisId),
     index('tips_status_idx').on(t.status),
+    uniqueIndex('tips_trade_unique').on(t.tradeId),
     check('tips_amount_positive', sql`${t.amountUsdc} > 0`),
   ],
 ).enableRLS();
@@ -332,7 +335,7 @@ export const agentState = pgTable(
 export const thesisJobs = pgTable('thesis_jobs', {
   thesisId: uuid().primaryKey().references(() => theses.id, { onDelete: 'cascade' }),
   stakeUsd: usd().notNull(),
-  status: text().$type<'queued' | 'running' | 'completed' | 'failed'>().notNull().default('queued'),
+  status: text().$type<'queued' | 'running' | 'registering' | 'completed' | 'failed'>().notNull().default('queued'),
   startedAt: ts(),
   finishedAt: ts(),
   /** Public, fixed error codes only. No upstream exception text. */
@@ -354,3 +357,47 @@ export const sessionWindows = pgTable('session_windows', {
 export const auditControl = pgTable('audit_control', {
   id: integer().primaryKey(),
 }, t => [check('audit_control_singleton', sql`${t.id} = 1`)]).enableRLS();
+
+/** Circle requests retain a UUID before any external call. Unknown responses are retried with that same UUID. */
+export const chainActions = pgTable('chain_actions', {
+  key: text().primaryKey(), idempotencyKey: uuid().notNull().defaultRandom(),
+  kind: text().$type<'fund' | 'approve' | 'register' | 'tip' | 'outcome' | 'settle' | 'refund'>().notNull(),
+  walletId: text().notNull(), contractAddress: text().notNull(), callData: text(),
+  amountUsdc: numeric({ precision: 12, scale: 6 }), destination: text(),
+  status: text().$type<'pending' | 'submitted' | 'confirmed' | 'failed'>().notNull().default('pending'),
+  circleTxId: text(), txHash: text(), errorCode: text(),
+  createdAt: createdAt(), updatedAt: createdAt(),
+}, t => [uniqueIndex('chain_actions_idempotency_unique').on(t.idempotencyKey),
+  index('chain_actions_status_created_idx').on(t.status, t.createdAt),
+]).enableRLS();
+
+export const walletAccounts = pgTable('wallet_accounts', {
+  ownerKey: text().primaryKey(),
+  userId: uuid().references(() => users.id), authorId: uuid().references(() => authors.id),
+  createKey: uuid().notNull().defaultRandom(),
+  circleWalletId: text(), address: text(),
+  status: text().$type<'queued' | 'funding' | 'approving' | 'ready' | 'failed'>().notNull().default('queued'),
+  errorCode: text(), createdAt: createdAt(), updatedAt: createdAt(),
+}, t => [uniqueIndex('wallet_accounts_user_unique').on(t.userId), uniqueIndex('wallet_accounts_author_unique').on(t.authorId),
+  uniqueIndex('wallet_accounts_circle_unique').on(t.circleWalletId), index('wallet_accounts_status_idx').on(t.status),
+  check('wallet_accounts_one_owner', sql`(${t.userId} is null) <> (${t.authorId} is null)`),
+]).enableRLS();
+
+export const chainControl = pgTable('chain_control', { id: integer().primaryKey() },
+  t => [check('chain_control_singleton', sql`${t.id} = 1`)]).enableRLS();
+
+export const thesisRegistrations = pgTable('thesis_registrations', {
+  thesisId: uuid().primaryKey().references(() => theses.id),
+  escrowAddress: text().notNull(), authorAddress: text().notNull(), marketHash: text().notNull(),
+  contentHash: text().notNull(), expiryAt: ts().notNull(),
+  actionKey: text().notNull().references(() => chainActions.key),
+  confirmedAt: ts(), createdAt: createdAt(),
+}).enableRLS();
+
+export const copyRequests = pgTable('copy_requests', {
+  id: uuid().primaryKey(), userId: uuid().notNull().references(() => users.id),
+  thesisId: uuid().notNull().references(() => theses.id),
+  amountUsd: usd().notNull(), tipUsdc: numeric({ precision: 12, scale: 6 }).notNull(),
+  tradeId: uuid().notNull().references(() => trades.id), tipId: uuid().references(() => tips.id),
+  createdAt: createdAt(),
+}, t => [uniqueIndex('copy_requests_trade_unique').on(t.tradeId), index('copy_requests_user_created_idx').on(t.userId, t.createdAt)]).enableRLS();

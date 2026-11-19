@@ -1,6 +1,6 @@
 import WebSocket from 'ws';
 import { bookTickerStream, parseStreamMessage, streamSymbolKey, type GeminiPublicClient } from '@thesis/core';
-import { and, audits, authors, eq, gte, inArray, markets, theses, thesisJobs, trades, users, type Db } from '@thesis/db';
+import { and, audits, authors, eq, gte, inArray, markets, theses, thesisJobs, thesisRegistrations, trades, users, type Db } from '@thesis/db';
 import { decimal, paperFill, units } from './money';
 import { PublicationError } from './publication';
 
@@ -42,7 +42,7 @@ export async function openPublicationQuote(client: Pick<GeminiPublicClient, 'get
 }
 
 export async function publishHuman(db: Db, thesisId: string, read: QuoteLease['read'], options: {
-  enabled: () => boolean; now?: () => number;
+  enabled: () => boolean; now?: () => number; requireRegistration?: string;
 }) {
   const now = options.now ?? Date.now;
   const [owner] = await db.select({ userId: authors.userId }).from(theses)
@@ -56,6 +56,10 @@ export async function publishHuman(db: Db, thesisId: string, read: QuoteLease['r
     if (existing) return existing;
     const [job] = await tx.select().from(thesisJobs).where(eq(thesisJobs.thesisId, thesisId));
     const checked = await tx.select().from(audits).where(eq(audits.thesisId, thesisId));
+    if (options.requireRegistration) {
+      const [registration] = await tx.select().from(thesisRegistrations).where(eq(thesisRegistrations.thesisId, thesisId));
+      if (!thesis.registerTx || !registration?.confirmedAt || registration.escrowAddress.toLowerCase() !== options.requireRegistration.toLowerCase()) throw new PublicationError('registration_required');
+    }
     if (thesis.status !== 'auditing' || job?.status !== 'running' || !job.startedAt || now() - job.startedAt.getTime() >= 120_000 || !checked.length || checked.some(a => a.verdict === 'blocked')) {
       throw new PublicationError('audit_required');
     }

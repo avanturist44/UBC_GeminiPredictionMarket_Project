@@ -1,10 +1,10 @@
 param([ValidateSet('start', 'stop', 'status', 'supervise')][string]$Action = 'status',
-  [ValidateSet('btc', 'theses')][string]$Worker = 'btc')
+  [ValidateSet('btc', 'theses', 'escrow')][string]$Worker = 'btc')
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
 $taskLocal = Join-Path $taskRoot '.local'
-$taskPrefix = if ($Worker -eq 'btc') { 'worker' } else { 'thesis-worker' }
-$taskEntry = if ($Worker -eq 'btc') { 'apps/worker/src/index.ts' } else { 'apps/worker/src/thesis-worker.ts' }
+$taskPrefix = switch ($Worker) { 'btc' { 'worker' } 'theses' { 'thesis-worker' } 'escrow' { 'escrow-worker' } }
+$taskEntry = switch ($Worker) { 'btc' { 'apps/worker/src/index.ts' } 'theses' { 'apps/worker/src/thesis-worker.ts' } 'escrow' { 'apps/worker/src/escrow-worker.ts' } }
 $taskPidFile = Join-Path $taskLocal "$taskPrefix.pid"
 $taskSupervisorFile = Join-Path $taskLocal "$taskPrefix-supervisor.pid"
 $taskStop = Join-Path $taskLocal "$taskPrefix.stop"
@@ -79,7 +79,7 @@ if ($Action -eq 'start') {
 }
 
 $taskMutexName = 'Local\ThesisMarketWorker-' + [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($taskRoot))).Substring(0, 16)
-if ($Worker -eq 'theses') { $taskMutexName += '-theses' }
+if ($Worker -ne 'btc') { $taskMutexName += "-$Worker" }
 $taskMutex = [Threading.Mutex]::new($false, $taskMutexName)
 $taskOwnsMutex = $false
 try {

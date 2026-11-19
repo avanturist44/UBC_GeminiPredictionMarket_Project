@@ -31,6 +31,7 @@ try {
     try {
       await flagLegacyTheses(db);
       const result = await processThesisJob(db, { provider, signal: abort.signal,
+        requireRegistration: env.ESCROW_ENABLED ? process.env.ESCROW_ADDRESS : undefined,
         enabled: () => process.env.THESIS_AUDIT_ENABLED === 'true' && env.TRADING_ENABLED && !stopping,
         quote: market => openPublicationQuote(client, market, env.GEMINI_WS_URL) });
       const settled = await settleHumans(db, client);

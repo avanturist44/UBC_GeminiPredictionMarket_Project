@@ -1,0 +1,46 @@
+{
+  "checkedAt": "2026-11-19T19:34:20.710Z",
+  "market": "GEMI-BTC15M2611191915-UP",
+  "expiryAt": "2026-11-19T19:15:00.000Z",
+  "cases": {
+    "yes": {
+      "thesisId": "c5871843-1400-4006-a1f5-b94f3361bbb5",
+      "status": "resolved",
+      "publication": null,
+      "registerTx": "0x9730ada3d9948e3ee73254ed515601116d0233b69c47399abc0928780ace24af",
+      "outcome": "wrong",
+      "copy": {
+        "id": "f60410f7-5f7c-4ab2-bb13-eb97dda415b2",
+        "thesisId": "c5871843-1400-4006-a1f5-b94f3361bbb5",
+        "trade": {
+          "side": "yes",
+          "quantity": "10.0000",
+          "price": "0.0800",
+          "costUsd": "0.8000",
+          "status": "settled",
+          "payoutUsd": "0.0000"
+        },
+        "tip": {
+          "amountUsdc": "0.100000",
+          "status": "refunded",
+          "depositTx": "0x49a8bd3980e14fa58e7eae5aeb5ce5b8e5a95f4ba6e262fc6af76fe66253bdfd",
+          "settleTx": "0x40b11664b6ef1fb179d2beafa35025bcab84fbea0fbcd6b0dd53ff0ed09c8bc8"
+        }
+      }
+    },
+    "no": {
+      "thesisId": "0968c051-d696-48cb-8f85-5831f4496417",
+      "status": "draft",
+      "publication": {
+        "status": "failed",
+        "errorCode": "probability_side",
+        "stakeUsd": "1.0000"
+      },
+      "registerTx": "0x538841ff84cc3baa93227fbde1626d293c38ae461a37c5263d7bd82527ecba24",
+      "outcome": null,
+      "copy": null
+    }
+  },
+  "completed": false,
+  "replayBalanceUnchanged": true
+}

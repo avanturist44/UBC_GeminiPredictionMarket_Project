@@ -26,7 +26,7 @@ const { db, close } = createDb(env.DATABASE_URL);
 const client = createGeminiPublicClient({ baseUrl: env.GEMINI_PUBLIC_BASE, logger });
 
 const quotes = createQuoteRecorder({ db, logger });
-const paper = createPaperAdapter(db, client, { enabled: () => env.TRADING_ENABLED });
+const paper = createPaperAdapter(db, client, { enabled: () => env.TRADING_ENABLED, registrationRequired: env.ESCROW_ENABLED });
 const momentum = createMomentumObserver(db, { adapter: env.BTC_BOT_MODE === 'paper' ? paper : undefined });
 const newsAbort = new AbortController();
 const researchProvider = env.LLM_PROVIDER === 'xai' && env.XAI_API_KEY ?

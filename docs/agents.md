@@ -1,6 +1,6 @@
 # Thesis Market agents
 
-Updated November 18, 2026. Implementation described here is on `avi/ubc-hack`.
+Updated November 19, 2026. Implementation described here is on `avi/ubc-hack`. [Phase 4](phase-4-escrow-copy-trading.md) adds deployed testnet escrow and confirmed paper copies; earlier performance checkpoints below remain dated historical observations.
 
 ## What we are working on now
 
@@ -59,8 +59,8 @@ Despite its `momentum` name, the current formula estimates finish probability fr
 
 - **Gemini:** live index, order books, market metadata, strikes, and official contract outcomes.
 - **BTC worker and Postgres:** decision rules, simulated bankroll and fills, public thesis records, idempotency, limits, and settlement accounting.
-- **Circle wallet and Arc testnet USDC:** planned tipping and escrow payout flow. The funded Circle wallet is not connected to the current worker, and its USDC balance is separate from the paper bankroll.
-- **LLM provider:** xAI Grok 4.7 is connected for news research and guest-thesis auditing. BTC numeric theses remain templates with code checks on future entries. On-chain registration is pending. See [the Phase 3 handoff](phase-3-theses-auditor-feeds.md).
+- **Circle wallet and Arc testnet USDC:** implemented managed guest wallets, optional tips and escrow payout/refund flow in a separate worker. Its test-USDC balance is separate from the paper bankroll. Registration precedes public visibility when escrow is enabled.
+- **LLM provider:** xAI Grok 4.7 is connected for news research and guest-thesis auditing. BTC numeric theses remain templates with code checks on future entries. See [the Phase 4 handoff](phase-4-escrow-copy-trading.md).
 
 ## What has actually been verified
 
@@ -73,10 +73,10 @@ Despite its `momentum` name, the current formula estimates finish probability fr
 
 ## Next steps
 
-1. Build Phase 4 escrow, Circle/Arc wallets, registration and copy trading. Deploy the web, BTC worker and separate thesis worker to always-on hosting with the intended database, then verify health and paper progress there. Local acceptance does not establish hosted acceptance.
+1. Verify the web and independent BTC, thesis and escrow workers on always-on hosting with the intended database. Local acceptance does not establish hosted acceptance. Phase 4 implementation and testnet evidence are documented in its handoff.
 2. Keep the local worker uninterrupted while collecting further operational evidence. The initial settlement's independent outcome and idempotent replay are documented in the worker runbook.
 3. Resolve the development preview's HMR/client-interactivity issue if development-mode browser work resumes; the production page passed interactive verification.
-4. Continue Grok-powered news research in log-only mode. Connect the shared auditor/publication and financial-limit components before enabling news paper execution. Circle/Arc tipping, payouts, and copy trade remain later integrations; fade remains deferred.
+4. Continue Grok-powered news research in log-only mode. Connect the shared auditor/publication and financial-limit components before enabling news paper execution. Fade remains deferred.
 
 See [the BTC worker runbook](btc-paper-worker.md) for configuration, commands, and operational details. Check current database progress with:
 
