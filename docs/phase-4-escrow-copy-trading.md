@@ -29,7 +29,7 @@ The server controls guest Circle wallets and both contract authority roles. The 
 
 Correct authors receive the entire remaining thesis tip pool. Incorrect or void theses refund each tipper. With no reported outcome, anyone can request refunds more than seven days after expiry. Anyone may trigger an eligible payout/refund, but recipients are fixed by contract state. There are no administrative withdrawals, fees or upgrades. Market outcome and expiry are consistent across all theses for a market. Self-tipping and repeated request IDs are rejected. Each wallet may tip at most five USDC per thesis. Arc gas uses native USDC with 18 decimals; ERC-20 transfers use six decimals, so the gateway explicitly selects the six-decimal token.
 
-Public explorer **source verification is pending permission**. Automatic approval review rejected uploading repository source and dependencies to the public explorer because that destination was not explicitly authorized. Deployment, runtime-code checks and transaction receipt checks are separate and have proceeded. Do not retry publication without explicit approval.
+Public explorer **source verification is confirmed**. After explicit permission to publish the contract and its OpenZeppelin dependencies, Foundry reported the contract already verified. An independent explorer API check returned `TipEscrow`, Solidity `v0.8.28+commit.7893614a`, and source matching the tested repository file. See [the verified contract](https://explorer.testnet.arc.io/address/0xeEde0F6495f4e370D50f32D656Daf7Bc3D8F8125?tab=contract) and [verification evidence](evidence/phase4-source-verification.json). Source verification establishes the published code matches the deployment; it is not a security audit.
 
 ## Limits and recovery
 
