@@ -1,4 +1,5 @@
 import { LlmError, type LlmCompletion, type LlmProvider, type LlmRequest, type LlmUsage } from '@thesis/core';
+import { httpError, postJson } from './http';
 
 /**
  * A provider for Gemini through Google's generateContent API.
@@ -39,8 +40,6 @@ interface GenerateContentReply {
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 /** Finish reasons that mean Google withheld the reply, as opposed to cutting it short. */
 const BLOCKED = new Set(['SAFETY', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII', 'IMAGE_SAFETY']);
-/** Words Google uses when the account has no money left, as opposed to a passing rate limit. */
-const NO_CREDIT = /credit|insufficient|balance|spending limit/i;
 
 export function createGoogleProvider(options: GoogleProviderOptions): LlmProvider {
   const send = options.fetch ?? fetch;
@@ -56,31 +55,9 @@ export function createGoogleProvider(options: GoogleProviderOptions): LlmProvide
         ...(input.useSearch ? { tools: [{ google_search: {} }] } : {}),
       };
 
-      let status: number;
-      let reply: unknown;
-      try {
-        const response = await send(url, {
-          method: 'POST',
-          headers: { 'x-goog-api-key': options.apiKey, 'content-type': 'application/json' },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(input.timeoutMs),
-        });
-        status = response.status;
-        const raw = await response.text();
-        try {
-          reply = JSON.parse(raw);
-        } catch {
-          reply = null;
-        }
-      } catch (error) {
-        const name = (error as { name?: unknown } | null)?.name;
-        if (name === 'TimeoutError' || name === 'AbortError') {
-          throw new LlmError('timeout', 'The language model did not answer in time.');
-        }
-        throw new LlmError('provider', 'The language model could not be reached.');
-      }
-
-      if (status < 200 || status >= 300) throw httpError(status, reply, options.apiKey);
+      const headers = { 'x-goog-api-key': options.apiKey };
+      const { status, reply } = await postJson(send, url, headers, body, input.timeoutMs);
+      if (status < 200 || status >= 300) throw failed(status, reply, options.apiKey);
       return read((reply ?? {}) as GenerateContentReply, options.model);
     },
   };
@@ -123,17 +100,10 @@ function usageOf(usage: GenerateContentReply['usageMetadata']): LlmUsage {
   };
 }
 
-function httpError(status: number, reply: unknown, apiKey: string): LlmError {
-  // Google sends { error: { code, message, status } }.
+function failed(status: number, reply: unknown, apiKey: string): LlmError {
+  // Google sends { error: { code, message, status } }. It answers 400 for a rejected key, and
+  // 429 for a per-minute rate limit and a daily quota alike, in the same words: no code says
+  // an account is out of credit, so only its words can.
   const message = (reply as { error?: { message?: unknown } } | null)?.error?.message;
-  const detail = typeof message === 'string' ? message.split(apiKey).join('[key]').slice(0, 200) : 'no reason given';
-
-  if (status >= 500) return new LlmError('provider', `The language model returned an error (${status}).`);
-  // Google answers 429 for a per-minute rate limit and a daily quota alike, in the same words.
-  if (status === 429 && !NO_CREDIT.test(detail)) {
-    return new LlmError('provider', 'The language model is rate limited. Try again shortly.');
-  }
-  // No credit, a rejected key (Google answers 400 for that), or a request the API will not
-  // accept: none of these gets better by retrying, and the provider's own words say which.
-  return new LlmError('unavailable', `The language model will not serve this request (${status}): ${detail}`);
+  return httpError(status, message, apiKey);
 }

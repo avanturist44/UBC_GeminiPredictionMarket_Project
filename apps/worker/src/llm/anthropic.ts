@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { LlmError, type LlmCompletion, type LlmProvider, type LlmRequest } from '@thesis/core';
+import { redact } from './http';
 
 /**
  * The Anthropic provider for the language-model wrapper in packages/core.
@@ -32,9 +33,6 @@ export interface AnthropicProviderOptions {
 }
 
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
-
-/** A provider's error text with the key cut out, in case the provider quoted it back. */
-const redact = (text: string, apiKey: string | undefined) => (apiKey ? text.split(apiKey).join('[key]') : text);
 
 /** A search call can pause after ten server-side steps. Resume it at most this many times. */
 const MAX_CONTINUATIONS = 3;

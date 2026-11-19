@@ -1,4 +1,5 @@
 import { LlmError, type LlmCompletion, type LlmProvider, type LlmRequest, type LlmUsage } from '@thesis/core';
+import { httpError, postJson } from './http';
 
 /**
  * A provider for the Responses API, which OpenAI (GPT, https://api.openai.com/v1) and xAI
@@ -28,9 +29,6 @@ interface ResponsesReply {
   usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
 }
 
-/** Words a provider uses when the account has no money left, as opposed to a passing rate limit. */
-const NO_CREDIT = /credit|insufficient|balance|spending limit/i;
-
 export function createResponsesProvider(options: ResponsesProviderOptions): LlmProvider {
   const send = options.fetch ?? fetch;
   const url = `${options.baseUrl.replace(/\/+$/, '')}/responses`;
@@ -47,31 +45,9 @@ export function createResponsesProvider(options: ResponsesProviderOptions): LlmP
         text: { format: { type: 'json_schema', name: 'reply', schema: withoutMetaKeys(input.jsonSchema), strict: true } },
       };
 
-      let status: number;
-      let reply: unknown;
-      try {
-        const response = await send(url, {
-          method: 'POST',
-          headers: { authorization: `Bearer ${options.apiKey}`, 'content-type': 'application/json' },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(input.timeoutMs),
-        });
-        status = response.status;
-        const raw = await response.text();
-        try {
-          reply = JSON.parse(raw);
-        } catch {
-          reply = null;
-        }
-      } catch (error) {
-        const name = (error as { name?: unknown } | null)?.name;
-        if (name === 'TimeoutError' || name === 'AbortError') {
-          throw new LlmError('timeout', 'The language model did not answer in time.');
-        }
-        throw new LlmError('provider', 'The language model could not be reached.');
-      }
-
-      if (status < 200 || status >= 300) throw httpError(status, reply, options.apiKey);
+      const headers = { authorization: `Bearer ${options.apiKey}` };
+      const { status, reply } = await postJson(send, url, headers, body, input.timeoutMs);
+      if (status < 200 || status >= 300) throw failed(status, reply, options.apiKey);
       return read((reply ?? {}) as ResponsesReply, options.model);
     },
   };
@@ -117,17 +93,12 @@ function usageOf(usage: ResponsesReply['usage']): LlmUsage {
   return { inputTokens, outputTokens };
 }
 
-function httpError(status: number, reply: unknown, apiKey: string): LlmError {
+function failed(status: number, reply: unknown, apiKey: string): LlmError {
   // OpenAI sends { error: { message, type, code } }; xAI sends { code, error: "message" }.
   const error = (reply as { error?: unknown } | null)?.error;
   const fields = typeof error === 'object' && error !== null ? (error as Record<string, unknown>) : {};
   const message = typeof error === 'string' ? error : fields.message;
-  const detail = typeof message === 'string' ? message.split(apiKey).join('[key]').slice(0, 200) : 'no reason given';
-  const noCredit = fields.code === 'insufficient_quota' || fields.type === 'insufficient_quota' || NO_CREDIT.test(detail);
-
-  if (status >= 500) return new LlmError('provider', `The language model returned an error (${status}).`);
-  if (status === 429 && !noCredit) return new LlmError('provider', 'The language model is rate limited. Try again shortly.');
-  // No credit, a rejected key, or a request the API will not accept: none of these gets
-  // better by retrying, and the provider's own words say which it is.
-  return new LlmError('unavailable', `The language model will not serve this request (${status}): ${detail}`);
+  // OpenAI says an account has no credit with a 429 whose code is insufficient_quota.
+  const outOfCredit = fields.code === 'insufficient_quota' || fields.type === 'insufficient_quota';
+  return httpError(status, message, apiKey, { outOfCredit });
 }
