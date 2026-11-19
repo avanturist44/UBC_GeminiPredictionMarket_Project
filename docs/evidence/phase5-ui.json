@@ -1,0 +1,16 @@
+{
+  "checkedAt": "2026-11-19T20:17:43.612Z",
+  "passed": true,
+  "checks": [
+    "public pages fit 1440px",
+    "public pages fit 390px",
+    "public pages fit 320px",
+    "mobile disagreement displays honest group counts and verification labels",
+    "real guest: lower caps immediate, raises scheduled",
+    "cross-origin limit mutation rejected",
+    "owner sees real settled copy/refund; another guest sees no private history",
+    "ranking read failure retains records and retry recovers",
+    "activity uses confirmed explorer receipt links"
+  ],
+  "browserErrors": []
+}

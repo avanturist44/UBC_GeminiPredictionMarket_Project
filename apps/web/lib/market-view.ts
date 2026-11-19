@@ -51,6 +51,7 @@ export interface ThesisMarker {
   probabilityYes: number;
   authorKind: 'agent' | 'human';
   authorName: string;
+  isTest?: boolean;
   /** Publish time in milliseconds. Null if the thesis has none recorded. */
   t: number | null;
   /** The market's YES price when it was published. Null if nothing was recorded by then. */

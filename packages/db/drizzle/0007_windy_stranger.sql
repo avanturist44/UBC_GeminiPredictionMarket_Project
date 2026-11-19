@@ -1,0 +1,1 @@
+CREATE INDEX "tips_user_created_idx" ON "tips" USING btree ("user_id","created_at","id");

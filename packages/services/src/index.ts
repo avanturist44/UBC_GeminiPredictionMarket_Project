@@ -12,3 +12,5 @@ export * from './chain/gateway';
 export * from './chain/actions';
 export * from './chain/wallets';
 export * from './chain/worker';
+export * from './account';
+export * from './records';

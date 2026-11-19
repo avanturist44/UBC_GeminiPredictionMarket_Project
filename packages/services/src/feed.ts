@@ -2,20 +2,22 @@ import { z } from 'zod';
 import { and, audits, authors, desc, eq, inArray, markets, sql, theses, thesisJobs, trades, type Db } from '@thesis/db';
 import { publicSource } from './audit';
 import { PublicationError } from './publication';
+import { authorRecords, type AuthorRecord } from './records';
 
 const Cursor = z.strictObject({ at: z.string().datetime(), id: z.string().uuid() });
-export const FeedQuery = z.object({ kind: z.enum(['agent', 'human']), agent: z.enum(['momentum', 'news', 'fade']).optional(), cursor: z.string().max(300).optional() });
+export const FeedQuery = z.object({ kind: z.enum(['agent', 'human']), authorId: z.string().uuid().optional(), agent: z.enum(['momentum', 'news', 'fade']).optional(), cursor: z.string().max(300).optional() });
 type Thesis = typeof theses.$inferSelect;
 type Author = typeof authors.$inferSelect;
 type Market = typeof markets.$inferSelect;
 type Audit = typeof audits.$inferSelect;
 type Trade = typeof trades.$inferSelect;
 type Job = typeof thesisJobs.$inferSelect;
-export function toThesisView(thesis: Thesis, author: Author, market: Market, audit?: Audit, trade?: Trade, job?: Job) {
+export function toThesisView(thesis: Thesis, author: Author, market: Market, audit?: Audit, trade?: Trade, job?: Job, record?: AuthorRecord) {
   return { id: thesis.id, headline: thesis.headline, body: thesis.body, side: thesis.side,
     probabilityYes: thesis.probabilityYes, status: thesis.status, outcome: thesis.outcome,
     publishedAt: thesis.publishedAt?.toISOString() ?? null,
-    author: { id: author.id, name: author.displayName, kind: author.kind, agentKey: author.agentKey },
+    author: { id: author.id, name: author.displayName, kind: author.kind, agentKey: author.agentKey, isTest: author.isTest },
+    authorRecord: record ? { resolved: record.resolved, right: record.right, brier: record.brier } : null,
     market: { title: market.title, symbol: market.instrumentSymbol, yesBid: market.yesBid, yesAsk: market.yesAsk,
       expiryAt: market.expiryAt?.toISOString() ?? null, updatedAt: market.updatedAt.toISOString() },
     evidence: thesis.evidence.flatMap(item => { const url = publicSource(item.url); return url ? [{ claim: item.claim.slice(0, 500), url }] : []; }),
@@ -35,13 +37,14 @@ export type FeedResponse = { asOf: string; theses: ThesisView[]; nextCursor: str
 async function enrich(db: Db, rows: { thesis: Thesis; author: Author; market: Market }[]) {
   if (!rows.length) return [];
   const ids = rows.map(row => row.thesis.id);
-  const [checks, positions] = await Promise.all([
+  const [checks, positions, records] = await Promise.all([
     db.select().from(audits).where(inArray(audits.thesisId, ids)).orderBy(desc(audits.createdAt), desc(audits.id)),
     db.select().from(trades).where(and(inArray(trades.thesisId, ids), eq(trades.isAuthorPosition, true),
       inArray(trades.status, ['filled', 'partial', 'settled']))),
+    authorRecords(db, [...new Set(rows.map(row => row.author.id))]),
   ]);
   return rows.map(({ thesis, author, market }) => toThesisView(thesis, author, market,
-    checks.find(check => check.thesisId === thesis.id), positions.find(trade => trade.thesisId === thesis.id)));
+    checks.find(check => check.thesisId === thesis.id), positions.find(trade => trade.thesisId === thesis.id), undefined, records.find(record => record.id === author.id)));
 }
 export async function listThesisFeed(db: Db, input: unknown): Promise<FeedResponse> {
   const query = FeedQuery.parse(input);
@@ -54,6 +57,7 @@ export async function listThesisFeed(db: Db, input: unknown): Promise<FeedRespon
     .innerJoin(authors, eq(authors.id, theses.authorId)).innerJoin(markets, eq(markets.id, theses.marketId))
     .where(and(eq(authors.kind, query.kind), inArray(theses.status, ['published', 'resolved']),
       query.agent ? eq(authors.agentKey, query.agent) : undefined,
+      query.authorId ? eq(authors.id, query.authorId) : undefined,
       cursor ? sql`(${theses.publishedAt}, ${theses.id}) < (${new Date(cursor.at)}, ${cursor.id}::uuid)` : undefined))
     .orderBy(desc(theses.publishedAt), desc(theses.id)).limit(21);
   const page = rows.slice(0, 20);

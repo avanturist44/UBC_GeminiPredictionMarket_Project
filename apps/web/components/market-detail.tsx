@@ -85,6 +85,7 @@ function ThesisColumn({
                 <span className="mt-1 block text-muted-foreground">
                   {thesis.authorName}, {thesis.authorKind === 'agent' ? 'AI' : 'human'}. Puts YES at{' '}
                   {percent(thesis.probabilityYes)}.
+                  {thesis.isTest && ' Integration verification test.'}
                 </span>
               </button>
             </li>
@@ -206,6 +207,12 @@ export function MarketDetail({
           {theses.length > 0 &&
             ' Blue marks are AI theses and dark marks are human ones; a mark points up for YES and down for NO.'}
         </p>
+      </section>
+
+      <section aria-label="Forecast disagreement" className="space-y-3 rounded-xl border p-4">
+        <h2 className="text-lg font-semibold">Where forecasts differ</h2>
+        <p className="text-xs text-muted-foreground">Average published YES probabilities, not votes or advice. Each author counts once on this market. Small groups can be misleading.</p>
+        {([['AI',data.disagreement.ai.average,data.disagreement.ai.count],['Humans',data.disagreement.human.average,data.disagreement.human.count],['Market',data.disagreement.marketPrice,null]] as const).map(([label,value,count])=><div key={label} className="space-y-1 text-sm"><div className="flex justify-between gap-3"><span>{label}{count!==null?` (${count})`:''}</span><span>{value===null?'No forecast':`${(value*100).toFixed(1)}% YES`}</span></div><div className="h-2 rounded-full bg-muted" aria-hidden><div className="h-2 rounded-full bg-primary" style={{width:`${(value??0)*100}%`}}/></div></div>)}
       </section>
 
       <section aria-labelledby="theses-heading" className="space-y-3">

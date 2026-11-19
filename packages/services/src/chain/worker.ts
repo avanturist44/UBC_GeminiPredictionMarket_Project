@@ -126,7 +126,7 @@ export async function settleTips(db: Db, gateway: ChainGateway, now = Date.now()
       const state = await gateway.registered(thesis.onchainId);
       if (state.settled) {
         const [action] = await db.select().from(chainActions).where(eq(chainActions.key, `settle:${gateway.escrowAddress}:${thesis.id}`));
-        await db.update(tips).set({ status: 'paid', settleTx: action?.status === 'confirmed' ? action.txHash : null })
+        await db.update(tips).set({ status: 'paid', settleTx: action?.status === 'confirmed' ? action.txHash : null, settledAt: new Date(now) })
           .where(and(eq(tips.thesisId, thesis.id), eq(tips.status, 'escrowed')));
       } else await enqueueAction(db, { key: `settle:${gateway.escrowAddress}:${thesis.id}`, kind: 'settle', walletId: gateway.treasuryWalletId,
         contractAddress: gateway.escrowAddress, callData: encodeFunctionData({ abi: escrowAbi, functionName: 'settle', args: [hex(thesis.onchainId)] }) });
@@ -134,7 +134,7 @@ export async function settleTips(db: Db, gateway: ChainGateway, now = Date.now()
       const key = `refund:${gateway.escrowAddress}:${thesis.id}:${tip.userId}`;
       if (await gateway.tipBalance(thesis.onchainId, wallet.address) === 0n) {
         const [action] = await db.select().from(chainActions).where(eq(chainActions.key, key));
-        await db.update(tips).set({ status: 'refunded', settleTx: action?.status === 'confirmed' ? action.txHash : null })
+        await db.update(tips).set({ status: 'refunded', settleTx: action?.status === 'confirmed' ? action.txHash : null, settledAt: new Date(now) })
           .where(and(eq(tips.thesisId, thesis.id), eq(tips.userId, tip.userId), eq(tips.status, 'escrowed')));
       } else await enqueueAction(db, { key, kind: 'refund', walletId: gateway.treasuryWalletId, contractAddress: gateway.escrowAddress,
         callData: encodeFunctionData({ abi: escrowAbi, functionName: 'refund', args: [hex(thesis.onchainId), getAddress(wallet.address)] }) });

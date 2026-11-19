@@ -3,6 +3,7 @@ import { bookTickerStream, parseStreamMessage, streamSymbolKey, type GeminiPubli
 import { and, audits, authors, eq, gte, inArray, markets, theses, thesisJobs, thesisRegistrations, trades, users, type Db } from '@thesis/db';
 import { decimal, paperFill, units } from './money';
 import { PublicationError } from './publication';
+import { effectiveLimits } from './account';
 
 export type ExecutableQuote = { symbol: string; bid: number; ask: number; bidSize: number; askSize: number;
   observedAtMs: number; marketObservedAtMs: number; status: string; marketState: string | null;
@@ -65,6 +66,7 @@ export async function publishHuman(db: Db, thesisId: string, read: QuoteLease['r
     }
     const [market] = await tx.select().from(markets).where(eq(markets.id, thesis.marketId));
     const at = now();
+    const limits = effectiveLimits(user, at);
     const valid = (q: ExecutableQuote | null): q is ExecutableQuote => !!q &&
       q.symbol === market?.instrumentSymbol && q.status === 'active' && q.marketState === 'open' &&
       Number.isFinite(q.expiryMs) && q.expiryMs - now() >= 120_000 &&
@@ -81,8 +83,8 @@ export async function publishHuman(db: Db, thesisId: string, read: QuoteLease['r
       gte(trades.createdAt, new Date(new Date(at).toISOString().slice(0, 10)))));
     const total = spent.filter(t => ['filled', 'partial', 'settled'].includes(t.status)).reduce((s, t) => s + units(t.costUsd), 0n);
     const stake = units(job.stakeUsd);
-    if (stake > units(user.maxPerTradeUsd) || stake > 100_000n) throw new PublicationError('per_trade_limit');
-    if (total + stake > units(user.dailyCopyCapUsd)) throw new PublicationError('daily_limit');
+    if (stake > units(limits.maxPerTradeUsd) || stake > 100_000n) throw new PublicationError('per_trade_limit');
+    if (total + stake > units(limits.dailyCopyCapUsd)) throw new PublicationError('daily_limit');
     if (stake > units(user.paperBalanceUsd)) throw new PublicationError('insufficient_balance');
     const fill = paperFill(thesis.side === 'yes' ? quote.ask : 1 - quote.bid,
       thesis.side === 'yes' ? quote.askSize : quote.bidSize, quote.quantityIncrement, quote.quantityMinimum, stake);

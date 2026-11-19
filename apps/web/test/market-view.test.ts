@@ -74,6 +74,11 @@ describe('sortMarkets', () => {
 });
 
 describe('toMarketDetailView', () => {
+  it('excludes verification accounts from forecast averages while retaining public chart markers', () => {
+    const input: MarketDetail = { market: row(), points: [], theses: [{id:'verification',headline:'Verification only',side:'yes',probabilityYes:'0.99',publishedAt:null,authorKind:'human',authorName:'Verification',isTest:true}] };
+    const result=toMarketDetailView(input,new Date());
+    expect(result.disagreement.human).toEqual({average:null,count:0});expect(result.theses).toHaveLength(1);
+  });
   const t = (minute: number, second = 0) => new Date(Date.UTC(2026, 10, 18, 3, minute, second));
   const detail: MarketDetail = {
     market: row(),

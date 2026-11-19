@@ -1,6 +1,6 @@
 # Thesis Market agents
 
-Updated November 19, 2026. Implementation described here is on `avi/ubc-hack`. [Phase 4](phase-4-escrow-copy-trading.md) adds deployed testnet escrow and confirmed paper copies; earlier performance checkpoints below remain dated historical observations.
+Updated November 19, 2026. Implementation described here is on `avi/ubc-hack`. [Phase 5](phase-5-records-and-polish.md) adds public records, account history and limits. [Phase 4](phase-4-escrow-copy-trading.md) adds deployed testnet escrow and confirmed paper copies; earlier performance checkpoints below remain dated historical observations. The live leaderboard shows current actual forecast accuracy and simulated profit; “correct settlements” below means correct accounting, not a winning forecast.
 
 ## What we are working on now
 

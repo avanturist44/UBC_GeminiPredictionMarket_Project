@@ -49,7 +49,7 @@ function priceAt(points: readonly ChartPoint[], t: number): number | null {
 }
 
 function average(rows: readonly ThesisMarkerRow[], kind: ThesisMarkerRow['authorKind']): GroupAverage {
-  const group = rows.filter((row) => row.authorKind === kind);
+  const group = rows.filter((row) => row.authorKind === kind && !row.isTest);
   if (group.length === 0) return { average: null, count: 0 };
   const sum = group.reduce((total, row) => total + Number(row.probabilityYes), 0);
   return { average: Math.round((sum / group.length) * 10_000) / 10_000, count: group.length };
@@ -96,6 +96,7 @@ export function toMarketDetailView(detail: MarketDetail, asOf: Date): MarketDeta
       probabilityYes: Number(row.probabilityYes),
       authorKind: row.authorKind,
       authorName: row.authorName,
+      isTest: row.isTest ?? false,
       t,
       price: t === null ? null : priceAt(points, t),
     };

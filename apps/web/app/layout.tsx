@@ -3,6 +3,7 @@ import { IBM_Plex_Sans } from 'next/font/google';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { PrimaryTabs } from '@/components/primary-tabs';
+import { LiveActivity } from '@/components/records';
 import './globals.css';
 
 // Plex has true tabular figures, which keeps prices from jumping as they update.
@@ -35,7 +36,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </span>
           </div>
           <PrimaryTabs placement="top" />
+          <nav aria-label="More" className="mx-auto flex max-w-3xl flex-wrap gap-x-5 gap-y-2 px-4 pb-3 text-xs font-medium text-primary">
+            <Link href="/leaderboard">Author records</Link><Link href="/write">Write a thesis</Link><Link href="/me">My account</Link><Link href="/how-it-works">How it works</Link>
+          </nav>
         </header>
+        <LiveActivity/>
         {/* The bottom padding keeps content clear of the phone tab bar. */}
         <main className="mx-auto max-w-3xl px-4 pt-6 pb-24 sm:pb-10">{children}</main>
         <PrimaryTabs placement="bottom" />

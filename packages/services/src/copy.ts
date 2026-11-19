@@ -4,6 +4,7 @@ import { and, authors, copyRequests, eq, gte, inArray, markets, sessionWindows, 
 import { hashContent, PublicationError } from './publication';
 import { decimal, paperFill, units } from './money';
 import { usdcDecimal, usdcUnits } from './chain/abi';
+import { effectiveLimits } from './account';
 import type { ExecutableQuote } from './human-paper';
 export const CopyAmount = z.string().regex(/^(?:[1-9](?:\.\d{1,2})?|10(?:\.0{1,2})?)$/);
 export const CopyTip = z.string().regex(/^(?:0(?:\.\d{1,6})?)$/).refine(value => usdcUnits(value) <= 500_000n);
@@ -66,10 +67,11 @@ export async function quoteCopy(db: Db, thesisId: string, userId: string, amount
   const fill = checkedFill(quote, row.market.instrumentSymbol, row.thesis.side, amountUsd, now);
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user || user.tradingMode !== 'paper') throw new PublicationError('session_required', 401);
-  if (units(amountUsd) > units(user.maxPerTradeUsd)) throw new PublicationError('per_trade_limit');
+  const limits = effectiveLimits(user, now);
+  if (units(amountUsd) > units(limits.maxPerTradeUsd)) throw new PublicationError('per_trade_limit');
   const spent = await db.select().from(trades).where(and(eq(trades.userId, userId), eq(trades.mode, 'paper'),
     inArray(trades.status, ['filled', 'partial', 'settled']), gte(trades.createdAt, new Date(new Date(now).toISOString().slice(0, 10)))));
-  const remaining = units(user.dailyCopyCapUsd) - spent.reduce((sum, trade) => sum + units(trade.costUsd), 0n);
+  const remaining = units(limits.dailyCopyCapUsd) - spent.reduce((sum, trade) => sum + units(trade.costUsd), 0n);
   if (units(amountUsd) > remaining) throw new PublicationError('daily_limit');
   if (units(fill.costUsd) > units(user.paperBalanceUsd)) throw new PublicationError('insufficient_balance');
   return { ...fill, side: row.thesis.side, authorEntryPrice: row.thesis.entryPrice,
@@ -93,6 +95,7 @@ export async function copyTrade(db: Db, thesisId: string, userId: string, raw: u
       return { id: existing.id, tradeId: existing.tradeId, tipId: existing.tipId };
     }
     const at = now();
+    const limits = effectiveLimits(user, at);
     const confirmed = readToken(input.quoteToken, options.secret, at);
     if (confirmed.userId !== userId || confirmed.thesisId !== thesisId || confirmed.amountUsd !== input.amountUsd || confirmed.tipUsdc !== input.tipUsdc) throw new PublicationError('quote_expired');
     if (!options.enabled()) throw new PublicationError('trading_disabled', 503);
@@ -104,10 +107,10 @@ export async function copyTrade(db: Db, thesisId: string, userId: string, raw: u
     if (row.thesis.entryPrice === null) throw new PublicationError('thesis_not_copyable');
     if (units(fill.price) > units(row.thesis.entryPrice) + 500n && !input.acceptPriceMoved) throw new PublicationError('price_moved');
     const budget = units(input.amountUsd), tip = usdcUnits(input.tipUsdc);
-    if (budget > units(user.maxPerTradeUsd) || budget > 100_000n) throw new PublicationError('per_trade_limit');
+    if (budget > units(limits.maxPerTradeUsd) || budget > 100_000n) throw new PublicationError('per_trade_limit');
     const spent = await tx.select().from(trades).where(and(eq(trades.userId, userId), eq(trades.mode, 'paper'),
       inArray(trades.status, ['filled', 'partial', 'settled']), gte(trades.createdAt, new Date(new Date(at).toISOString().slice(0, 10)))));
-    if (spent.reduce((sum, trade) => sum + units(trade.costUsd), 0n) + budget > units(user.dailyCopyCapUsd)) throw new PublicationError('daily_limit');
+    if (spent.reduce((sum, trade) => sum + units(trade.costUsd), 0n) + budget > units(limits.dailyCopyCapUsd)) throw new PublicationError('daily_limit');
     if (units(user.paperBalanceUsd) < units(fill.costUsd)) throw new PublicationError('insufficient_balance');
     if (tip > 0n) {
       const [wallet] = await tx.select().from(walletAccounts).where(eq(walletAccounts.userId, userId));

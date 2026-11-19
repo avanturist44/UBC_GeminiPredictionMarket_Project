@@ -5,6 +5,7 @@ import { createTestDb } from '../../db/src/testing';
 import { createGuest, hashContent } from '../src/publication';
 import { copyTrade, getCopy, quoteCopy, CopyInput } from '../src/copy';
 import { settleCopies } from '../src/chain/worker';
+import { changeLimits } from '../src/account';
 import type { ExecutableQuote } from '../src/human-paper';
 const escrow = '0x1111111111111111111111111111111111111111', secret = 'copy-test-secret'.repeat(4);
 const now = Date.parse('2026-11-19T18:00:00Z');
@@ -34,6 +35,15 @@ async function fixture() {
   return { authorUser, copier, market: market!, thesis: thesis!, quote, token, input, options };
 }
 describe('confirmed copy trading', () => {
+  it('rechecks reduced caps after a quote and never applies a scheduled raise early',async()=>{
+    const f=await fixture();await changeLimits(db,f.copier.id,{maxPerTradeUsd:'2',dailyCapUsd:'5'},now);
+    await expect(copyTrade(db,f.thesis.id,f.copier.id,f.input,f.options)).rejects.toMatchObject({code:'per_trade_limit'});
+    await changeLimits(db,f.copier.id,{maxPerTradeUsd:'5',dailyCapUsd:'10'},now);
+    await expect(quoteCopy(db,f.thesis.id,f.copier.id,'5','0',f.quote,{escrowAddress:escrow,secret,now})).rejects.toMatchObject({code:'per_trade_limit'});
+    const quote=await quoteCopy(db,f.thesis.id,f.copier.id,'2','0',f.quote,{escrowAddress:escrow,secret,now});
+    const result=await copyTrade(db,f.thesis.id,f.copier.id,{...f.input,amountUsd:'2',tipUsdc:'0',quoteToken:quote.quoteToken},f.options);
+    expect((await getCopy(db,result.id,f.copier.id))?.trade.costUsd).toBe('2.0000');
+  });
   it('signs an exact maximum-loss quote and atomically fills one paper copy with one pending tip', async () => {
     const f = await fixture(); expect(f.token).toMatchObject({ maxPaperLossUsd: '5.0000', quantity: '10.0000', priceMoved: false });
     const result = await copyTrade(db, f.thesis.id, f.copier.id, f.input, f.options);

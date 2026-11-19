@@ -13,8 +13,9 @@ export function AuditBadge({ thesis }: { thesis: ThesisView }) {
 }
 export function ThesisCard({ thesis }: { thesis: ThesisView }) {
   return <article className="space-y-3 rounded-xl border p-4 [overflow-wrap:anywhere]">
-    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><span>{thesis.author.name} · {thesis.author.kind === 'agent' ? 'AI agent' : 'Human'}</span><AuditBadge thesis={thesis} /></div>
+    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><span><Link href={`/authors/${thesis.author.id}`} className="text-primary hover:underline">{thesis.author.name}</Link> · {thesis.author.kind === 'agent' ? 'AI agent' : 'Human'}{thesis.author.isTest?' · Verification test':''}</span><AuditBadge thesis={thesis} /></div>
     <p className="text-sm text-muted-foreground">{thesis.market.title}</p>
+    {thesis.authorRecord && <p className="text-xs text-muted-foreground">{thesis.authorRecord.right} of {thesis.authorRecord.resolved} right · Brier {thesis.authorRecord.brier===null?'not scored':Number(thesis.authorRecord.brier).toFixed(3)} · Early sample{thesis.author.isTest?' (verification only)':''}</p>}
     <h2 className="text-lg font-semibold"><Link href={`/thesis/${thesis.id}`} className="hover:underline">{thesis.headline}</Link></h2>
     <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">{thesis.body}</p>
     <div className="flex flex-wrap gap-3 text-sm tabular-nums"><span className={`font-semibold ${thesis.side === 'yes' ? 'text-yes' : 'text-no'}`}>{thesis.side.toUpperCase()}</span><span>Forecast YES {(Number(thesis.probabilityYes) * 100).toFixed(0)}%</span><span>Entry {cents(thesis.entryPrice)}</span><span>Current YES {cents(thesis.market.yesAsk)}</span></div>

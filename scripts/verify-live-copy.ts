@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createGeminiPublicClient } from '../packages/core/src/index';
-import { openPublicationQuote, sessionToken } from '../packages/services/src/index';
+import { openPublicationQuote, sessionToken, sessionUser } from '../packages/services/src/index';
+import { createDb, authors, eq, theses } from '../packages/db/src/index';
 import { paperFill } from '../packages/services/src/money';
 process.loadEnvFile(new URL('../.env', import.meta.url));
 const origin = process.env.AGENT_UI_BASE_URL ?? 'http://127.0.0.1:3100';
@@ -25,6 +26,18 @@ async function request(url: string, actor?: Actor, body?: unknown) {
 }
 async function main() {
   const mode = process.argv[2] ?? 'prepare';
+  if (mode === 'classify') {
+    const connection = createDb(process.env.DATABASE_URL!, { max: 1 });
+    try { for (const actor of Object.values(state.authors)) {
+      const id = sessionUser(actor.cookie.slice('thesis_session='.length), process.env.SESSION_SECRET!);
+      assert(id); await connection.db.update(authors).set({ isTest: true }).where(eq(authors.userId, id));
+    }
+    // This ID is the earlier, explicitly labeled Phase 3 publication acceptance fixture.
+    const [legacy]=await connection.db.select({authorId:theses.authorId}).from(theses).where(eq(theses.id,'6a03e321-bc1f-4b87-b53f-9e59e1b20e4f'));
+    if(legacy) await connection.db.update(authors).set({isTest:true}).where(eq(authors.id,legacy.authorId));
+    } finally { await connection.close(); }
+    console.log('Existing verification authors are labeled and excluded from rankings.'); return;
+  }
   if (!state.copier) {
     const probe = JSON.parse(await readFile(new URL('../.local/wallet-probe.json', import.meta.url), 'utf8'));
     state.copier = { cookie: `thesis_session=${sessionToken(probe.userId, process.env.SESSION_SECRET!)}` }; await save();
@@ -35,6 +48,12 @@ async function main() {
       assert(response.ok); const cookie = response.headers.get('set-cookie')?.split(';')[0]; assert(cookie);
       state.authors[side] = { cookie }; await save();
     }
+    // Verification authors must never enter genuine performance rankings.
+    const classification = createDb(process.env.DATABASE_URL!, { max: 1 });
+    try { for (const actor of Object.values(state.authors)) {
+      const id = sessionUser(actor.cookie.slice('thesis_session='.length), process.env.SESSION_SECRET!);
+      assert(id); await classification.db.update(authors).set({ isTest: true }).where(eq(authors.userId, id));
+    } } finally { await classification.close(); }
     let attempt = state.attempts.at(-1);
     if (!attempt || process.argv.includes('--new-window')) {
       attempt = undefined;

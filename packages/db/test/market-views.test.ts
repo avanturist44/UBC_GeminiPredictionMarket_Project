@@ -305,6 +305,7 @@ describe('getMarketDetail', () => {
         publishedAt: new Date('2026-11-18T03:01:00Z'),
         authorKind: 'agent',
         authorName: expect.stringMatching(/^Agent /),
+        isTest: false,
       },
       {
         id: second.id,
@@ -314,6 +315,7 @@ describe('getMarketDetail', () => {
         publishedAt: new Date('2026-11-18T03:04:00Z'),
         authorKind: 'human',
         authorName: expect.stringMatching(/^Person /),
+        isTest: false,
       },
     ]);
     expect(detail!.market).toMatchObject({ thesesYes: 1, thesesNo: 1 });

@@ -6,13 +6,16 @@ import type { ApiError } from './market-view';
 
 /** How often pages re-read live data. */
 export const LIVE_REFRESH_MS = 5000;
+export class ApiLoadError extends Error {
+  constructor(message: string, readonly status: number, readonly code?: string) { super(message); }
+}
 
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { cache: 'no-store' });
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const message = (body as Partial<ApiError> | null)?.message;
-    throw new Error(message ?? `The request failed with status ${response.status}.`);
+    throw new ApiLoadError(message ?? `The request failed with status ${response.status}.`, response.status, (body as Partial<ApiError> | null)?.code);
   }
   return body as T;
 }
@@ -22,7 +25,7 @@ async function fetchJson<T>(url: string): Promise<T> {
  * five seconds. After a failed read the last good data stays on screen beside the error.
  */
 export function useLive<T>(url: string, initial: T | undefined) {
-  const { data, error, isValidating, mutate } = useSWR<T, Error>(url, fetchJson, {
+  const { data, error, isValidating, mutate } = useSWR<T, ApiLoadError>(url, fetchJson, {
     fallbackData: initial,
     refreshInterval: LIVE_REFRESH_MS,
     keepPreviousData: true,

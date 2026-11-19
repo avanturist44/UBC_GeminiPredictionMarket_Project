@@ -1,0 +1,13 @@
+{
+  "checkedAt": "2026-11-19T20:16:31.9663375Z",
+  "testFiles": 25,
+  "testsPassed": 242,
+  "typeScriptProjectsPassed": 6,
+  "productionBuildPassed": true,
+  "headlessBrowserGroupsPassed": 9,
+  "browserErrors": 0,
+  "realPostgresConcurrencyPassed": true,
+  "newTradesOrUsdcTransfersDuringPhase5": 0,
+  "hostedAcceptance": false,
+  "humanThesesSupplied": 0
+}

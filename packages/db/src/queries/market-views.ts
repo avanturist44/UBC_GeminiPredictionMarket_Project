@@ -96,6 +96,7 @@ export interface ThesisMarkerRow {
   publishedAt: Date | null;
   authorKind: 'agent' | 'human';
   authorName: string;
+  isTest?: boolean;
 }
 
 export interface MarketDetail {
@@ -181,6 +182,7 @@ export async function getMarketDetail(
         publishedAt: theses.publishedAt,
         authorKind: authors.kind,
         authorName: authors.displayName,
+        isTest: authors.isTest,
       })
       .from(theses)
       .innerJoin(authors, eq(authors.id, theses.authorId))

@@ -107,4 +107,4 @@ The first live refund is recorded above. A live correct-author payout remains un
 
 ## Remaining product work
 
-Always-on hosted verification, user-facing limit/account settings, wider public exposure controls, news execution and extension work remain separate phases. Guest sessions are bearer credentials and server-custodied test wallets; this implementation is not ready for mainnet or real-money trading. No independently audited security claim is made by these tests.
+[Phase 5](phase-5-records-and-polish.md) subsequently implemented public records and user-facing account/limit settings. Always-on hosted verification, wider public exposure controls, news execution and extension work remain separate phases. Guest sessions are bearer credentials and server-custodied test wallets; this implementation is not ready for mainnet or real-money trading. No independently audited security claim is made by these tests.
