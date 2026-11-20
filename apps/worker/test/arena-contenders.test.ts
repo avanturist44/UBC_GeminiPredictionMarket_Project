@@ -169,13 +169,13 @@ describe('arenaProviders (the default factory)', () => {
     expect(claude!.headers.get('authorization')).toBe('Bearer k-claude');
     expect(claude!.body.model).toBe('claude-sonnet-5-5');
 
-    // The Responses API: OpenAI bounds a call's searches with max_tool_calls, xAI with max_turns.
+    // The Responses API: OpenAI bounds a call's searches with max_tool_calls, xAI with both.
     expect(gpt!.url).toBe('https://api.openai.com/v1/responses');
     expect(gpt!.headers.get('authorization')).toBe('Bearer k-gpt');
     expect(gpt!.body).toMatchObject({ model: 'gpt-5', max_tool_calls: 5 });
     expect(grok!.url).toBe('https://api.x.ai/v1/responses');
     expect(grok!.headers.get('authorization')).toBe('Bearer k-grok');
-    expect(grok!.body).toMatchObject({ model: 'grok-4.7', max_turns: 5, reasoning: { effort: 'low' } });
+    expect(grok!.body).toMatchObject({ model: 'grok-4.7', max_tool_calls: 5, max_turns: 2, reasoning: { effort: 'low' } });
 
     // DeepSeek speaks the Anthropic API at its own address, with its own key and search tool.
     expect(deepseek!.url).toMatch(/^https:\/\/api\.deepseek\.com\/anthropic\/v1\/messages/);
