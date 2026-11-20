@@ -1,46 +1,144 @@
 // Renders the card inside a shadow root so X's CSS and ours never touch.
 // All server text is inserted with textContent, never innerHTML.
 //
-// Two sections:
-//   1. The single most trustworthy thesis -> links straight to that thesis (where copy trade lives)
-//   2. A short summary of all theses on the market -> links to the market page
+// One glance, three facts:
+//   1. The market and its YES price, in the largest type on the card
+//   2. The most trusted thesis: who, which side at what price, and its headline -> that thesis page
+//   3. How every thesis splits, one dot each -> the market page
+// The card is glass: a translucent surface with light along its rim, so it sits on X's
+// timeline as a layer above the post rather than a box inside it.
 const TMCard = (() => {
   const CSS = `
-  :host { all: initial; display: block; margin: 10px 0 4px; }
-  .card { font: 13px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; border: 1px solid var(--line);
-    border-radius: 14px; background: var(--bg); color: var(--fg); overflow: hidden; }
-  .dark  { --bg:#16181c; --fg:#e7e9ea; --muted:#8b98a5; --line:#2f3336; --soft:#1d1f23; --accent:#7c9cff; }
-  .light { --bg:#ffffff; --fg:#0f1419; --muted:#667785; --line:#e1e8ed; --soft:#f6f8fa; --accent:#3b5bdb; }
-  .head { display:flex; align-items:center; gap:8px; padding:9px 12px; border-bottom:1px solid var(--line); }
-  .brand { font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--accent); white-space:nowrap; }
-  .title { flex:1; min-width:0; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .odds { font-weight:700; white-space:nowrap; }
-  .odds small { color:var(--muted); font-weight:500; margin-right:3px; }
-  .close { all:unset; cursor:pointer; color:var(--muted); font-size:16px; line-height:1; padding:2px 4px; border-radius:6px; }
-  .close:hover { background:var(--soft); color:var(--fg); }
-  .sec { padding:10px 12px; border-bottom:1px solid var(--line); }
-  .label { font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
-  .meta { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:5px; }
-  .chip { font-size:10px; font-weight:700; letter-spacing:.05em; padding:1px 6px; border-radius:999px; background:var(--soft); color:var(--muted); border:1px solid var(--line); }
-  .bet { font-size:11px; font-weight:700; padding:1px 7px; border-radius:999px; color:#fff; }
-  .yes { background:#00ba7c; } .no { background:#f4212e; }
-  .author { font-size:12px; color:var(--muted); }
-  .author b { color:var(--fg); font-weight:600; }
-  .headline { font-weight:600; margin-bottom:3px; }
-  .excerpt { position:relative; color:var(--muted); max-height:3em; overflow:hidden; }
-  .excerpt::after { content:""; position:absolute; left:0; right:0; bottom:0; height:1.6em;
-    background:linear-gradient(to bottom, transparent, var(--bg)); }
-  .cta { display:inline-block; margin-top:8px; text-decoration:none; font-weight:700; font-size:12px; color:#fff; background:var(--accent); padding:6px 12px; border-radius:999px; }
-  .cta:hover { filter:brightness(1.1); }
-  .more { display:inline-block; margin-top:6px; font-size:12px; font-weight:600; color:var(--accent); text-decoration:none; }
-  .more:hover { text-decoration:underline; }
-  .bar { display:flex; height:6px; border-radius:999px; overflow:hidden; background:var(--line); margin:2px 0 4px; }
-  .bar .y { background:#00ba7c; } .bar .n { background:#f4212e; }
-  .counts { font-size:11px; color:var(--muted); margin-bottom:6px; }
-  .tldr { color:var(--fg); }
-  .foot { padding:6px 12px; background:var(--soft); }
-  .note { font-size:11px; color:var(--muted); }
+  :host { all: initial; display: block; margin: 12px 0 4px; }
+
+  .card {
+    position: relative; isolation: isolate; padding: 20px; border-radius: 24px;
+    font: 400 15px/20px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased; color: var(--fg);
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+    box-shadow: var(--shadow);
+    animation: rise 280ms cubic-bezier(.2, .8, .2, 1) both;
+  }
+  /* The rim: light catching the edge of the glass, brightest at the top left. */
+  .card::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+    background: var(--rim);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+  }
+  /* The sheen: the top of the glass catches a little more light than the rest. */
+  .card::after {
+    content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+    background: linear-gradient(180deg, var(--sheen), transparent 56px);
+  }
+
+  .dark {
+    --fg: #f5f5f7; --fg2: #b4b4b9; --fg3: #98989d;
+    --glass: linear-gradient(180deg, rgba(255,255,255,.085), rgba(255,255,255,.045));
+    --rim: linear-gradient(150deg, rgba(255,255,255,.36), rgba(255,255,255,.08) 28%, rgba(255,255,255,.04) 64%, rgba(255,255,255,.18));
+    --sheen: rgba(255,255,255,.045);
+    --shadow: 0 1px 1px rgba(0,0,0,.4), 0 16px 40px -16px rgba(0,0,0,.8);
+    --fill: rgba(255,255,255,.08); --fill-hover: rgba(255,255,255,.15); --fill-rim: rgba(255,255,255,.14);
+    --yes: #4cc38a; --no: #f2555a; --yes-tint: rgba(76,195,138,.16); --no-tint: rgba(242,85,90,.16);
+  }
+  .light {
+    --fg: #1d1d1f; --fg2: #515154; --fg3: #636367;
+    --glass: linear-gradient(180deg, rgba(246,246,248,.9), rgba(238,239,242,.8));
+    --rim: linear-gradient(150deg, #fff, rgba(255,255,255,.5) 30%, rgba(0,0,0,.05) 70%, rgba(0,0,0,.1));
+    --sheen: rgba(255,255,255,.7);
+    --shadow: 0 0 0 .5px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.06), 0 12px 32px -12px rgba(0,0,0,.2);
+    --fill: rgba(0,0,0,.05); --fill-hover: rgba(0,0,0,.09); --fill-rim: rgba(255,255,255,.9);
+    --yes: #136b45; --no: #b3242a; --yes-tint: rgba(36,160,100,.13); --no-tint: rgba(220,50,56,.11);
+  }
+  .card { --accent: #6d8bff; --accent-top: #8ba3ff; --on-accent: #0b0d14; }
+
+  a, button { -webkit-tap-highlight-color: transparent; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .top { display: flex; align-items: center; gap: 8px; height: 24px; }
+  .brand { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; font-weight: 500; color: var(--fg2); }
+  .brand svg { width: 12px; height: 12px; flex: none; }
+  .note { margin-left: auto; font-size: 12px; line-height: 16px; color: var(--fg3); white-space: nowrap; }
+  .close {
+    all: unset; box-sizing: border-box; flex: none; display: grid; place-items: center;
+    width: 24px; height: 24px; margin-right: -4px; border-radius: 12px; cursor: pointer;
+    background: var(--fill); color: var(--fg2); transition: background-color 160ms ease, color 160ms ease;
+  }
+  .close:hover { background: var(--fill-hover); color: var(--fg); }
+  .close svg { width: 10px; height: 10px; }
+
+  .market { display: flex; align-items: first baseline; gap: 16px; margin-top: 16px; }
+  .title {
+    flex: 1; min-width: 0; font-size: 17px; line-height: 22px; font-weight: 500;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+  }
+  .odds { flex: none; text-align: right; }
+  .pct { display: block; font-size: 28px; line-height: 32px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .pct-label { display: block; font-size: 12px; line-height: 16px; color: var(--fg3); }
+  .no-price { font-size: 13px; line-height: 20px; color: var(--fg3); }
+
+  .thesis { display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 12px; margin-top: 20px; }
+  .avatar {
+    display: grid; place-items: center; width: 32px; height: 32px; border-radius: 16px;
+    background: var(--fill); box-shadow: inset 0 1px 0 var(--fill-rim);
+    font-size: 12px; font-weight: 600; color: var(--fg2);
+  }
+  .avatar.agent { border-radius: 10px; color: var(--accent); }
+  .who { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 32px; }
+  /* Name and record share a line while they fit; on a narrow column the record drops below. */
+  .id { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; column-gap: 8px; }
+  .name { min-width: 0; max-width: 100%; font-size: 14px; line-height: 20px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .record { min-width: 0; max-width: 100%; font-size: 13px; line-height: 20px; color: var(--fg3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .side {
+    flex: none; margin-left: auto; display: inline-flex; align-items: center; height: 24px; padding: 0 10px;
+    border-radius: 12px; font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .side.yes { color: var(--yes); background: var(--yes-tint); }
+  .side.no { color: var(--no); background: var(--no-tint); }
+  .headline {
+    grid-column: 2; margin-top: 4px; font-size: 15px; line-height: 20px;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+  }
+
+  .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 16px; margin-top: 20px; }
+  .cta {
+    display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border-radius: 18px;
+    font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; color: var(--on-accent);
+    background: linear-gradient(180deg, var(--accent-top), var(--accent));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), inset 0 -1px 0 rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.24);
+    transition: transform 120ms cubic-bezier(.2, .8, .2, 1);
+  }
+  .cta:hover { --accent-top: #9cb0ff; --accent: #7d97ff; }
+  .cta:active { transform: scale(.97); }
+  .more {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 8px; height: 36px;
+    font-size: 13px; line-height: 20px; color: var(--fg2); text-decoration: none; white-space: nowrap;
+    transition: color 160ms ease;
+  }
+  .more:hover { color: var(--fg); }
+  .more svg { width: 12px; height: 12px; margin-left: -4px; }
+  .dots { display: inline-flex; gap: 4px; }
+  .dot { width: 8px; height: 8px; border-radius: 4px; }
+  .dot.yes, .bar .yes { background: var(--yes); }
+  .dot.no, .bar .no { background: var(--no); }
+  .bar { display: inline-flex; gap: 2px; width: 48px; height: 6px; border-radius: 3px; overflow: hidden; }
+
+  /* X on a phone: a narrow column. Less padding, and the button takes the whole row. */
+  :host { container-type: inline-size; }
+  @container (max-width: 400px) {
+    .card { padding: 16px; }
+    .cta { flex: 1 1 100%; justify-content: center; }
+    .more { margin: 0 auto; }
+  }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(4px); } }
+  @media (prefers-reduced-motion: reduce) { .card { animation: none; } .cta { transition: none; } }
   `;
+
+  // Up to this many theses get one dot each; more than that become a split bar.
+  const MAX_DOTS = 10;
+  const SVG_NS = "http://www.w3.org/2000/svg";
 
   function el(tag, cls, text) {
     const n = document.createElement(tag);
@@ -48,6 +146,24 @@ const TMCard = (() => {
     if (text != null) n.textContent = text;
     return n;
   }
+
+  // A small static icon. Each shape is [tag, attributes].
+  function icon(viewBox, shapes) {
+    const s = document.createElementNS(SVG_NS, "svg");
+    s.setAttribute("viewBox", viewBox);
+    s.setAttribute("aria-hidden", "true");
+    for (const [tag, attrs] of shapes) {
+      const shape = document.createElementNS(SVG_NS, tag);
+      for (const [k, v] of Object.entries(attrs)) shape.setAttribute(k, v);
+      s.append(shape);
+    }
+    return s;
+  }
+
+  // The site's mark: a ring, the same one that marks an author's entry on every odds line.
+  const ring = () => icon("0 0 16 16", [["circle", { cx: 8, cy: 8, r: 5.5, fill: "none", stroke: "#6d8bff", "stroke-width": 2.5 }]]);
+  const cross = () => icon("0 0 10 10", [["path", { d: "M1.5 1.5l7 7M8.5 1.5l-7 7", stroke: "currentColor", "stroke-width": 1.6, "stroke-linecap": "round" }]]);
+  const chevron = () => icon("0 0 12 12", [["path", { d: "M4.5 2.5L8 6l-3.5 3.5", fill: "none", stroke: "currentColor", "stroke-width": 1.6, "stroke-linecap": "round", "stroke-linejoin": "round" }]]);
 
   function isDark() {
     const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(document.body).backgroundColor);
@@ -57,72 +173,98 @@ const TMCard = (() => {
 
   const cents = (p) => Math.round(p * 100) + "¢";
   const pct = (p) => Math.round(p * 100) + "%";
+  const theses = (n) => n + (n === 1 ? " thesis" : " theses");
 
-  function truncate(s, max) {
-    s = String(s || "");
-    if (s.length <= max) return s;
-    return s.slice(0, max).replace(/\s+\S*$/, "") + "…";
+  // As on the site: the first letters of the first two words, "Guest 1538" is G.
+  function initials(name) {
+    return String(name || "")
+      .replace(/^@/, "")
+      .split(/[\s_-]+/)
+      .filter((part) => /^[a-z]/i.test(part))
+      .slice(0, 2)
+      .map((part) => part[0].toUpperCase())
+      .join("") || "?";
   }
 
-  function link(cls, text, path) {
-    const a = el("a", cls, text);
+  function link(cls, path) {
+    const a = el("a", cls);
     a.href = new URL(path, TM.SITE_BASE).toString();
     a.target = "_blank";
     a.rel = "noopener noreferrer";
     return a;
   }
 
-  function record(a) {
-    if (!a || !a.resolved) return "No resolved calls yet";
-    const early = a.resolved < 3 ? " (early)" : "";
-    return a.correct + " of " + a.resolved + " right" + early;
+  function header(card, onClose) {
+    const top = el("div", "top");
+    const brand = el("span", "brand");
+    brand.append(ring(), "Thesis Market");
+    const close = el("button", "close");
+    close.type = "button";
+    close.title = "Hide cards for this market";
+    close.setAttribute("aria-label", "Hide cards for this market");
+    close.append(cross());
+    close.addEventListener("click", (e) => { e.preventDefault(); onClose(card.symbol); });
+    top.append(brand, el("span", "note", card.mock ? "Sample data" : "Test funds"), close);
+    return top;
   }
 
-  // Section 1: the most trustworthy thesis. Its button goes to that exact thesis page.
-  function topSection(t) {
-    const sec = el("div", "sec");
-    sec.append(el("div", "label", "Most trusted thesis"));
-
-    const side = t.side === "NO" ? "no" : "yes";
-    const meta = el("div", "meta");
-    const author = el("span", "author");
-    author.append(el("b", null, t.author.name), " · " + record(t.author));
-    meta.append(
-      el("span", "chip", t.author.kind === "agent" ? "AI" : "HUMAN"),
-      el("span", "bet " + side, "Bets " + side.toUpperCase() + (t.entryPrice == null ? "" : " @ " + cents(t.entryPrice))),
-      author
-    );
-
-    sec.append(
-      meta,
-      el("div", "headline", t.headline),
-      el("div", "excerpt", truncate(t.excerpt, TM.EXCERPT_MAX_CHARS)),
-      link("cta", "Read thesis & copy trade", "/thesis/" + encodeURIComponent(t.id) + "?src=ext")
-    );
-    return sec;
+  // The market and its YES price. The price is the largest thing on the card.
+  function market(card) {
+    const row = el("div", "market");
+    const odds = el("div", "odds");
+    if (card.yesPrice == null) {
+      odds.append(el("span", "no-price", "No price yet"));
+    } else {
+      odds.append(el("span", "pct", pct(card.yesPrice)), el("span", "pct-label", "Yes"));
+    }
+    row.append(el("div", "title", card.title), odds);
+    return row;
   }
 
-  // Section 2: short summary across all theses. Its link goes to the market page, which
-  // charts every thesis against the price.
-  function summarySection(s, symbol) {
-    const sec = el("div", "sec");
-    sec.append(el("div", "label", "What " + s.thesisCount + " theses say"));
+  // The most trusted thesis. Its side sits in the price column, under the market's price,
+  // so the author's entry and today's price read as one comparison.
+  function thesis(t) {
+    const block = el("div", "thesis");
+    const kind = t.author.kind === "agent" ? "agent" : "human";
+    const avatar = el("span", "avatar " + kind, initials(t.author.name));
+    avatar.setAttribute("aria-hidden", "true");
 
-    const total = Math.max(1, s.yesCount + s.noCount);
-    const bar = el("div", "bar");
-    const y = el("div", "y");
-    const n = el("div", "n");
-    y.style.width = (s.yesCount / total) * 100 + "%";
-    n.style.width = (s.noCount / total) * 100 + "%";
-    bar.append(y, n);
+    const id = el("span", "id");
+    id.append(el("span", "name", t.author.name));
+    const record = [];
+    if (kind === "agent") record.push("AI");
+    if (t.author.resolved) record.push(t.author.correct + " of " + t.author.resolved + " right");
+    if (record.length) id.append(el("span", "record", record.join(" · ")));
+    const side = t.side === "NO" ? "No" : "Yes";
+    const who = el("div", "who");
+    who.append(id, el("span", "side " + side.toLowerCase(), t.entryPrice == null ? "Bets " + side : side + " at " + cents(t.entryPrice)));
 
-    sec.append(
-      bar,
-      el("div", "counts", s.yesCount + " YES · " + s.noCount + " NO"),
-      el("div", "tldr", truncate(s.text, TM.SUMMARY_MAX_CHARS)),
-      link("more", "See every thesis on this market →", "/markets/" + encodeURIComponent(symbol) + "?src=ext")
-    );
-    return sec;
+    block.append(avatar, who, el("div", "headline", t.headline));
+    return block;
+  }
+
+  // How every thesis splits, one dot each, linking to the market page that charts them all.
+  function split(s, symbol) {
+    const more = link("more", "/markets/" + encodeURIComponent(symbol) + "?src=ext");
+    more.setAttribute("aria-label", theses(s.thesisCount) + ": " + s.yesCount + " Yes, " + s.noCount + " No. Open the market");
+    more.title = s.yesCount + " Yes, " + s.noCount + " No";
+    let mark;
+    if (s.thesisCount <= MAX_DOTS) {
+      mark = el("span", "dots");
+      for (let i = 0; i < s.yesCount; i += 1) mark.append(el("span", "dot yes"));
+      for (let i = 0; i < s.noCount; i += 1) mark.append(el("span", "dot no"));
+    } else {
+      mark = el("span", "bar");
+      const total = Math.max(1, s.yesCount + s.noCount);
+      const yes = el("span", "yes");
+      const no = el("span", "no");
+      yes.style.width = (s.yesCount / total) * 100 + "%";
+      no.style.flex = "1";
+      mark.append(yes, no);
+    }
+    mark.setAttribute("aria-hidden", "true");
+    more.append(mark, theses(s.thesisCount), chevron());
+    return more;
   }
 
   function mount(card, { onClose }) {
@@ -132,24 +274,19 @@ const TMCard = (() => {
     root.append(el("style", null, CSS));
 
     const wrap = el("div", "card " + (isDark() ? "dark" : "light"));
+    wrap.append(header(card, onClose), market(card));
+    if (card.top) wrap.append(thesis(card.top));
 
-    const head = el("div", "head");
-    const close = el("button", "close", "×");
-    close.title = "Hide cards for this market";
-    close.addEventListener("click", (e) => { e.preventDefault(); onClose(card.symbol); });
-    const odds = el("div", "odds");
-    odds.append(el("small", null, "YES"), card.yesPrice == null ? "–" : pct(card.yesPrice));
-    head.append(el("span", "brand", "Thesis Market"), el("span", "title", card.title), odds, close);
-    wrap.append(head);
-
-    if (card.top) wrap.append(topSection(card.top));
-    if (card.summary && card.summary.thesisCount >= TM.MIN_THESES_FOR_SUMMARY) {
-      wrap.append(summarySection(card.summary, card.symbol));
+    const actions = el("div", "actions");
+    if (card.top) {
+      const cta = link("cta", "/thesis/" + encodeURIComponent(card.top.id) + "?src=ext");
+      cta.textContent = "Read and copy trade";
+      actions.append(cta);
     }
-
-    const foot = el("div", "foot");
-    foot.append(el("span", "note", card.mock ? "Sample data · test funds only" : "Test funds only"));
-    wrap.append(foot);
+    if (card.summary && card.summary.thesisCount >= TM.MIN_THESES_FOR_SUMMARY) {
+      actions.append(split(card.summary, card.symbol));
+    }
+    if (actions.childNodes.length) wrap.append(actions);
     root.append(wrap);
 
     // X makes the whole post clickable; keep clicks on our card from navigating to the post.

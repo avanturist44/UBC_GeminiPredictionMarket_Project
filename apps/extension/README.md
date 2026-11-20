@@ -1,6 +1,6 @@
 # Thesis Market for X
 
-A Chrome extension (Manifest V3) that adds a card under X posts that mention a tracked market. The card shows the market's YES price, the most trusted thesis on it, and a short summary of the rest, with links to the site.
+A Chrome extension (Manifest V3) that adds a card under X posts that mention a tracked market. The card shows the market's YES price, the most trusted thesis on it (its author, side, entry price and headline), and how all theses on the market split between Yes and No, one dot each. The button opens that thesis, where copy trade lives; the dots open the market page.
 
 ## Load it
 

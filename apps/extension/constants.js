@@ -17,7 +17,5 @@ const TM = {
   MAX_CARDS_ON_SCREEN: 5,
   MARKETS_REFRESH_MS: 5 * 60 * 1000,
   CARD_TTL_MS: 30 * 1000,
-  EXCERPT_MAX_CHARS: 180, // the teaser: enough to hook, not enough to copy blind
-  SUMMARY_MAX_CHARS: 240, // the TLDR shown on the card; the full summary lives on the website
-  MIN_THESES_FOR_SUMMARY: 2, // below this there is nothing to aggregate, so hide the summary
+  MIN_THESES_FOR_SUMMARY: 2, // below this there is no split to show, so the card hides it
 };
