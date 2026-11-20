@@ -4,7 +4,8 @@ import { createTestDb } from '@thesis/db/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildArena } from '../lib/arena';
 import { loadArena } from '../lib/arena-data';
-import type { ArenaResponse } from '../lib/arena-view';
+import { readFileSync } from 'node:fs';
+import { SEARCH_SUGGESTIONS_SANDBOX, searchSuggestionsDoc, type ArenaResponse } from '../lib/arena-view';
 
 const state = vi.hoisted(() => ({ db: null as Db | null }));
 vi.mock('server-only', () => ({}));
@@ -250,6 +251,23 @@ describe('the live arena', () => {
     const a = build(arenaData({ wallets: { claude: '0xabc0000000000000000000000000000000000001' } }));
     expect(standing(a, 'claude').walletAddress).toBe('0xabc0000000000000000000000000000000000001');
     expect(standing(a, 'gpt')).not.toHaveProperty('walletAddress');
+  });
+});
+
+describe('Gemini’s search suggestions', () => {
+  it('run with popups only: no scripts and no access to this page', () => {
+    expect(SEARCH_SUGGESTIONS_SANDBOX).toBe('allow-popups allow-popups-to-escape-sandbox');
+    // The panel's one frame takes exactly that value.
+    const panel = readFileSync(new URL('../components/arena-panel.tsx', import.meta.url), 'utf8');
+    expect(panel.match(/sandbox=\{?[^\s>]+/g)).toEqual(['sandbox={SEARCH_SUGGESTIONS_SANDBOX}']);
+    expect(panel).toContain('srcDoc={searchSuggestionsDoc(html)}');
+  });
+
+  it('open every suggestion in a new tab, with Google’s HTML unchanged after the head', () => {
+    const html = '<style>.chip{}</style><div class="carousel"><a class="chip" href="https://www.google.com/search?q=brent">brent</a></div>';
+    const doc = searchSuggestionsDoc(html);
+    expect(doc.startsWith('<!doctype html><base target="_blank">')).toBe(true);
+    expect(doc.endsWith(html)).toBe(true);
   });
 });
 

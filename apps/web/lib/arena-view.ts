@@ -127,6 +127,18 @@ export interface ArenaResponse {
   matchup: ArenaMatchup | null;
 }
 
+/**
+ * The frame around Google's search suggestions. Google's terms need a click on a suggestion
+ * to reach Google Search, so the frame may open a new tab, and that tab is a normal page. It
+ * never gets scripts or this page's origin.
+ */
+export const SEARCH_SUGGESTIONS_SANDBOX = 'allow-popups allow-popups-to-escape-sandbox';
+
+/** Google's suggestion HTML as the frame's document: links open in a new tab, no page margin. */
+export function searchSuggestionsDoc(html: string): string {
+  return `<!doctype html><base target="_blank"><meta charset="utf-8"><style>html,body{margin:0}</style>${html}`;
+}
+
 /** A date that reads the same on the server and in the browser. */
 export function arenaDate(iso: string | number): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });

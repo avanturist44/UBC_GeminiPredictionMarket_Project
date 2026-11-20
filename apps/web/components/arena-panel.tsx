@@ -4,7 +4,15 @@ import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'rea
 import { ModelMark } from '@/components/arena-chart';
 import { SidePill } from '@/components/thesis-card';
 import { cents, usd } from '@/lib/format';
-import { ARENA_MODELS, MODEL_BY_ID, arenaDate, type ArenaResponse, type ModelId } from '@/lib/arena-view';
+import {
+  ARENA_MODELS,
+  MODEL_BY_ID,
+  SEARCH_SUGGESTIONS_SANDBOX,
+  arenaDate,
+  searchSuggestionsDoc,
+  type ArenaResponse,
+  type ModelId,
+} from '@/lib/arena-view';
 import { signedUsd } from '@/lib/record-view';
 import { EXPLORER_ADDRESS } from '@/lib/thesis-view';
 import { cn } from '@/lib/utils';
@@ -97,14 +105,14 @@ function Chat({ data, model }: { data: ArenaResponse; model: ModelId | 'all' }) 
 
 /**
  * Google's search suggestions for a grounded Gemini answer, which its terms require showing
- * with the answer. The HTML is Google's, so it runs in a frame with every sandbox
- * restriction on: no scripts, and no access to this page.
+ * with the answer. The HTML is Google's, so it runs in a sandboxed frame: no scripts and no
+ * access to this page, only new tabs for the suggestions' links to Google Search.
  */
 function SearchSuggestions({ html }: { html: string }) {
   return (
     <iframe
-      sandbox=""
-      srcDoc={`<!doctype html><meta charset="utf-8"><style>html,body{margin:0}</style>${html}`}
+      sandbox={SEARCH_SUGGESTIONS_SANDBOX}
+      srcDoc={searchSuggestionsDoc(html)}
       title="Google Search suggestions"
       className="block h-14 w-full border-0"
     />
