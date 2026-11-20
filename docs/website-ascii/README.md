@@ -8,6 +8,10 @@ decorative, not market data. Definition is strongest at the margins and quieter
 in the reading area; the sidebar keeps its existing opaque surface. Content,
 navigation, APIs and trading behavior stay as they were.
 
+The page content, sidebar and mobile header now use fully opaque graphite surfaces.
+The ASCII remains animated in 12px mobile / 24px desktop outer gutters and the open
+space outside each content block. There is no glass or backdrop blur on these surfaces.
+
 Trade posts and reusable thesis cards have explicit, opaque `bg-background` surfaces
 so the ASCII field does not show through their content. Position panels retain their
 existing solid card color. This applies in `components/post.tsx` and
@@ -18,7 +22,8 @@ so a live card could not be visually inspected in that preview.
 Implementation:
 
 - `apps/web/components/ascii-background.tsx`: client-only canvas drawing, capped at
-  10 updates per second, with bounded resolution and row-based text rendering.
+  15 updates per second, with bounded resolution and row-based text rendering.
+  Motion runs at 1.75 times its original speed; brightness and density stay unchanged.
 - `apps/web/app/layout.tsx`: mounts the background alongside the existing server layout.
 - `apps/web/app/globals.css`: isolated background layer, subdued mobile opacity and
   an understated pause control clear of the mobile tab bar.

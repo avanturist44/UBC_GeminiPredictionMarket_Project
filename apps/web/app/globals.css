@@ -109,7 +109,14 @@ body { isolation: isolate; }
   opacity: .8;
 }
 .site-shell { position: relative; z-index: 1; min-height: 100dvh; }
-.site-shell > aside { background: rgb(15 15 16 / .94); }
+.site-shell > aside,
+.site-shell > div > header { background: var(--background); }
+/* Solid reading blocks; the animated field stays in the surrounding gutters. */
+.site-shell main { padding-inline: 12px; }
+.site-shell main > div { background: var(--background); }
+@media (min-width:640px) {
+  .site-shell main { padding-inline: 24px; }
+}
 .ascii-motion-control {
   position: fixed;
   bottom: 16px;

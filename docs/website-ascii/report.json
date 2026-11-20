@@ -2,6 +2,7 @@
   "passed": true,
   "checks": [
     "Actual Next.js page returns HTTP 200",
+    "Page blocks and sidebar are opaque graphite with no backdrop blur",
     "ASCII frames change over time",
     "Pause freezes the field and saves the local preference",
     "Reduced motion renders a static field and hides the motion control",

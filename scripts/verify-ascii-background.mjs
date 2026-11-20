@@ -20,6 +20,13 @@ try {
     return canvas && canvas.width>=innerWidth && getComputedStyle(canvas).pointerEvents==='none';
   });
   assert.equal(await page.locator('.ascii-background').getAttribute('aria-hidden'),'true');
+  const contentSurface=await page.locator('main > div').evaluate(node=>({
+    background:getComputedStyle(node).backgroundColor,
+    backdrop:getComputedStyle(node).backdropFilter,
+  }));
+  assert.equal(contentSurface.background,'rgb(15, 15, 16)');
+  assert.equal(contentSurface.backdrop,'none');
+  assert.equal(await page.locator('.site-shell > aside').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(15, 15, 16)');
   const frame=()=>page.locator('canvas.ascii-background').evaluate(node=>node.toDataURL());
   await page.waitForTimeout(300);
   const first=await frame();await page.waitForTimeout(1200);
@@ -46,6 +53,7 @@ try {
   assert.deepEqual(errors,[]);
   const report={passed:true,checks:[
     'Actual Next.js page returns HTTP 200',
+    'Page blocks and sidebar are opaque graphite with no backdrop blur',
     'ASCII frames change over time',
     'Pause freezes the field and saves the local preference',
     'Reduced motion renders a static field and hides the motion control',

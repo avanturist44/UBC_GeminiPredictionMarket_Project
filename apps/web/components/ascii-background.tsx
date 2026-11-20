@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+const FRAME_INTERVAL_MS = 1000 / 15;
+const MOTION_SPEED = 1.75;
+
 /** Decorative signal contours, not a visualization of market activity. */
 export function AsciiBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -53,8 +56,8 @@ export function AsciiBackground() {
     };
     const stop = () => { cancelAnimationFrame(frame); frame = 0; previous = 0; };
     const tick = (now: number) => {
-      if (previous === 0 || now - previous >= 100) {
-        if (previous !== 0) phaseRef.current += Math.min(now - previous, 200) / 1000;
+      if (previous === 0 || now - previous >= FRAME_INTERVAL_MS) {
+        if (previous !== 0) phaseRef.current += Math.min(now - previous, 200) / 1000 * MOTION_SPEED;
         previous = now;
         draw();
       }
