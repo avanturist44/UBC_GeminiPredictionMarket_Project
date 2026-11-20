@@ -1,6 +1,6 @@
 import { ARENA_ROSTER } from '@thesis/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { agentRuns, authors, ensureAgentAuthor, eq, getArenaData, theses, trades, upsertMarket, type Db, type MarketUpsert } from '../src';
+import { agentRuns, authors, ensureAgentAuthor, eq, getArenaData, sandboxOrders, theses, trades, upsertMarket, type Db, type MarketUpsert } from '../src';
 import { createTestDb } from '../src/testing';
 
 let db: Db;
@@ -63,6 +63,32 @@ describe('getArenaData', () => {
     expect(data.agents.filter((a) => a.trades.length > 0)).toHaveLength(1);
     expect(data.since?.toISOString()).toBe(at(60).toISOString());
     expect(data.markets.map((m) => m.instrumentSymbol)).toEqual(['GEMI-BRENT-HI90']);
+  });
+
+  it('reads the sandbox order of each trade, and only its outcome', async () => {
+    const gpt = await arenaAuthor('gpt');
+    const { id: marketId } = await upsertMarket(db, market);
+    const base = { authorId: gpt.id, marketId, isAuthorPosition: true, side: 'yes' as const, quantity: '10', price: '0.50', costUsd: '5.0000', mode: 'paper' as const, status: 'filled' as const };
+    const [mirrored, bare] = await db
+      .insert(trades)
+      .values([
+        { ...base, idempotencyKey: 'k1', createdAt: at(60) },
+        { ...base, idempotencyKey: 'k2', createdAt: at(50) },
+      ])
+      .returning();
+    await db.insert(sandboxOrders).values({
+      tradeId: mirrored!.id,
+      agentKey: 'arena-gpt',
+      clientOrderId: mirrored!.id,
+      status: 'filled',
+      orderId: 'secret-order',
+      sandboxPrice: '0.5500',
+      filledQuantity: '10.0000',
+    });
+
+    const data = await getArenaData(db, OPTS);
+    expect(data.exchanges.get(mirrored!.id)).toEqual({ status: 'filled', filledQuantity: '10.0000', sandboxPrice: '0.5500' });
+    expect(data.exchanges.has(bare!.id)).toBe(false);
   });
 
   it('keeps each model’s latest runs, newest first, with the thesis headline and search suggestions', async () => {

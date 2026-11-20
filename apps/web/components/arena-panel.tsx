@@ -9,7 +9,9 @@ import {
   MODEL_BY_ID,
   SEARCH_SUGGESTIONS_SANDBOX,
   arenaDate,
+  exchangeLine,
   searchSuggestionsDoc,
+  type ArenaExchange,
   type ArenaResponse,
   type ModelId,
 } from '@/lib/arena-view';
@@ -58,6 +60,11 @@ function Who({ id, children }: { id: ModelId; children?: ReactNode }) {
   );
 }
 
+function ExchangeLine({ exchange }: { exchange: ArenaExchange | null }) {
+  const line = exchangeLine(exchange);
+  return line ? <p className="text-[13px] text-muted-foreground">{line}</p> : null;
+}
+
 function Trades({ data, model }: { data: ArenaResponse; model: ModelId | 'all' }) {
   const rows = data.trades.filter((t) => model === 'all' || t.model === model);
   if (rows.length === 0) return <Empty>No trades have settled yet.</Empty>;
@@ -78,6 +85,7 @@ function Trades({ data, model }: { data: ArenaResponse; model: ModelId | 'all' }
             <span>Held {held(t.openedAt, t.closedAt)}</span>
             <span>{ago(t.closedAt, data.asOf)}</span>
           </p>
+          <ExchangeLine exchange={t.exchange} />
         </li>
       ))}
     </ul>
@@ -150,6 +158,7 @@ function Positions({ data, model }: { data: ArenaResponse; model: ModelId | 'all
                         <SidePill side={p.side} />
                         {p.quantity} at {cents(p.entryPrice)}, now {cents(p.markPrice)}
                       </p>
+                      <ExchangeLine exchange={p.exchange} />
                     </div>
                     <span className={cn('shrink-0 tabular-nums', pnlClass(p.pnlUsd))}>{signedUsd(p.pnlUsd)}</span>
                   </li>
@@ -179,6 +188,13 @@ function Readme({ data }: { data: ArenaResponse }) {
         <p>
           {usd(data.bankrollUsd)}, less what positions cost, plus what settled ones paid, plus open positions at
           Gemini&rsquo;s current midpoint. A contract settles at $1.00 if its side wins and $0.00 if it loses.
+        </p>
+      </section>
+      <section className="space-y-2">
+        <h3 className="font-sans text-[15px] font-medium text-foreground">Sandbox orders</h3>
+        <p>
+          Account value is the paper ledger at Gemini&rsquo;s live prices. Each trade is also placed as a real order on
+          Gemini&rsquo;s sandbox exchange, whose bot-driven prices do not count.
         </p>
       </section>
       <section className="space-y-2">

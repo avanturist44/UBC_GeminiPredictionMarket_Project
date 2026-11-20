@@ -1,7 +1,8 @@
 import { ARENA_ROSTER, type ModelId } from '@thesis/core';
-import type { ArenaData, ArenaRun, RaceMarket, RaceTrade } from '@thesis/db';
+import type { ArenaData, ArenaExchange as DbExchange, ArenaRun, RaceMarket, RaceTrade } from '@thesis/db';
 import {
   MODEL_BY_ID,
+  type ArenaExchange,
   type ArenaMatchup,
   type ArenaMessage,
   type ArenaPoint,
@@ -29,6 +30,16 @@ const LEVEL_USD = 0.005;
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 const round4 = (value: number) => Math.round(value * 10_000) / 10_000;
+
+/** A mirror order as the page sees it: its outcome only, with numbers as plain numbers. */
+function exchangeOf(row: DbExchange | undefined): ArenaExchange | null {
+  if (!row) return null;
+  return {
+    status: row.status,
+    quantity: row.filledQuantity === null ? null : Number(row.filledQuantity),
+    price: row.sandboxPrice === null ? null : Number(row.sandboxPrice),
+  };
+}
 
 interface Model {
   id: ModelId;
@@ -83,6 +94,7 @@ export function buildArena(data: ArenaData, options: { now: Date; bankrollUsd: n
             side: trade.side,
             quantity,
             entryPrice: Number(trade.price),
+            exchange: exchangeOf(data.exchanges.get(trade.id)),
             exitPrice: quantity > 0 ? round4(value / quantity) : 0,
             pnlUsd: round2(value - Number(trade.costUsd)),
             openedAt: trade.createdAt.toISOString(),
@@ -106,6 +118,7 @@ export function buildArena(data: ArenaData, options: { now: Date; bankrollUsd: n
             side: trade.side,
             quantity: Number(trade.quantity),
             entryPrice,
+            exchange: exchangeOf(data.exchanges.get(trade.id)),
             // No quote yet: held at what it cost, as the account value holds it.
             markPrice: round4(p.mark(trade, now) ?? entryPrice),
             pnlUsd: round2(p.value(trade, now) - Number(trade.costUsd)),

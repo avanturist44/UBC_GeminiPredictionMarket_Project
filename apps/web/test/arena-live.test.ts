@@ -1,11 +1,12 @@
 import { ARENA_ROSTER, type ModelId } from '@thesis/core';
-import type { ArenaData, ArenaRun, Db, RaceMarket, RacePrice, RaceTrade } from '@thesis/db';
+import type { ArenaData, ArenaExchange, ArenaRun, Db, RaceMarket, RacePrice, RaceTrade } from '@thesis/db';
 import { createTestDb } from '@thesis/db/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildArena } from '../lib/arena';
 import { loadArena } from '../lib/arena-data';
+import { buildArenaMock } from '../lib/arena-mock';
 import { readFileSync } from 'node:fs';
-import { SEARCH_SUGGESTIONS_SANDBOX, searchSuggestionsDoc, type ArenaResponse } from '../lib/arena-view';
+import { SEARCH_SUGGESTIONS_SANDBOX, exchangeLine, searchSuggestionsDoc, type ArenaResponse } from '../lib/arena-view';
 
 const state = vi.hoisted(() => ({ db: null as Db | null }));
 vi.mock('server-only', () => ({}));
@@ -66,6 +67,8 @@ function arenaData(
     wallets?: Partial<Record<ModelId, string>>;
     markets?: RaceMarket[];
     prices?: RacePrice[];
+    /** Mirror rows by trade id; a trade without one has no sandbox order. */
+    exchanges?: Record<string, ArenaExchange>;
   } = {},
 ): ArenaData {
   const all = Object.values(options.trades ?? {})
@@ -84,6 +87,7 @@ function arenaData(
     since: all[0]?.createdAt ?? null,
     runs: new Map(ARENA_ROSTER.map((e) => [e.agentKey, options.runs?.[e.id] ?? []])),
     wallets: new Map(ARENA_ROSTER.map((e) => [e.agentKey, options.wallets?.[e.id] ?? null])),
+    exchanges: new Map(Object.entries(options.exchanges ?? {})),
   };
 }
 
@@ -199,6 +203,41 @@ describe('the live arena', () => {
     expect(a.positions[1]).toMatchObject({ model: 'gpt', quantity: 10, entryPrice: 0.5, openedAt: at('09:00') });
   });
 
+  it('carries each trade\'s sandbox order status', () => {
+    const a = build(
+      arenaData({
+        trades: {
+          claude: [
+            trade('s1', { id: 'done', status: 'settled', payoutUsd: '10.0000' }),
+            trade('s2', { id: 'cold', status: 'settled', payoutUsd: '0.0000', createdAt: new Date(at('09:30')) }),
+            trade('s3', { id: 'none', status: 'settled', payoutUsd: '0.0000', createdAt: new Date(at('10:00')) }),
+          ],
+          gpt: [trade('m1', { id: 'open-part' }), trade('m2', { id: 'open-none', createdAt: new Date(at('10:00')) })],
+        },
+        markets: [
+          market('s1', { resolutionSide: 'yes', resolvedAt: new Date(at('11:00')) }),
+          market('s2', { resolutionSide: 'no', resolvedAt: new Date(at('11:30')) }),
+          market('s3', { resolutionSide: 'no', resolvedAt: new Date(at('10:30')) }),
+          market('m1'),
+          market('m2'),
+        ],
+        exchanges: {
+          done: { status: 'filled', filledQuantity: '10.0000', sandboxPrice: '0.5500' },
+          cold: { status: 'unfilled', filledQuantity: null, sandboxPrice: null },
+          'open-part': { status: 'partial', filledQuantity: '4.5000', sandboxPrice: '0.5000' },
+        },
+      }),
+    );
+    const byId = (id: string) => a.trades.find((t) => t.id === id)!;
+    expect(byId('done').exchange).toEqual({ status: 'filled', quantity: 10, price: 0.55 });
+    expect(byId('cold').exchange).toEqual({ status: 'unfilled', quantity: null, price: null });
+    expect(byId('none').exchange).toBeNull();
+    expect(a.positions.find((p) => p.id === 'open-part')!.exchange).toEqual({ status: 'partial', quantity: 4.5, price: 0.5 });
+    expect(a.positions.find((p) => p.id === 'open-none')!.exchange).toBeNull();
+    // Only status, quantity and price reach the page.
+    expect(Object.keys(byId('done').exchange!).sort()).toEqual(['price', 'quantity', 'status']);
+  });
+
   it('draws every line from the first trade at the bankroll to today’s values', () => {
     const a = build(arenaData({ trades: { gpt: [trade('m1')] }, markets: [market('m1')] }));
     const first = a.points[0]!;
@@ -251,6 +290,24 @@ describe('the live arena', () => {
     const a = build(arenaData({ wallets: { claude: '0xabc0000000000000000000000000000000000001' } }));
     expect(standing(a, 'claude').walletAddress).toBe('0xabc0000000000000000000000000000000000001');
     expect(standing(a, 'gpt')).not.toHaveProperty('walletAddress');
+  });
+});
+
+describe('the sandbox order line', () => {
+  it('says what the exchange did, in whole cents and plain numbers, and nothing without an order', () => {
+    expect(exchangeLine({ status: 'filled', quantity: 10, price: 0.55 })).toBe('Sandbox order filled, 10 at 55¢');
+    expect(exchangeLine({ status: 'partial', quantity: 4.5, price: 0.5 })).toBe('Sandbox order partly filled, 4.5 at 50¢');
+    expect(exchangeLine({ status: 'unfilled', quantity: null, price: null })).toBe('Sandbox order not filled');
+    expect(exchangeLine({ status: 'pending', quantity: null, price: null })).toBe('Sandbox order pending');
+    expect(exchangeLine({ status: 'failed', quantity: null, price: null })).toBe('Sandbox order failed');
+    expect(exchangeLine(null)).toBeNull();
+  });
+
+  it('is absent from the sample, and the README names no particular sandbox account', () => {
+    const sample = buildArenaMock(NOW);
+    expect([...sample.trades, ...sample.positions].every((row) => row.exchange === null)).toBe(true);
+    const panel = readFileSync(new URL('../components/arena-panel.tsx', import.meta.url), 'utf8');
+    expect(panel).not.toMatch(/own sandbox account|model.s own/i);
   });
 });
 

@@ -1,7 +1,7 @@
 import { ARENA_ROSTER } from '@thesis/core';
 import { and, desc, eq, inArray, lte, sql } from 'drizzle-orm';
 import type { Db } from '../client';
-import { agentRuns, authors, markets, theses } from '../schema';
+import { agentRuns, authors, markets, sandboxOrders, theses, type SandboxOrderStatus } from '../schema';
 import { getRaceData, type RaceData, type RaceRun } from './race';
 
 /**
@@ -17,7 +17,19 @@ export type ArenaRun = RaceRun & {
   searchSuggestionsHtml: string | null;
 };
 
+/**
+ * What the sandbox exchange did with a trade's mirror order. Only the outcome: the order id,
+ * client order id, error code and anything about the account stay in the database.
+ */
+export interface ArenaExchange {
+  status: SandboxOrderStatus;
+  filledQuantity: string | null;
+  sandboxPrice: string | null;
+}
+
 export interface ArenaData extends RaceData {
+  /** The mirror order of each trade that has one, keyed by trade id. */
+  exchanges: Map<string, ArenaExchange>;
   /** Newest first, keyed by agent key. */
   runs: Map<string, ArenaRun[]>;
   /** The author's wallet address, or null before it has one, keyed by agent key. */
@@ -39,6 +51,21 @@ export async function getArenaData(
     .where(and(eq(authors.kind, 'agent'), inArray(authors.agentKey, keys)));
   const wallets = new Map<string, string | null>(keys.map((key) => [key, null]));
   for (const row of walletRows) if (row.agentKey) wallets.set(row.agentKey, row.walletAddress);
+
+  const tradeIds = race.agents.flatMap((agent) => agent.trades.map((t) => t.id));
+  const exchanges = new Map<string, ArenaExchange>();
+  if (tradeIds.length > 0) {
+    const rows = await db
+      .select({
+        tradeId: sandboxOrders.tradeId,
+        status: sandboxOrders.status,
+        filledQuantity: sandboxOrders.filledQuantity,
+        sandboxPrice: sandboxOrders.sandboxPrice,
+      })
+      .from(sandboxOrders)
+      .where(inArray(sandboxOrders.tradeId, tradeIds));
+    for (const { tradeId, ...exchange } of rows) exchanges.set(tradeId, exchange);
+  }
 
   const runRows = await Promise.all(
     keys.map((key) =>
@@ -80,5 +107,5 @@ export async function getArenaData(
     );
   });
 
-  return { ...race, runs, wallets };
+  return { ...race, runs, wallets, exchanges };
 }

@@ -63,7 +63,39 @@ export interface ArenaStanding {
 /** One moment: every model's account value, in dollars, keyed by model id. */
 export type ArenaPoint = { t: number } & Record<ModelId, number>;
 
+/**
+ * What Gemini's sandbox exchange did with the order placed alongside a trade. It never counts
+ * toward the score; the paper ledger does. Null when no order was placed (and in sample data).
+ * Only the outcome is sent, never an order id or anything about the account.
+ */
+export interface ArenaExchange {
+  status: 'pending' | 'filled' | 'partial' | 'unfilled' | 'failed';
+  quantity: number | null;
+  /** The sandbox's average fill price, 0 to 1. */
+  price: number | null;
+}
+
+/** The muted line under a position or trade, or null when there is no order. */
+export function exchangeLine(exchange: ArenaExchange | null): string | null {
+  if (!exchange) return null;
+  switch (exchange.status) {
+    case 'filled':
+    case 'partial': {
+      const what = exchange.status === 'filled' ? 'filled' : 'partly filled';
+      if (exchange.quantity === null || exchange.price === null) return `Sandbox order ${what}`;
+      return `Sandbox order ${what}, ${exchange.quantity} at ${Math.round(exchange.price * 100)}¢`;
+    }
+    case 'unfilled':
+      return 'Sandbox order not filled';
+    case 'pending':
+      return 'Sandbox order pending';
+    case 'failed':
+      return 'Sandbox order failed';
+  }
+}
+
 export interface ArenaTrade {
+  exchange: ArenaExchange | null;
   id: string;
   model: ModelId;
   market: string;
@@ -79,6 +111,7 @@ export interface ArenaTrade {
 }
 
 export interface ArenaPosition {
+  exchange: ArenaExchange | null;
   id: string;
   model: ModelId;
   market: string;
