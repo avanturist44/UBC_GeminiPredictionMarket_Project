@@ -1,8 +1,9 @@
 // Checks every arena model against its live API: pnpm --filter @thesis/worker verify:arena
 // It makes one real, billed web-search call per model whose key is set (the arena's own prompt
 // and reply shape, roughly 40,000 tokens each), all at once, and prints no secrets.
-// Every call goes through the worker's own spend caps: the day's dollar cap (LLM_DAILY_USD_CAP)
-// and that model's own daily token cap (ARENA_DAILY_TOKEN_CAP_PER_MODEL). It is recorded in
+// Every call goes through the worker's own spend caps: the day's dollar cap (LLM_DAILY_USD_CAP),
+// the arena's share of it (ARENA_DAILY_USD_CAP) and that model's own daily token cap
+// (ARENA_DAILY_TOKEN_CAP_PER_MODEL). It is recorded in
 // llm_calls as `arena:<id>:verify`, so it counts against that model's budget, never the
 // auditor's. That needs the database, so without DATABASE_URL, or with a database the day's
 // spend cannot be read from, it refuses to call any model.
@@ -133,7 +134,7 @@ async function verifyModels(env: WorkerEnv, say: Say): Promise<void> {
       error: (message) => say(`   ${message}`),
     };
     // The worker's own wiring: each model with its key, its token cap and the dollar guard.
-    const guard = createSpendGuard({ db, dailyCapUsd: env.LLM_DAILY_USD_CAP, logger });
+    const guard = createSpendGuard({ db, dailyCapUsd: env.LLM_DAILY_USD_CAP, arenaDailyCapUsd: env.ARENA_DAILY_USD_CAP, logger });
     const contenders = createArenaContenders(env, db, logger, guard);
     if (contenders.length === 0) {
       say('no arena model has its API key set, so there is nothing to verify');

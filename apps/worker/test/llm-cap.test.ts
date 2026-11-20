@@ -56,6 +56,22 @@ describe('withSpendCap scopes', () => {
     await expect(unscoped.generateJson(args('audit-screen'))).rejects.toMatchObject({ code: 'budget' });
   });
 
+  it("audits of arena theses count against neither the auditor's cap nor the model's own", async () => {
+    await call('arena-audit:gpt:audit-check', 5_000);
+    const auditor = withSpendCap(db, fakeProvider(), {
+      dailyTokenCap: 1000,
+      excludePrefix: ['arena:', 'arena-audit:'],
+      guard,
+      logger,
+    });
+    await expect(auditor.generateJson(args('audit-screen'))).resolves.toBeDefined();
+    const gpt = withSpendCap(db, fakeProvider(), { dailyTokenCap: 1000, purposePrefix: 'arena:gpt', guard, logger });
+    await expect(gpt.generateJson(args('arena:gpt'))).resolves.toBeDefined();
+    // The auditor's own calls still count against it.
+    await call('audit-check', 1_000);
+    await expect(auditor.generateJson(args('audit-screen'))).rejects.toMatchObject({ code: 'budget' });
+  });
+
   it('a model at its own cap is refused while the others continue', async () => {
     await call('arena:gpt', 500);
     const gpt = withSpendCap(db, fakeProvider(), { dailyTokenCap: 500, purposePrefix: 'arena:gpt', guard, logger });

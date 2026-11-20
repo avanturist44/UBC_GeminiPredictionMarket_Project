@@ -79,6 +79,11 @@ const EnvSchema = z.object({
   ARENA_INTERVAL_MINUTES: blank(z.coerce.number().int().min(15).default(60)),
   /** Input plus output tokens each arena model may use per UTC day, apart from the auditor's budget. */
   ARENA_DAILY_TOKEN_CAP_PER_MODEL: blank(z.coerce.number().int().positive().default(1_000_000)),
+  /**
+   * US dollars per UTC day the arena may spend, out of LLM_DAILY_USD_CAP: its models' looks and the
+   * audits of their theses. The rest of the day's cap is kept for people's audits.
+   */
+  ARENA_DAILY_USD_CAP: blank(z.coerce.number().positive().default(18)),
   // Each arena model's own Gemini sandbox account, where its paper trades are also placed as real
   // orders. Absent or {} means no accounts, and the sandbox mirror does not run. Without it, one
   // key pair in the two variables after it is every arena model's (they share one account).
@@ -100,7 +105,16 @@ const EnvSchema = z.object({
   /** Test USDC sent once to each new user wallet. */
   WELCOME_USDC: blank(z.string().regex(/^\d+(\.\d{1,2})?$/).default('2')),
   RECORDER_INTERVAL_MS: z.coerce.number().int().min(5000).default(30_000),
-}).transform((env, ctx) => ({ ...env, GEMINI_AGENT_KEYS: sandboxKeys(env, ctx) }));
+}).transform((env, ctx) => {
+  if (env.ARENA_DAILY_USD_CAP > env.LLM_DAILY_USD_CAP) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['ARENA_DAILY_USD_CAP'],
+      message: `is ${env.ARENA_DAILY_USD_CAP}, more than LLM_DAILY_USD_CAP (${env.LLM_DAILY_USD_CAP}); the arena's cap is a share of the day's, so set it at most that`,
+    });
+  }
+  return { ...env, GEMINI_AGENT_KEYS: sandboxKeys(env, ctx) };
+});
 
 /**
  * The sandbox keys by arena agent key: GEMINI_AGENT_KEYS when it is set, otherwise the one pair

@@ -247,6 +247,18 @@ describe('worker environment for the arena', () => {
     ]);
   });
 
+  it("gives the arena $18 of the day's $25, and never more than the day's cap", () => {
+    const base = { DATABASE_URL: 'postgres://localhost/test' };
+    const defaults = parseEnv(base);
+    expect([defaults.ARENA_DAILY_USD_CAP, defaults.LLM_DAILY_USD_CAP]).toEqual([18, 25]);
+    expect(parseEnv({ ...base, ARENA_DAILY_USD_CAP: '' }).ARENA_DAILY_USD_CAP).toBe(18);
+    expect(parseEnv({ ...base, ARENA_DAILY_USD_CAP: '25' }).ARENA_DAILY_USD_CAP).toBe(25);
+    expect(() => parseEnv({ ...base, ARENA_DAILY_USD_CAP: '26' })).toThrow(/ARENA_DAILY_USD_CAP.*LLM_DAILY_USD_CAP/);
+    // Lowering the day's cap below the arena's default needs the arena's lowered too.
+    expect(() => parseEnv({ ...base, LLM_DAILY_USD_CAP: '10' })).toThrow(/ARENA_DAILY_USD_CAP/);
+    expect(parseEnv({ ...base, LLM_DAILY_USD_CAP: '10', ARENA_DAILY_USD_CAP: '6' }).ARENA_DAILY_USD_CAP).toBe(6);
+  });
+
   it('treats a blank key as not set, and looks no more often than every 15 minutes', () => {
     expect(parseEnv({ DATABASE_URL: 'postgres://localhost/test', OPENAI_API_KEY: '' }).OPENAI_API_KEY).toBeUndefined();
     expect(parseEnv({ DATABASE_URL: 'postgres://localhost/test', ARENA_INTERVAL_MINUTES: '15' }).ARENA_INTERVAL_MINUTES).toBe(15);

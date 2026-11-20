@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
 import type { Db } from '../client';
 import {
   audits,
@@ -169,40 +169,51 @@ export async function recordLlmCall(
   await db.insert(llmCalls).values(call);
 }
 
-/** US dollars spent on model calls since `since`, whatever they were for. */
-export async function llmCostSince(db: Db, since: Date): Promise<number> {
-  const [row] = await db
-    .select({ cost: sql<string>`coalesce(sum(${llmCalls.costUsd}), 0)::text` })
-    .from(llmCalls)
-    .where(sql`${llmCalls.createdAt} >= ${since.toISOString()}::timestamptz`);
-  return Number(row?.cost ?? 0);
+/**
+ * Which model calls a sum counts, by purpose: with `purposePrefix`, only calls whose purpose starts
+ * with it (or with any one of a list); with `excludePrefix`, none whose purpose starts with it (or
+ * with any one of a list).
+ */
+export interface PurposeScope {
+  purposePrefix?: string | readonly string[];
+  excludePrefix?: string | readonly string[];
 }
 
 /** Matches `prefix` literally in a SQL `like`: `%`, `_` and the escape character are escaped. */
 const likePrefix = (prefix: string) => `${prefix.replace(/[\\%_]/g, '\\$&')}%`;
+const listOf = (prefixes: string | readonly string[]) => (typeof prefixes === 'string' ? [prefixes] : prefixes);
 
-/**
- * Tokens used, input plus output, by model calls since `since`. With a scope, only calls whose
- * purpose starts with `purposePrefix`, and none whose purpose starts with `excludePrefix`.
- */
-export async function llmTokensSince(
-  db: Db,
-  since: Date,
-  scope: { purposePrefix?: string; excludePrefix?: string } = {},
-): Promise<number> {
+/** The calls since `since` that `scope` counts. */
+function callsIn(since: Date, scope: PurposeScope) {
   const conditions = [sql`${llmCalls.createdAt} >= ${since.toISOString()}::timestamptz`];
   if (scope.purposePrefix !== undefined) {
-    conditions.push(sql`${llmCalls.purpose} like ${likePrefix(scope.purposePrefix)} escape '\\'`);
+    const matches = listOf(scope.purposePrefix).map((prefix) => sql`${llmCalls.purpose} like ${likePrefix(prefix)} escape '\\'`);
+    // An empty list matches nothing.
+    conditions.push(or(...matches) ?? sql`false`);
   }
-  if (scope.excludePrefix !== undefined) {
-    conditions.push(sql`${llmCalls.purpose} not like ${likePrefix(scope.excludePrefix)} escape '\\'`);
+  for (const prefix of scope.excludePrefix === undefined ? [] : listOf(scope.excludePrefix)) {
+    conditions.push(sql`${llmCalls.purpose} not like ${likePrefix(prefix)} escape '\\'`);
   }
+  return and(...conditions);
+}
+
+/** US dollars spent on model calls since `since`: whatever they were for, or those in `scope`. */
+export async function llmCostSince(db: Db, since: Date, scope: PurposeScope = {}): Promise<number> {
+  const [row] = await db
+    .select({ cost: sql<string>`coalesce(sum(${llmCalls.costUsd}), 0)::text` })
+    .from(llmCalls)
+    .where(callsIn(since, scope));
+  return Number(row?.cost ?? 0);
+}
+
+/** Tokens used, input plus output, by model calls since `since`: every call, or those in `scope`. */
+export async function llmTokensSince(db: Db, since: Date, scope: PurposeScope = {}): Promise<number> {
   const [row] = await db
     .select({
       tokens: sql<number>`coalesce(sum(${llmCalls.inputTokens} + ${llmCalls.outputTokens}), 0)::int`,
     })
     .from(llmCalls)
-    .where(and(...conditions));
+    .where(callsIn(since, scope));
   return row?.tokens ?? 0;
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ARENA_ROSTER, ARENA_STRATEGY, arenaEntrant } from '../src/arena';
+import { ARENA_PURPOSE_PREFIXES, ARENA_ROSTER, ARENA_STRATEGY, arenaAuditPurpose, arenaEntrant, isArenaPurpose } from '../src/arena';
 
 describe('the arena roster', () => {
   it('lists five entrants in the validated colour order, each its own agent', () => {
@@ -21,5 +21,19 @@ describe('the arena roster', () => {
 
   it('shares one strategy sentence', () => {
     expect(ARENA_STRATEGY).toMatch(/10 points/);
+  });
+});
+
+describe('arena purposes', () => {
+  it('names the audit of a model’s thesis after the model and the step', () => {
+    expect(arenaAuditPurpose('gpt', 'audit-screen')).toBe('arena-audit:gpt:audit-screen');
+    // Not a look by that model: its own token cap counts `arena:gpt` only.
+    expect(arenaAuditPurpose('gpt', 'audit-check').startsWith('arena:gpt')).toBe(false);
+  });
+
+  it('counts a model’s looks and the audits of its theses as the arena’s, and nothing else', () => {
+    expect(ARENA_PURPOSE_PREFIXES).toEqual(['arena:', 'arena-audit:']);
+    for (const purpose of ['arena:claude', 'arena:gpt:verify', 'arena-audit:grok:audit-check']) expect(isArenaPurpose(purpose)).toBe(true);
+    for (const purpose of ['audit-screen', 'news', 'arenaXgpt', '']) expect(isArenaPurpose(purpose)).toBe(false);
   });
 });

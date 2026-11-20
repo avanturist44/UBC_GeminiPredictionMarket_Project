@@ -27,8 +27,8 @@ beforeEach(async () => {
 });
 afterEach(() => close());
 
-const spent = (costUsd: string) =>
-  recordLlmCall(db, { purpose: 'audit-check', model: SONNET, inputTokens: 1, outputTokens: 1, costUsd });
+const spent = (costUsd: string, purpose = 'audit-check') =>
+  recordLlmCall(db, { purpose, model: SONNET, inputTokens: 1, outputTokens: 1, costUsd });
 
 describe('createSpendGuard', () => {
   it("refuses a call once the day's spend plus its worst case would pass the cap", async () => {
@@ -84,6 +84,54 @@ describe('createSpendGuard', () => {
     await expect(guard.reserve(SONNET)).rejects.toMatchObject({ code: 'budget' });
   });
 
+  it("holds arena calls to the arena's own cap, counting arena calls in flight", async () => {
+    await spent('0.50', 'arena:gpt');
+    // The arena may spend 1.1 of the day's 25: room for one arena call in flight, not two.
+    const guard = createSpendGuard({ db, dailyCapUsd: 25, arenaDailyCapUsd: 1.1, logger });
+    const look = await guard.reserve(SONNET, 'arena:claude'); // 0.50 + 0.51 <= 1.1
+    await expect(guard.reserve(SONNET, 'arena:grok')).rejects.toMatchObject({ code: 'budget' }); // + 0.51 > 1.1
+    await expect(guard.reserve(SONNET, 'arena-audit:claude:audit-screen')).rejects.toMatchObject({ code: 'budget' });
+    // Everything else is held to the day's cap only.
+    await expect(guard.reserve(SONNET, 'audit-screen')).resolves.toBeDefined();
+    await expect(guard.reserve(SONNET)).resolves.toBeDefined();
+    look.settle(0.05);
+    await expect(guard.reserve(SONNET, 'arena:grok')).resolves.toBeDefined(); // 0.50 + 0.05 + 0.51 <= 1.1
+  });
+
+  it('counts the audits of arena theses toward the arena cap, and nothing else', async () => {
+    await spent('0.40', 'arena-audit:gpt:audit-check');
+    await spent('5', 'audit-check');
+    await spent('3', 'news');
+    const guard = createSpendGuard({ db, dailyCapUsd: 25, arenaDailyCapUsd: 1, logger });
+    (await guard.reserve(SONNET, 'arena:gpt')).settle(0); // 0.40 + 0.51 <= 1: the $8 of other calls is not the arena's
+    await spent('0.20', 'arena-audit:claude:audit-screen');
+    await expect(guard.reserve(SONNET, 'arena:gpt')).rejects.toMatchObject({ code: 'budget' }); // 0.60 + 0.51 > 1
+  });
+
+  it("still holds arena calls to the day's cap, which counts arena spend too", async () => {
+    await spent('24.70', 'arena:gpt');
+    const guard = createSpendGuard({ db, dailyCapUsd: 25, arenaDailyCapUsd: 25, logger });
+    await expect(guard.reserve(SONNET, 'audit-screen')).rejects.toMatchObject({ code: 'budget' }); // 24.70 + 0.51 > 25
+  });
+
+  it("still counts an arena call that ended while the arena's spend was being read", async () => {
+    const guard = createSpendGuard({ db, dailyCapUsd: 25, arenaDailyCapUsd: ROOM_FOR_ONE, logger });
+    const first = await guard.reserve(SONNET, 'arena:gpt');
+    const second = guard.reserve(SONNET, 'arena:claude');
+    first.settle(0.33);
+    await expect(second).rejects.toMatchObject({ code: 'budget' }); // 0.33 + 0.51 > 0.7
+  });
+
+  it('says which cap refused a call, and logs each once a day', async () => {
+    const warnings: string[] = [];
+    await spent('1', 'arena:gpt');
+    const guard = createSpendGuard({ db, dailyCapUsd: 25, arenaDailyCapUsd: 1, logger: { ...logger, warn: (m: string) => void warnings.push(m) } });
+    await expect(guard.reserve(SONNET, 'arena:claude')).rejects.toThrow(/arena's daily model spend cap of \$1\.00/);
+    await expect(guard.reserve(SONNET, 'arena:claude')).rejects.toMatchObject({ code: 'budget' });
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('arena');
+  });
+
   it('warns when a call cost more than was held for it', async () => {
     const warnings: string[] = [];
     const guard = createSpendGuard({ db, dailyCapUsd: 25, logger: { ...logger, warn: (m: string) => void warnings.push(m) } });
@@ -133,6 +181,17 @@ describe('withSpendCap with the dollar guard', () => {
     const llm = withSpendCap(db, provider, { dailyTokenCap: 10_000_000, guard, logger });
     await expect(llm.generateJson(args())).rejects.toMatchObject({ code: 'budget' });
     expect(calls()).toBe(0);
+  });
+
+  it("refuses an arena call over the arena's cap without calling the model, while other calls go on", async () => {
+    await spent('17.80', 'arena:gpt');
+    const guard = createSpendGuard({ db, dailyCapUsd: 25, arenaDailyCapUsd: 18, logger });
+    const { provider, calls } = scripted(SONNET, answer());
+    const llm = withSpendCap(db, provider, { dailyTokenCap: 10_000_000, guard, logger });
+    await expect(llm.generateJson({ ...args(), purpose: 'arena:claude' })).rejects.toMatchObject({ code: 'budget' });
+    await expect(llm.generateJson({ ...args(), purpose: 'arena-audit:gpt:audit-check' })).rejects.toMatchObject({ code: 'budget' });
+    expect(calls()).toBe(0);
+    await expect(llm.generateJson({ ...args(), purpose: 'audit-check' })).resolves.toEqual({ ok: true });
   });
 
   /** One generateJson call whose model call fails with `error`. Resolves with what it threw. */

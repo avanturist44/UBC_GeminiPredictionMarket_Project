@@ -4,7 +4,7 @@
 // cap (LLM_DAILY_USD_CAP) and recorded in llm_calls with its cost. That needs the database, so
 // without DATABASE_URL, or with a database the day's spend cannot be read from, it refuses to
 // call the model at all.
-import { auditThesis, type AuditInput } from '@thesis/core';
+import { ARENA_PURPOSE_PREFIXES, auditThesis, type AuditInput } from '@thesis/core';
 import { createDb, llmCostSince } from '@thesis/db';
 import { z } from 'zod';
 import { loadEnv, type WorkerEnv } from './env';
@@ -49,7 +49,7 @@ function refuse(reason: string): never {
     const llm = withSpendCap(db, createAnthropicProvider({ model: env.LLM_MODEL, apiKey: env.LLM_API_KEY, effort: 'medium' }), {
       // The auditor's budget, as the worker's auditor has it.
       dailyTokenCap: env.LLM_DAILY_TOKEN_CAP,
-      excludePrefix: 'arena:',
+      excludePrefix: ARENA_PURPOSE_PREFIXES,
       guard: createSpendGuard({ db, dailyCapUsd: env.LLM_DAILY_USD_CAP, logger }),
       logger,
       onRecorded: (c) => {

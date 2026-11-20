@@ -198,6 +198,22 @@ describe('language-model usage', () => {
     expect(await llmCostSince(db, new Date(Date.now() - 60_000))).toBeCloseTo(0.122004, 6);
     expect(await llmCostSince(db, new Date(Date.now() + 60_000))).toBe(0);
   });
+
+  it('counts only the purposes in scope: any of several prefixes, none of several', async () => {
+    const call = (purpose: string, inputTokens: number, costUsd: string) =>
+      recordLlmCall(db, { purpose, model: 'm', inputTokens, outputTokens: 0, costUsd });
+    await call('audit-screen', 1, '1');
+    await call('arena:gpt', 20, '0.2');
+    await call('arena-audit:gpt:audit-check', 300, '0.03');
+    await call('arenaXgpt', 4000, '0.004');
+    const since = new Date(Date.now() - 60_000);
+    const arena = { purposePrefix: ['arena:', 'arena-audit:'] };
+    expect(await llmCostSince(db, since, arena)).toBeCloseTo(0.23, 6);
+    expect(await llmTokensSince(db, since, arena)).toBe(320);
+    expect(await llmTokensSince(db, since, { excludePrefix: ['arena:', 'arena-audit:'] })).toBe(4001);
+    expect(await llmTokensSince(db, since, { purposePrefix: [] })).toBe(0);
+    expect(await llmCostSince(db, since, { purposePrefix: 'arena:' })).toBeCloseTo(0.2, 6);
+  });
 });
 
 describe('feeds and the thesis view', () => {

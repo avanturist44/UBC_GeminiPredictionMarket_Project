@@ -40,3 +40,15 @@ export const ARENA_STRATEGY =
 export function arenaEntrant(agentKey: string): ArenaEntrant | undefined {
   return ARENA_ROSTER.find((e) => e.agentKey === agentKey);
 }
+
+/**
+ * How the arena's model calls are named in llm_calls: a model's looks are `arena:<id>`, and the
+ * audits of its theses `arena-audit:<id>:<step>`. Both count toward the arena's dollar cap, and
+ * neither toward the auditor's token budget. Each model's own token cap counts `arena:<id>` only.
+ */
+export const ARENA_PURPOSE_PREFIXES = ['arena:', 'arena-audit:'] as const;
+
+/** The purpose of one audit step (`audit-screen`, `audit-check`) of a thesis by the arena model `id`. */
+export const arenaAuditPurpose = (id: ModelId, step: string) => `arena-audit:${id}:${step}`;
+
+export const isArenaPurpose = (purpose: string) => ARENA_PURPOSE_PREFIXES.some((prefix) => purpose.startsWith(prefix));

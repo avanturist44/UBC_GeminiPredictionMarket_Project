@@ -27,8 +27,8 @@ export interface LlmSettings {
   effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
   /** Input plus output tokens allowed per UTC day, across the auditor and the agents. */
   dailyTokenCap: number;
-  /** Purposes starting with this do not count toward the cap (see withSpendCap). */
-  excludePrefix?: string;
+  /** Purposes starting with this, or with any of a list, do not count toward the cap (see withSpendCap). */
+  excludePrefix?: string | readonly string[];
 }
 
 const startOfUtcDay = (now: Date) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -49,8 +49,8 @@ export function withSpendCap(
     logger: Logger;
     /** Count only calls whose purpose starts with this (one arena model's own cap). */
     purposePrefix?: string;
-    /** Do not count calls whose purpose starts with this (keeps arena spend off the auditor's cap). */
-    excludePrefix?: string;
+    /** Do not count calls whose purpose starts with this, or any of a list (keeps arena spend off the auditor's cap). */
+    excludePrefix?: string | readonly string[];
     /** The daily dollar cap: the one guard the worker shares between every Llm it builds. */
     guard: SpendGuard;
     /** How long a search call may take. createLlm's default (120 seconds) when omitted. */
@@ -107,7 +107,8 @@ export function withSpendCap(
     // The wrapper builds its prompt from this flag, so it must survive the metering layer.
     enforcesJsonSchema: provider.enforcesJsonSchema,
     async complete(request) {
-      const reservation = await guard.reserve(provider.model);
+      // The purpose tells the guard whether the arena's own cap applies too.
+      const reservation = await guard.reserve(provider.model, purpose);
       // A provider that does not say how many searches it ran is counted at the most.
       const unsaidSearches = request.useSearch ? WORST_CALL.searches : 0;
       let costUsd = 0;
