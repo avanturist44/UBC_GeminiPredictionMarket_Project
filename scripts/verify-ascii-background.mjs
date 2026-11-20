@@ -9,6 +9,21 @@ assert(folder,'Install the optional Chromium tooling described in docs/website-a
 const browser=await chromium.launch({headless:true,executablePath:`.local/browser-cache/${folder}/chrome-win64/chrome.exe`});
 const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
 page.on('pageerror',error=>errors.push(error.message));
+// Observe actual glyph positions without changing their rendering or animation timing.
+await page.addInitScript(()=>{
+  const clear=CanvasRenderingContext2D.prototype.clearRect;
+  const text=CanvasRenderingContext2D.prototype.fillText;
+  CanvasRenderingContext2D.prototype.clearRect=function(...args){
+    if(this.canvas.classList.contains('ascii-background'))window.__asciiGlyphs=[];
+    return clear.apply(this,args);
+  };
+  CanvasRenderingContext2D.prototype.fillText=function(...args){
+    if(this.canvas.classList.contains('ascii-background')&&args[0].length===1){
+      (window.__asciiGlyphs??=[]).push({x:args[1],y:args[2]});
+    }
+    return text.apply(this,args);
+  };
+});
 await page.route('**/api/**',route=>route.abort());
 await mkdir('docs/website-ascii',{recursive:true});
 try {
@@ -31,9 +46,17 @@ try {
   await page.waitForTimeout(300);
   const first=await frame();await page.waitForTimeout(1200);
   assert((await frame())!==first,'Animation should change frames');
+  await page.mouse.move(350,350);await page.waitForTimeout(350);
+  assert(await page.evaluate(()=>window.__asciiGlyphs.some(({x,y})=>
+    Math.abs(x/12-Math.round(x/12))>.01 || Math.abs(y/18-Math.round(y/18))>.01
+  )),'Cursor should displace actual glyphs off the resting grid');
+  await page.screenshot({path:'docs/website-ascii/interactive.png'});
+  await page.mouse.move(-20,-20);await page.waitForTimeout(1200);
+  assert.equal(await page.evaluate(()=>window.__asciiGlyphs.length),0,'Glyphs should settle back after the cursor leaves');
   await page.getByRole('button',{name:'Pause background animation'}).click();
   await page.waitForTimeout(150);
   const still=await frame();await page.waitForTimeout(500);
+  await page.mouse.move(350,350);await page.waitForTimeout(200);
   assert((await frame())===still,'Pause should freeze the current field');
   assert.equal(await page.evaluate(()=>localStorage.getItem('thesis-background-paused')),'true');
   await page.getByRole('button',{name:'Resume background animation'}).click();
@@ -42,6 +65,7 @@ try {
   await page.emulateMedia({reducedMotion:'reduce'});
   await page.waitForTimeout(200);
   const reduced=await frame();await page.waitForTimeout(500);
+  await page.mouse.move(370,380);await page.waitForTimeout(200);
   assert((await frame())===reduced,'Reduced motion should render a static field');
   assert.equal(await page.locator('.ascii-motion-control').isVisible(),false);
   await page.emulateMedia({reducedMotion:'no-preference'});
@@ -55,6 +79,8 @@ try {
     'Actual Next.js page returns HTTP 200',
     'Page blocks and sidebar are opaque graphite with no backdrop blur',
     'ASCII frames change over time',
+    'Cursor repels nearby glyphs; they ease back onto the grid after pointer exit',
+    'Pointer movement does not disturb paused or reduced-motion frames',
     'Pause freezes the field and saves the local preference',
     'Reduced motion renders a static field and hides the motion control',
     'Decorative canvas is hidden from assistive technology and ignores pointer input',

@@ -36,6 +36,15 @@ preferences render a static field. Hidden tabs stop scheduling frames. Resize an
 effect listeners are cleaned up on unmount. The canvas ignores pointer input and
 is hidden from assistive technology. No dependencies were added.
 
+Mouse and pen hover gently repel glyphs within a 144px radius, with at most 36px
+of displacement. The cursor field follows smoothly and fades out after leaving
+the window. Pointer events are observed passively on the window; the canvas still
+ignores input, so links and buttons work normally. Touch gestures, paused mode and
+reduced-motion mode do not trigger the effect. Unaffected text remains drawn in
+batched rows to keep the interaction lightweight.
+Hover over the visible ASCII in the gutters to see it; the solid content blocks
+remain stationary. See the [cursor interaction capture](interactive.png).
+
 To preview locally, from the repository root:
 
 ```powershell
@@ -52,7 +61,9 @@ node node_modules/typescript/bin/tsc --noEmit -p apps/web/tsconfig.json
 Browser verification focuses on the actual website's reading page, with client API
 requests blocked to keep live services out of visual testing. It checks changing
 canvas frames, pause/local preference, reduced motion, decorative semantics and
-390px/1440px layouts. It does not verify live markets, authentication or trades.
+390px/1440px layouts. Cursor checks verify actual off-grid glyph displacement,
+settling after exit, and frozen frames when paused or reduced motion is enabled.
+It does not verify live markets, authentication or trades.
 
 Optional browser tooling and verification (with the local website running):
 
