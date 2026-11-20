@@ -49,9 +49,9 @@ export interface AgentEntry {
   minutesToExpiry: number | null;
 }
 
-/** The rules about the agent and the position's cost, whatever the market's price. */
+/** What the account rules read: the agent's day and ledger, and the position's cost. */
 export type AgentAccount = Omit<AgentEntry, 'price' | 'spread' | 'minutesToExpiry'>;
-/** The rules about the market at the moment of the fill. */
+/** What the market rules read: the market at the moment of the fill. */
 export type AgentMarketCheck = Pick<AgentEntry, 'price' | 'spread' | 'minutesToExpiry'>;
 
 /** Whether an agent may open this position. The first rule that fails is returned. */
