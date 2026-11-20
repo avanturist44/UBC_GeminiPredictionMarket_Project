@@ -34,14 +34,27 @@ const LEADERBOARD: Destination = {
 const ME: Destination = { href: '/me', label: 'Me', icon: CircleUser, match: (p) => p.startsWith('/me') };
 const HOW: Destination = { href: '/how-it-works', label: 'How it works', icon: CircleHelp, match: (p) => p.startsWith('/how-it-works') };
 
-/** The ring is the mark: the same ring that marks an author's entry on every odds line. */
+/**
+ * The name is the mark: convíx, said like conviction. The accent on the í is drawn as a
+ * notched arrowhead pointing up and to the right, over a dotless ı, in the letters' own
+ * color. Its size and place are in em, so it scales with the name.
+ */
 export function Wordmark() {
   return (
-    <Link href="/" className="inline-flex items-center gap-2 rounded-md text-base font-semibold">
-      <svg aria-hidden viewBox="0 0 16 16" className="size-4">
-        <circle cx="8" cy="8" r="5.5" fill="none" stroke="var(--primary)" strokeWidth="2.5" />
-      </svg>
-      Thesis Market
+    <Link href="/" aria-label="convíx, home" className="inline-flex items-center rounded-md">
+      <span aria-hidden className="serif-title text-[24px] leading-none">
+        conv
+        <span className="relative inline-block">
+          ı
+          <svg
+            viewBox="0 0 100 100"
+            className="absolute bottom-[0.66em] left-[calc(50%-0.13em)] size-[0.28em] overflow-visible"
+          >
+            <polygon points="92,18 51,71 56,43 28,38" fill="currentColor" />
+          </svg>
+        </span>
+        x
+      </span>
     </Link>
   );
 }
