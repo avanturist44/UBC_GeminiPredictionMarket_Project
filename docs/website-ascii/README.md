@@ -89,6 +89,6 @@ remains at `2ef8008`, and is already an ancestor of this website branch.
 | `avi/extension-ui-redesign` | Two separate UI commits from the older `963f180` base; main has a newer extension implementation |
 | `avi/ubc-hack` | Diverged, with 17 unique commits including alternate backend/services, contracts and schema migrations |
 
-The older diverged branches have not been merged wholesale. The user was asked
-whether they also want that broader reconciliation; preserving the latest shared
-main is the current baseline while that choice is pending.
+The user chose to keep the latest shared main baseline. Older diverged branches
+remain separate. All website UI commits and pushes stay on
+`codex/website-ascii-background`; nothing is merged or pushed to `main`.
