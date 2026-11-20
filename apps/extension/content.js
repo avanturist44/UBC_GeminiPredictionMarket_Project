@@ -62,12 +62,21 @@
 
   function scan() {
     scanTimer = null;
+    document.querySelectorAll('[data-tm-card]').forEach(TMCard.updateTheme);
     document.querySelectorAll(TM.SELECTORS.post).forEach(processPost);
   }
 
   new MutationObserver(() => {
     if (!scanTimer) scanTimer = setTimeout(scan, 300); // debounce: X mutates constantly
   }).observe(document.body, { childList: true, subtree: true });
+
+  // Update mounted cards when X switches Default, Dim or Lights out themes.
+  const updateThemes = () => document.querySelectorAll('[data-tm-card]').forEach(TMCard.updateTheme);
+  const themeObserver = new MutationObserver(updateThemes);
+  for (const node of [document.body, document.documentElement]) {
+    themeObserver.observe(node, {attributes:true, attributeFilter:['class','style']});
+  }
+  matchMedia('(prefers-color-scheme:dark)').addEventListener('change', updateThemes);
 
   scan();
 })();

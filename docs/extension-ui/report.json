@@ -1,0 +1,24 @@
+{
+  "passed": true,
+  "checks": [
+    "Collapsed card 263px vs 362px before (27% shorter), identical fixture",
+    "Sample cards disclosed; fictitious sample thesis links are noninteractive",
+    "Light, dark, dim; dynamic theme changes; 320/390/600px; text, media and thread layouts",
+    "0%/100% and missing/invalid prices; NO position; missing author/entry; long titles; inert server HTML",
+    "No featured thesis/no summary/zero counts; keyboard disclosure; original deep links and hide callback; test-fund disclosure",
+    "Real MV3 worker/content script loaded; fixture API receives GET requests and symbols only"
+  ],
+  "browserErrors": [],
+  "liveAttempts": [
+    {
+      "url": "https://x.com/BitcoinMagazine",
+      "result": "Unavailable: page.goto: net::ERR_HTTP_RESPONSE_CODE_FAILURE at https://x.com/BitcoinMagazine"
+    },
+    {
+      "url": "https://x.com/federalreserve",
+      "result": "Unavailable: page.goto: net::ERR_HTTP_RESPONSE_CODE_FAILURE at https://x.com/federalreserve"
+    }
+  ],
+  "fixtureData": true,
+  "liveTradingVerified": false
+}
