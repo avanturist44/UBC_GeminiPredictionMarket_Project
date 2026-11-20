@@ -4,7 +4,9 @@ import { createTestDb } from '@thesis/db/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { withSpendCap } from '../src/llm';
+import { createAnthropicProvider } from '../src/llm/anthropic';
 import { createSpendGuard } from '../src/llm/spend-guard';
+import { json, queued } from './fake-fetch';
 
 const logger = { info: () => {}, warn: () => {}, error: () => {} };
 /** The worst single call on this model costs 0.30 + 0.16 + 0.05 = $0.51. */
@@ -161,6 +163,34 @@ describe('withSpendCap with the dollar guard', () => {
     expect(await rows()).toMatchObject([{ costUsd: '0.080000' }]);
     expect(await llmCostSince(db, startOfToday())).toBeCloseTo(0.08, 6);
     await expect(guard.reserve(SONNET)).resolves.toBeDefined(); // 0.08 + 0.51 <= 0.7
+  });
+
+  it('records the requests already answered when a later continuation of a Claude call fails', async () => {
+    const strayToolCall = {
+      id: 'msg_1',
+      type: 'message',
+      role: 'assistant',
+      model: SONNET,
+      content: [{ type: 'tool_use', id: 'toolu_1', name: 'web_fetch', input: { url: 'https://example.com' } }],
+      stop_reason: 'tool_use',
+      stop_sequence: null,
+      usage: { input_tokens: 10_000, output_tokens: 1_000, server_tool_use: { web_search_requests: 2 } },
+    };
+    const serverError = new Response(JSON.stringify({ type: 'error', error: { type: 'api_error', message: 'boom' } }), {
+      status: 500,
+      headers: { 'content-type': 'application/json', 'x-should-retry': 'false' },
+    });
+    const { fetch } = queued([json(200, strayToolCall), serverError]);
+    const provider = createAnthropicProvider({ model: SONNET, apiKey: 'test-key', logger, fetch });
+    const guard = createSpendGuard({ db, dailyCapUsd: ROOM_FOR_ONE, logger });
+
+    await expect(
+      withSpendCap(db, provider, { dailyTokenCap: 10_000_000, guard, logger }).generateJson(args()),
+    ).rejects.toMatchObject({ code: 'provider' });
+    // The first request's 0.02 + 0.01, and 5 searches at 0.01: the error does not say that 2 ran,
+    // so the most a call may run is counted.
+    expect(await rows()).toMatchObject([{ model: SONNET, inputTokens: 10_000, outputTokens: 1_000, costUsd: '0.080000' }]);
+    await expect(guard.reserve(SONNET)).resolves.toBeDefined(); // 0.08 + 0.51 <= 0.7: nothing left held
   });
 
   it('assumes the most searches when a search call does not say, and none when search was off', async () => {

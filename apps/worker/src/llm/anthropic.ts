@@ -184,11 +184,14 @@ export function createAnthropicProvider(options: AnthropicProviderOptions): LlmP
         }
       } catch (error) {
         if (error instanceof LlmError) throw error;
+        // A continuation that fails does not undo the requests answered before it: they were
+        // paid for, so the error carries their tokens to be recorded.
+        const answered = inputTokens + outputTokens > 0 ? { inputTokens, outputTokens } : undefined;
         if (error instanceof Anthropic.APIConnectionTimeoutError) {
-          throw new LlmError('timeout', 'The language model did not answer in time.');
+          throw new LlmError('timeout', 'The language model did not answer in time.', answered);
         }
         if (error instanceof Anthropic.RateLimitError) {
-          throw new LlmError('provider', 'The language model is rate limited. Try again shortly.');
+          throw new LlmError('provider', 'The language model is rate limited. Try again shortly.', answered);
         }
         // No credit, a rejected key, or a request the API will not accept: none of these
         // gets better by retrying, and the provider's own words say which it is.
@@ -202,11 +205,18 @@ export function createAnthropicProvider(options: AnthropicProviderOptions): LlmP
         ) {
           const detail = (error.error as { error?: { message?: unknown } } | undefined)?.error?.message;
           const reason = typeof detail === 'string' ? redact(detail, options.apiKey).slice(0, 200) : 'no reason given';
-          throw new LlmError('unavailable', `The language model will not serve this request (${error.status}): ${reason}`);
+          throw new LlmError(
+            'unavailable',
+            `The language model will not serve this request (${error.status}): ${reason}`,
+            answered,
+          );
         }
         if (error instanceof Anthropic.APIError) {
-          throw new LlmError('provider', `The language model returned an error (${error.status ?? 'no status'}).`);
+          throw new LlmError('provider', `The language model returned an error (${error.status ?? 'no status'}).`, answered);
         }
+        // Anything else, such as a reply this code cannot read. The wrapper reports it as a
+        // provider error in the same words; here it can carry the tokens.
+        if (answered) throw new LlmError('provider', error instanceof Error ? error.message : String(error), answered);
         throw error;
       }
     },

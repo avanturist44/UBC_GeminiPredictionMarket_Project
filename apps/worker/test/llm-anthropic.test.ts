@@ -1,7 +1,7 @@
 import { LlmError } from '@thesis/core';
 import { describe, expect, it } from 'vitest';
 import { createAnthropicProvider } from '../src/llm/anthropic';
-import { failure, fakeFetch, json, queued, request } from './fake-fetch';
+import { failure, fakeFetch, hangingFetch, json, queued, request } from './fake-fetch';
 
 const KEY = 'sk-test-0123456789abcdef';
 const DEEPSEEK_SEARCH = { type: 'deepseek_web_search', name: 'deepseek_web_search' };
@@ -46,6 +46,13 @@ const stray = (count: number) =>
   });
 
 const STRAY_REPLY = 'Only web search is available here. Reply now with the JSON object.';
+
+/** An API error the SDK does not retry, so a test sees exactly the requests sent. */
+const apiError = (status: number, message: string) =>
+  new Response(JSON.stringify({ type: 'error', error: { type: 'api_error', message } }), {
+    status,
+    headers: { 'content-type': 'application/json', 'x-should-retry': 'false' },
+  });
 
 /** A logger that keeps its warnings. */
 const warnings = () => {
@@ -143,6 +150,52 @@ describe('createAnthropicProvider', () => {
     const roles = (i: number) => (calls[i]!.body.messages as Array<{ role: string }>).map((m) => m.role);
     expect(roles(1)).toEqual(['user', 'assistant']);
     expect(roles(2)).toEqual(['user', 'assistant', 'assistant', 'user']);
+  });
+
+  it('a continuation that fails still carries the tokens of the requests before it', async () => {
+    const claude = (fetch: typeof globalThis.fetch) =>
+      createAnthropicProvider({ model: 'claude-sonnet-5-5', apiKey: KEY, logger: warnings().logger, fetch });
+    const paid = { inputTokens: 100, outputTokens: 10 };
+
+    // The API rejects the answer to a stray tool call: the 400 is sent once more without
+    // fallbacks, as any 400 is, and then reported.
+    const rejected = queued([json(200, stray(2)), apiError(400, 'unexpected tool_result'), apiError(400, 'unexpected tool_result')]);
+    expect(await failure(claude(rejected.fetch).complete(request({ useSearch: true })))).toMatchObject({
+      code: 'unavailable',
+      usage: paid,
+    });
+    expect(rejected.calls).toHaveLength(3);
+
+    // A resumed search that the server fails.
+    const failed = queued([json(200, searched(2, 'pause_turn')), apiError(500, 'internal error')]);
+    expect(await failure(claude(failed.fetch).complete(request({ useSearch: true })))).toMatchObject({
+      code: 'provider',
+      usage: paid,
+    });
+
+    // A continuation that never answers.
+    let sent = 0;
+    const slow = ((url: string | URL | Request, init?: RequestInit) =>
+      sent++ === 0 ? Promise.resolve(json(200, stray(2))) : hangingFetch(url, init)) as typeof globalThis.fetch;
+    expect(await failure(claude(slow).complete(request({ useSearch: true, timeoutMs: 20 })))).toMatchObject({
+      code: 'timeout',
+      usage: paid,
+    });
+
+    // A reply the adapter cannot read, after one it could.
+    const garbled = queued([json(200, stray(2)), json(200, { ...stray(0), content: null })]);
+    expect(await failure(claude(garbled.fetch).complete(request({ useSearch: true })))).toMatchObject({
+      code: 'provider',
+      usage: { inputTokens: 200, outputTokens: 20 },
+    });
+  });
+
+  it('a first request that fails carries no usage: nothing was answered', async () => {
+    const { fetch } = queued([apiError(500, 'internal error')]);
+    const claude = createAnthropicProvider({ model: 'claude-sonnet-5-5', apiKey: KEY, fetch });
+    const error = await failure(claude.complete(request({ useSearch: true })));
+    expect(error).toMatchObject({ code: 'provider' });
+    expect(error!.usage).toBeUndefined();
   });
 
   it('stops answering stray tool calls once the call has used its five searches', async () => {
