@@ -95,3 +95,48 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* A quiet ASCII signal field. It never receives input or changes document layout. */
+body { isolation: isolate; }
+.ascii-background {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+  opacity: .8;
+}
+.site-shell { position: relative; z-index: 1; min-height: 100dvh; }
+.site-shell > aside { background: rgb(15 15 16 / .94); }
+.ascii-motion-control {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+  color: var(--muted-foreground);
+  font: 12px/20px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+.ascii-motion-control:hover { color: var(--foreground); border-color: var(--input); }
+@media (min-width:1024px) {
+  /* Keep the motion control clear of the account controls at the sidebar's foot. */
+  .ascii-motion-control { left: auto; right: 16px; }
+}
+@media (max-width:1023px) {
+  .ascii-background { opacity: .5; }
+  .ascii-motion-control { bottom: calc(68px + env(safe-area-inset-bottom)); left: auto; right: 12px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .ascii-motion-control { display: none; }
+}

@@ -3,6 +3,7 @@ import { IBM_Plex_Sans } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { BottomNav, SideNav, TopBar } from '@/components/app-nav';
 import { LiveStrip } from '@/components/live-strip';
+import { AsciiBackground } from '@/components/ascii-background';
 import './globals.css';
 
 // Plex has true tabular figures, which keeps prices from jumping as they update.
@@ -23,7 +24,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={plex.variable}>
       <body>
-        <div className="lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
+        <AsciiBackground />
+        <div className="site-shell lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
           <SideNav />
           <div className="min-w-0">
             <TopBar />
