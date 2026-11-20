@@ -1,4 +1,6 @@
-import type { AuditClaimView, AuditSummary } from '@/lib/thesis-view';
+import { ArrowUpRight, ChevronDown, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { InfoTip } from '@/components/info-tip';
+import { screenStatus, type AuditClaimView, type AuditSummary } from '@/lib/thesis-view';
 import { cn } from '@/lib/utils';
 
 /** The audit in words, from the thesis's own audit. */
@@ -43,14 +45,75 @@ export function AuditBadge({ audit, compact = false }: { audit: AuditSummary | n
   );
 }
 
+const SCREEN = {
+  clear: { icon: ShieldCheck, text: 'No inside information found', tone: 'text-foreground', iconTone: 'text-primary' },
+  found: { icon: ShieldAlert, text: 'Inside information flagged', tone: 'text-no', iconTone: 'text-no' },
+  pending: { icon: Shield, text: 'Not screened yet', tone: 'text-muted-foreground', iconTone: 'text-muted-foreground' },
+} as const;
+
+/**
+ * What the inside-information screen found. Every thesis is screened before it is
+ * published, and one that claims non-public knowledge is blocked, so on a public thesis
+ * this reads as a pass.
+ */
+export function ScreenLabel({ audit }: { audit: AuditSummary | null }) {
+  const status = screenStatus(audit);
+  const { icon: Icon, text, tone, iconTone } = SCREEN[status];
+  return (
+    <span className="inline-flex items-center gap-2 text-sm">
+      <Icon aria-hidden className={cn('size-4 shrink-0', iconTone)} strokeWidth={1.75} />
+      <span className={cn('font-medium', tone)}>{text}</span>
+      <InfoTip label="About the inside information screen">
+        Before a thesis is published, an automated screen looks for claims of non-public knowledge, such as
+        “a friend at the company told me”, “I work there” or “leaked”. A thesis that makes one is blocked and
+        never published.
+        {audit?.screenOnly && ' Only the phrase check ran on this thesis, because no language model was configured.'}{' '}
+        The screen can miss things.
+      </InfoTip>
+    </span>
+  );
+}
+
 const STATUS: Record<AuditClaimView['status'], { label: string; className: string }> = {
   supported: { label: 'Supported', className: 'text-yes' },
   contradicted: { label: 'Contradicted', className: 'text-no' },
   unsupported: { label: 'Not supported', className: 'text-no' },
-  unverifiable: { label: 'Could not be checked', className: 'text-muted-foreground' },
+  unverifiable: { label: 'Not checked', className: 'text-muted-foreground' },
 };
 
-/** Every claim the auditor pulled out of the thesis, with what it found. */
+function ClaimRow({ claim }: { claim: AuditClaimView }) {
+  const status = STATUS[claim.status];
+  return (
+    <li className="grid gap-x-6 gap-y-1 py-4 sm:grid-cols-[112px_minmax(0,1fr)]">
+      <span className={cn('text-sm font-medium', status.className)}>{status.label}</span>
+      <div className="space-y-1">
+        <p className="text-[15px] leading-relaxed">{claim.text}</p>
+        {(claim.note || claim.sourceUrl) && (
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {claim.note}{' '}
+            {claim.sourceUrl && (
+              <a
+                href={claim.sourceUrl}
+                target="_blank"
+                rel="noreferrer nofollow"
+                className="inline-flex items-center gap-0.5 whitespace-nowrap text-primary underline-offset-4 hover:underline"
+              >
+                Source
+                <ArrowUpRight aria-hidden className="size-3.5" strokeWidth={1.75} />
+              </a>
+            )}
+          </p>
+        )}
+      </div>
+    </li>
+  );
+}
+
+/**
+ * Every claim the auditor pulled out of the thesis, with what it found. Problems come
+ * first, then what held up; the claims it could not check are folded into one line,
+ * because their notes say little beyond that.
+ */
 export function AuditPanel({
   audit,
   claims,
@@ -62,55 +125,65 @@ export function AuditPanel({
   model: string | null;
   warning: string | null;
 }) {
+  const problems = claims.filter((c) => c.status === 'contradicted' || c.status === 'unsupported');
+  const supported = claims.filter((c) => c.status === 'supported');
+  const unchecked = claims.filter((c) => c.status === 'unverifiable');
+  const shown = [...problems, ...supported];
+
   return (
-    <section aria-labelledby="audit-heading" className="space-y-3">
-      <h2 id="audit-heading" className="text-lg font-semibold">
-        Audit
-      </h2>
+    <section id="fact-check" aria-labelledby="audit-heading" className="scroll-mt-6 space-y-4">
+      <div className="space-y-1">
+        <h2 id="audit-heading" className="text-lg font-medium">
+          Fact check
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {!audit
+            ? 'This thesis has not been checked yet.'
+            : audit.screenOnly
+              ? 'Screened for claims of inside information. Its factual claims were not checked, because no language model was configured when it was audited.'
+              : claims.length === 0
+                ? 'The checker found no checkable factual claims in this thesis.'
+                : `An AI pulled ${claims.length} factual ${claims.length === 1 ? 'claim' : 'claims'} out of the thesis and checked each against sources.`}
+        </p>
+      </div>
+
       {warning && (
-        <p role="note" className="rounded-lg border border-no p-3 text-sm">
-          This thesis was audited after it was published, and the audit found a problem: {warning}
+        <p role="note" className="rounded-lg border border-no/60 p-4 text-sm">
+          This thesis was checked after it was published, and the check found a problem: {warning}
         </p>
       )}
-      {!audit ? (
-        <p className="text-sm text-muted-foreground">This thesis has not been audited yet.</p>
-      ) : audit.screenOnly ? (
-        <p className="text-sm">
-          Screened for claims of inside information. Its factual claims were not checked, because
-          no language model was configured when it was audited.
-        </p>
-      ) : claims.length === 0 ? (
-        <p className="text-sm">The auditor found no checkable factual claims in this thesis.</p>
-      ) : (
-        <ul className="divide-y border-y">
-          {claims.map((claim, index) => {
-            const status = STATUS[claim.status];
-            const problem = claim.status === 'contradicted' || claim.status === 'unsupported';
-            return (
-              <li key={index} className={cn('space-y-1 py-3', problem && '-mx-3 bg-no/5 px-3')}>
-                <p className="text-sm">{claim.text}</p>
-                <p className="text-sm">
-                  <span className={cn('font-medium', status.className)}>{status.label}.</span>{' '}
-                  {claim.note && <span className="text-muted-foreground">{claim.note} </span>}
-                  {claim.sourceUrl && (
-                    <a
-                      href={claim.sourceUrl}
-                      target="_blank"
-                      rel="noreferrer nofollow"
-                      className="text-primary underline-offset-4 hover:underline"
-                    >
-                      Source
-                    </a>
-                  )}
-                </p>
-              </li>
-            );
-          })}
+
+      {shown.length > 0 && (
+        <ul className="divide-y divide-border border-y border-border">
+          {shown.map((claim, index) => (
+            <ClaimRow key={index} claim={claim} />
+          ))}
         </ul>
       )}
-      <p className="text-sm text-muted-foreground">
-        This check is automated{model && !audit?.screenOnly ? ` (${model})` : ''} and can be wrong. It
-        looks at whether the stated facts hold, not whether the thesis is right.
+
+      {unchecked.length > 0 && (
+        <details className="group rounded-lg border border-border">
+          <summary className="flex h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-4 text-sm transition-colors hover:bg-secondary/60 [&::-webkit-details-marker]:hidden">
+            <span>
+              {unchecked.length} {unchecked.length === 1 ? 'claim' : 'claims'} could not be checked
+            </span>
+            <ChevronDown
+              aria-hidden
+              className="size-4 text-muted-foreground transition-transform group-open:rotate-180"
+              strokeWidth={1.75}
+            />
+          </summary>
+          <ul className="divide-y divide-border border-t border-border px-4">
+            {unchecked.map((claim, index) => (
+              <ClaimRow key={index} claim={claim} />
+            ))}
+          </ul>
+        </details>
+      )}
+
+      <p className="text-[13px] text-muted-foreground">
+        Automated{model && !audit?.screenOnly ? ` (${model})` : ''} and can be wrong. It checks whether the stated
+        facts hold, not whether the thesis is right.
       </p>
     </section>
   );

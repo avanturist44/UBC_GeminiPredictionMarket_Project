@@ -19,6 +19,7 @@ function auditSummary(view: ThesisView): AuditSummary | null {
     checked: audit.claims.length,
     problems: audit.claims.filter((c) => c.status === 'unsupported' || c.status === 'contradicted').length,
     screenOnly: audit.model === KEYWORD_SCREEN_MODEL,
+    insideInfo: audit.insideInfo,
   };
 }
 

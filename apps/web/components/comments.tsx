@@ -59,7 +59,7 @@ export function Comments({ thesisId }: { thesisId: string }) {
   const comments = data?.comments ?? [];
   return (
     <section id="comments" aria-labelledby="comments-heading" className="scroll-mt-6 space-y-4">
-      <h2 id="comments-heading" className="text-lg font-semibold">
+      <h2 id="comments-heading" className="text-lg font-medium">
         Discussion{data ? ` (${comments.length})` : ''}
       </h2>
 

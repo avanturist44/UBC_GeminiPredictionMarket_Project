@@ -1,16 +1,31 @@
 import { cents } from '@/lib/format';
 import type { SparkView } from '@/lib/thesis-view';
 
-const W = 168;
-const H = 64;
+import { cn } from '@/lib/utils';
+
 const PAD = 6;
 
 /**
  * The price of the side the author argued, as a small line. A dashed rule marks what they
  * paid and a ring marks when they bought; the line is green while the side is worth more
  * than they paid and red while it is worth less.
+ *
+ * Drawn in a `width` by `height` box. Give the box's real size in pixels where the line can
+ * grow, so the ring stays round; the feed's fixed size needs nothing.
  */
-export function OddsLine({ spark, trend }: { spark: SparkView; trend: 'up' | 'down' | 'flat' }) {
+export function OddsLine({
+  spark,
+  trend,
+  width: W = 168,
+  height: H = 64,
+  className,
+}: {
+  spark: SparkView;
+  trend: 'up' | 'down' | 'flat';
+  width?: number;
+  height?: number;
+  className?: string;
+}) {
   const values = spark.points.map((point) => point.p);
   if (spark.entryPrice !== null) values.push(spark.entryPrice);
   let low = Math.min(...values);
@@ -42,7 +57,7 @@ export function OddsLine({ spark, trend }: { spark: SparkView; trend: 'up' | 'do
         spark.entryPrice === null ? '' : `, bought at ${cents(spark.entryPrice)}`
       }`}
       viewBox={`0 0 ${W} ${H}`}
-      className="h-16 w-36 shrink-0 sm:w-42"
+      className={cn('h-16 w-36 shrink-0 sm:w-42', className)}
       preserveAspectRatio="none"
     >
       {entryY !== null && (

@@ -20,6 +20,8 @@ export interface AuditSummary {
   problems: number;
   /** True when no language model was configured and only the phrase screen ran. */
   screenOnly: boolean;
+  /** The screen found a claim of non-public knowledge. Such a thesis is never published. */
+  insideInfo: boolean;
 }
 
 export interface ThesisCardView {
@@ -182,6 +184,72 @@ export const isTxHash = (value: string | null | undefined): value is string => !
 export interface SubmitResponse {
   id: string;
   status: 'auditing';
+}
+
+/** "Best AI at the end of 2026?" with contract "Gemini" reads "Best AI at the end of 2026, Gemini". */
+export function marketTitle(market: { title: string; contractLabel: string | null }): string {
+  return market.contractLabel ? `${market.title.replace(/\?\s*$/, '')}, ${market.contractLabel}` : market.title;
+}
+
+/**
+ * What the inside-information screen found: `clear` once it ran and found nothing, `found`
+ * when it flagged a claim of non-public knowledge, `pending` before any audit.
+ */
+export function screenStatus(audit: AuditSummary | null): 'clear' | 'found' | 'pending' {
+  if (!audit) return 'pending';
+  return audit.insideInfo ? 'found' : 'clear';
+}
+
+export interface ClaimTally {
+  total: number;
+  supported: number;
+  /** Unsupported or contradicted. */
+  problems: number;
+  /** The check could not reach a verdict. */
+  unchecked: number;
+}
+
+export function claimTally(claims: readonly AuditClaimView[]): ClaimTally {
+  const count = (statuses: AuditClaimView['status'][]) => claims.filter((c) => statuses.includes(c.status)).length;
+  return {
+    total: claims.length,
+    supported: count(['supported']),
+    problems: count(['unsupported', 'contradicted']),
+    unchecked: count(['unverifiable']),
+  };
+}
+
+/** "3 claims: 1 flagged, 1 supported, 1 not checked", leaving out kinds with none. */
+export function claimTallyText(tally: ClaimTally): string {
+  if (tally.total === 0) return 'No checkable claims';
+  const parts = [
+    tally.problems > 0 && `${tally.problems} flagged`,
+    tally.supported > 0 && `${tally.supported} supported`,
+    tally.unchecked > 0 && `${tally.unchecked} not checked`,
+  ].filter(Boolean);
+  return `${tally.total} ${tally.total === 1 ? 'claim' : 'claims'}: ${parts.join(', ')}`;
+}
+
+type PriceFields = Pick<ThesisCardView, 'status' | 'outcome' | 'entryPrice' | 'currentPrice'>;
+
+/** Cents the side argued has moved since the author bought. Null without both prices. */
+export function moveSinceEntry(thesis: PriceFields): number | null {
+  if (thesis.entryPrice === null || thesis.currentPrice === null) return null;
+  return Math.round((Number(thesis.currentPrice) - Number(thesis.entryPrice)) * 100);
+}
+
+/** Which way the position is going: the price while open, the outcome once resolved. */
+export function positionTrend(thesis: PriceFields): 'up' | 'down' | 'flat' {
+  if (thesis.status === 'resolved' && thesis.outcome !== null) {
+    return thesis.outcome === 'right' ? 'up' : thesis.outcome === 'wrong' ? 'down' : 'flat';
+  }
+  const move = moveSinceEntry(thesis);
+  return move === null || move === 0 ? 'flat' : move > 0 ? 'up' : 'down';
+}
+
+/** "0xabde…9403": enough of a hash to recognise it, with the whole of it a click away. */
+export function shortHash(hash: string): string {
+  return hash.length > 14 ? `${hash.slice(0, 6)}…${hash.slice(-4)}` : hash;
 }
 
 /** "7 of 11 right, Brier 0.19", or a plain sentence when nothing has resolved. */

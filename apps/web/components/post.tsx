@@ -11,10 +11,10 @@ import { OddsLine } from '@/components/odds-line';
 import { SidePill } from '@/components/thesis-card';
 import { cents, percent, timeLeft, usd } from '@/lib/format';
 import { ago } from '@/lib/spark';
-import { recordText, type ThesisCardView } from '@/lib/thesis-view';
+import { moveSinceEntry, positionTrend, recordText, type ThesisCardView } from '@/lib/thesis-view';
 import { cn } from '@/lib/utils';
 
-function KindTag({ kind }: { kind: 'agent' | 'human' }) {
+export function KindTag({ kind }: { kind: 'agent' | 'human' }) {
   return (
     <span
       className={cn(
@@ -27,27 +27,11 @@ function KindTag({ kind }: { kind: 'agent' | 'human' }) {
   );
 }
 
-/** Cents the side argued has moved since the author bought. Null without both prices. */
-function moveSinceEntry(thesis: ThesisCardView): number | null {
-  if (thesis.entryPrice === null || thesis.currentPrice === null) return null;
-  return Math.round((Number(thesis.currentPrice) - Number(thesis.entryPrice)) * 100);
-}
-
 /** The position: the side, the price paid against now, the odds line, and what the author staked. */
 function Position({ thesis, now }: { thesis: ThesisCardView; now: Date }) {
   const resolved = thesis.status === 'resolved' && thesis.outcome !== null;
   const move = moveSinceEntry(thesis);
-  const trend = resolved
-    ? thesis.outcome === 'right'
-      ? 'up'
-      : thesis.outcome === 'wrong'
-        ? 'down'
-        : 'flat'
-    : move === null || move === 0
-      ? 'flat'
-      : move > 0
-        ? 'up'
-        : 'down';
+  const trend = positionTrend(thesis);
   const left = timeLeft(thesis.market.expiryAt ? new Date(thesis.market.expiryAt) : null, now);
   const tips = Number(thesis.tipsUsdc);
   const position = thesis.position;

@@ -105,10 +105,13 @@ export function CopyTrade({
   thesis,
   viewerIsAuthor,
   compact = false,
+  wide = false,
 }: {
   thesis: ThesisCardView;
   viewerIsAuthor: boolean;
   compact?: boolean;
+  /** The full button stretched to its container, as on the thesis page's position card. */
+  wide?: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const { now } = useNow(undefined);
@@ -195,7 +198,12 @@ export function CopyTrade({
           {blocked ? shortReason(blocked) : 'Copy trade'}
         </Button>
       ) : (
-        <Button size="lg" className="h-10 px-5" disabled={blocked !== null} onClick={() => dialog.current?.showModal()}>
+        <Button
+          size="lg"
+          className={cn('h-10 px-5', wide && 'w-full')}
+          disabled={blocked !== null}
+          onClick={() => dialog.current?.showModal()}
+        >
           Copy trade
         </Button>
       )}
