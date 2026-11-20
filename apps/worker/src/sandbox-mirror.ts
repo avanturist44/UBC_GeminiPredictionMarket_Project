@@ -93,7 +93,8 @@ export interface SandboxMirrorSummary {
  */
 const ATTEMPT_MS = 2 * 60_000;
 const NETWORK_ERROR = 'network_error';
-const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
+/** With the error's class: the SDK's own message for a refused request is only "HTTP 400". */
+const errorText = (error: unknown) => (error instanceof Error ? `${error.name}: ${error.message}` : String(error));
 
 /** The trade a mirror row is for. */
 interface Mirrored {

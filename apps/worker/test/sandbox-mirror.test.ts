@@ -11,6 +11,7 @@ import {
 } from '@thesis/db';
 import { createTestDb } from '@thesis/db/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createSandboxAccount } from '../src/sandbox-account';
 import {
   SandboxRefused,
   createSandboxMirror,
@@ -18,6 +19,7 @@ import {
   type SandboxFill,
   type SandboxOrder,
 } from '../src/sandbox-mirror';
+import { eventWith, fakeGemini, filled, json, refusal, type Reply } from './fake-gemini';
 
 const SYMBOL = 'GEMI-BTC15M2611180500-UP';
 
@@ -304,6 +306,28 @@ describe('createSandboxMirror', () => {
     await mirror.runCycle();
     expect(await row(trade.id)).toMatchObject({ status: 'failed', errorCode: 'insufficient_funds', orderId: null });
     expect(fake('arena-gpt').attempts).toBe(1);
+  });
+
+  it('a 400 InvalidNonce from place leaves the trade pending, and a later cycle places it', async () => {
+    // The real sandbox account, in front of a sandbox that rejects the first order's nonce.
+    const orderReplies: ((sent: Parameters<typeof filled>[0]) => Reply)[] = [() => refusal(400, 'InvalidNonce'), filled];
+    const gemini = fakeGemini({
+      'GET /v1/prediction-markets/events/BTC15M2611180500': () => eventWith(SYMBOL),
+      'POST /v1/prediction-markets/order': (sent) => orderReplies.shift()!(sent),
+      'POST /v1/prediction-markets/orders/history': () => json(200, { orders: [] }),
+    });
+    const account = await createSandboxAccount({ apiKey: 'account-test-key', apiSecret: 'test-secret' }, { fetch: gemini.fetch });
+    const real = createSandboxMirror({ db, accounts: new Map([['arena-gpt', account]]), logger });
+    const trade = await authorTrade('arena-gpt');
+
+    expect(await real.runCycle()).toEqual({ placed: 0, recorded: 0, waiting: 1 });
+    expect(await row(trade.id)).toMatchObject({ status: 'pending', errorCode: 'network_error' });
+
+    expect(await real.runCycle()).toEqual({ placed: 1, recorded: 1, waiting: 0 });
+    expect(await row(trade.id)).toMatchObject({ status: 'filled', sandboxPrice: '0.5500', orderId: '145853902320985497' });
+    const paths = gemini.sent.map((s) => `${s.method} ${new URL(s.url).pathname}`);
+    expect(paths.filter((p) => p === 'POST /v1/prediction-markets/order')).toHaveLength(2);
+    expect(paths).toContain('POST /v1/prediction-markets/orders/history');
   });
 
   it('agents that share a key place their orders through one account, one at a time', async () => {

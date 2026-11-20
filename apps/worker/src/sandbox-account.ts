@@ -10,6 +10,7 @@
 import {
   ApiError,
   HmacAuth,
+  InvalidNonce,
   NotFoundError,
   ValidationError,
   createClient,
@@ -47,16 +48,23 @@ export interface SandboxAccountOptions {
 
 /**
  * The clock behind one key's nonces. A time-based nonce is the epoch second, and Gemini's
- * documentation does not say whether two signed requests may share one, so each request gets a
- * second of its own: the current one, or the one after the last used. Gemini accepts a nonce
- * within 30 seconds of its own clock, and a key signs a few requests a cycle, so the lead stays
- * small.
+ * documentation does not say whether two signed requests may share one, so each gets a second of
+ * its own. Gemini also refuses a nonce more than 30 seconds from its own clock, so the nonces
+ * must not run ahead of real time: before each signed call `free()` waits until the last second
+ * used has passed. `now` is the SDK's clock; it moves one second on only when the SDK signs twice
+ * within one call (a retried read), and the next `free()` waits that lead out.
  */
-function nonceClock(): () => number {
+function nonceClock(): { now: () => number; free: () => Promise<void> } {
   let lastSecond = 0;
-  return () => {
-    lastSecond = Math.max(Math.floor(Date.now() / 1000), lastSecond + 1);
-    return lastSecond * 1000;
+  return {
+    now: () => {
+      lastSecond = Math.max(Math.floor(Date.now() / 1000), lastSecond + 1);
+      return lastSecond * 1000;
+    },
+    free: async () => {
+      const wait = (lastSecond + 1) * 1000 - Date.now();
+      if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+    },
   };
 }
 
@@ -71,12 +79,14 @@ function oneAtATime(): <T>(call: () => Promise<T>) => Promise<T> {
 }
 
 /**
- * A refusal the sandbox would repeat (a 4xx other than a timeout or rate limit, or an order the
- * SDK rejects before sending) becomes SandboxRefused. Anything else may mean the request never
- * arrived, and is passed on as it is.
+ * A refusal the sandbox would repeat (a 4xx other than a timeout, a rate limit or a rejected nonce,
+ * or an order the SDK rejects before sending) becomes SandboxRefused. Anything else may clear up,
+ * and is passed on as it is. A request whose nonce was rejected was never looked at, so it is safe
+ * to send again, and likely to succeed with a fresh nonce.
  */
 function refusalOf(error: unknown): unknown {
   if (error instanceof ValidationError) return new SandboxRefused('invalid_input');
+  if (error instanceof InvalidNonce) return error;
   if (error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429) {
     // The SDK's stable code, or the exchange's own reason when the SDK has no code for it.
     const code = error.code !== 'unknown' ? error.code : (error.reason ?? `http_${error.status}`);
@@ -103,13 +113,19 @@ export async function createSandboxAccount(
   keys: SandboxKeys,
   options: SandboxAccountOptions = {},
 ): Promise<GeminiSandboxAccount> {
+  const nonces = nonceClock();
   const gemini = await createClient({
     // Fixed on purpose. There is no production order path in this repo.
     env: 'sandbox',
-    auth: new HmacAuth({ apiKey: keys.apiKey, apiSecret: keys.apiSecret, nonceMode: 'time-based', now: nonceClock() }),
+    auth: new HmacAuth({ apiKey: keys.apiKey, apiSecret: keys.apiSecret, nonceMode: 'time-based', now: nonces.now }),
     ...(options.fetch ? { fetch: options.fetch } : {}),
   });
+  // Every call waits its turn; a signed one also waits for a second its nonce can have alone.
   const serial = oneAtATime();
+  const signed = async <T>(call: () => Promise<T>): Promise<T> => {
+    await nonces.free();
+    return call();
+  };
 
   return {
     ask: (symbol, side) =>
@@ -147,7 +163,7 @@ export async function createSandboxAccount(
         } as const;
         let reply;
         try {
-          reply = await gemini.predictions.placeOrder(order);
+          reply = await signed(() => gemini.predictions.placeOrder(order));
         } catch (error) {
           throw refusalOf(error);
         }
@@ -166,7 +182,7 @@ export async function createSandboxAccount(
         try {
           // Newest first is not documented, so ask for the most the endpoint gives: 1,000 orders,
           // over a month of an arena model's trading.
-          reply = await gemini.predictions.getOrderHistory({ limit: 1000 });
+          reply = await signed(() => gemini.predictions.getOrderHistory({ limit: 1000 }));
         } catch (error) {
           throw refusalOf(error);
         }
@@ -178,7 +194,7 @@ export async function createSandboxAccount(
       serial(async () => {
         let terms;
         try {
-          terms = await gemini.predictions.getPredictionMarketsTermsStatus();
+          terms = await signed(() => gemini.predictions.getPredictionMarketsTermsStatus());
         } catch (error) {
           throw refusalOf(error);
         }
@@ -187,7 +203,7 @@ export async function createSandboxAccount(
         try {
           // `account` names a subaccount and is needed only with a master key. These keys are
           // account-level, so the key names the account; the SDK's type marks the field required.
-          const balances = await gemini.account.getAvailableBalances({} as { account: string });
+          const balances = await signed(() => gemini.account.getAvailableBalances({} as { account: string }));
           availableUsd = String(balances.find((b) => b.currency === 'USD')?.available ?? 0);
         } catch (error) {
           const refused = refusalOf(error);

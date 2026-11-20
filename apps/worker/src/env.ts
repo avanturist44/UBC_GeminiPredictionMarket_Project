@@ -10,20 +10,22 @@ const ARENA_AGENT_KEYS: readonly string[] = ARENA_ROSTER.map((entrant) => entran
 const SandboxKeysSchema = z.object({ apiKey: z.string().min(1), apiSecret: z.string().min(1) });
 const AGENT_KEYS_SHAPE = 'a JSON object from arena agent key to { "apiKey": "account-…", "apiSecret": "…" }';
 
+type SandboxKeys = z.infer<typeof SandboxKeysSchema>;
+
 /**
  * GEMINI_AGENT_KEYS: each arena model's Gemini sandbox API key and secret. Several models may
  * share one key. The value holds secrets, so a problem with it is described without quoting it:
- * not even a JSON parse error, whose message quotes the text.
+ * not even a JSON parse error, whose message quotes the text. Undefined when not set.
  */
 const AgentKeysSchema = z
   .string()
   .optional()
-  .transform((raw, ctx): Record<string, z.infer<typeof SandboxKeysSchema>> => {
+  .transform((raw, ctx): Record<string, SandboxKeys> | undefined => {
     const refuse = (problem: string) => {
       ctx.addIssue({ code: 'custom', message: `${problem}; it should be ${AGENT_KEYS_SHAPE}` });
       return z.NEVER;
     };
-    if (raw === undefined) return {};
+    if (raw === undefined) return undefined;
     let value: unknown;
     try {
       value = JSON.parse(raw);
@@ -31,7 +33,7 @@ const AgentKeysSchema = z
       return refuse('is not valid JSON');
     }
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return refuse('is not a JSON object');
-    const keys: Record<string, z.infer<typeof SandboxKeysSchema>> = {};
+    const keys: Record<string, SandboxKeys> = {};
     const secretOf = new Map<string, string>();
     for (const [agentKey, entry] of Object.entries(value)) {
       // The unknown key itself is not quoted: it could be a key or secret pasted in the wrong place.
@@ -78,8 +80,11 @@ const EnvSchema = z.object({
   /** Input plus output tokens each arena model may use per UTC day, apart from the auditor's budget. */
   ARENA_DAILY_TOKEN_CAP_PER_MODEL: blank(z.coerce.number().int().positive().default(1_000_000)),
   // Each arena model's own Gemini sandbox account, where its paper trades are also placed as real
-  // orders. Absent or {} means no accounts, and the sandbox mirror does not run.
+  // orders. Absent or {} means no accounts, and the sandbox mirror does not run. Without it, one
+  // key pair in the two variables after it is every arena model's (they share one account).
   GEMINI_AGENT_KEYS: blank(AgentKeysSchema),
+  GEMINI_AGENT_API_KEY: blank(z.string().optional()),
+  GEMINI_AGENT_API_SECRET: blank(z.string().optional()),
   // The escrow on Arc testnet and the Circle wallets that tip into it. All test money.
   // With any of these missing the worker runs without the on-chain jobs.
   ARC_RPC_URL: blank(z.string().url().default('https://rpc.testnet.arc.io')),
@@ -95,7 +100,25 @@ const EnvSchema = z.object({
   /** Test USDC sent once to each new user wallet. */
   WELCOME_USDC: blank(z.string().regex(/^\d+(\.\d{1,2})?$/).default('2')),
   RECORDER_INTERVAL_MS: z.coerce.number().int().min(5000).default(30_000),
-});
+}).transform((env, ctx) => ({ ...env, GEMINI_AGENT_KEYS: sandboxKeys(env, ctx) }));
+
+/**
+ * The sandbox keys by arena agent key: GEMINI_AGENT_KEYS when it is set, otherwise the one pair
+ * in GEMINI_AGENT_API_KEY and GEMINI_AGENT_API_SECRET for every model, otherwise none.
+ */
+function sandboxKeys(
+  env: { GEMINI_AGENT_KEYS?: Record<string, SandboxKeys>; GEMINI_AGENT_API_KEY?: string; GEMINI_AGENT_API_SECRET?: string },
+  ctx: z.RefinementCtx,
+): Record<string, SandboxKeys> {
+  if (env.GEMINI_AGENT_KEYS) return env.GEMINI_AGENT_KEYS;
+  const { GEMINI_AGENT_API_KEY: apiKey, GEMINI_AGENT_API_SECRET: apiSecret } = env;
+  if (apiKey && apiSecret) return Object.fromEntries(ARENA_AGENT_KEYS.map((agentKey) => [agentKey, { apiKey, apiSecret }]));
+  if (apiKey || apiSecret) {
+    const [set, missing] = apiKey ? ['GEMINI_AGENT_API_KEY', 'GEMINI_AGENT_API_SECRET'] : ['GEMINI_AGENT_API_SECRET', 'GEMINI_AGENT_API_KEY'];
+    ctx.addIssue({ code: 'custom', path: [set], message: `is set without ${missing}; set both, or neither` });
+  }
+  return {};
+}
 
 export type WorkerEnv = z.infer<typeof EnvSchema>;
 

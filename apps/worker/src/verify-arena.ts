@@ -9,7 +9,8 @@
 // It exits 1 when a configured model fails: no answer, a served model other than the roster's,
 // no web search, or no llm_calls row. A model without its key is listed as not configured.
 //
-// Then it checks each sandbox account in GEMINI_AGENT_KEYS, read only: whether Gemini accepts its
+// Then it checks each sandbox account (GEMINI_AGENT_KEYS, or the one pair in GEMINI_AGENT_API_KEY
+// and GEMINI_AGENT_API_SECRET that every model shares), read only: whether Gemini accepts its
 // key, whether its prediction market terms are accepted (never accepted here) and its available
 // test USD. An account whose key is rejected or whose terms are not accepted fails the run; a
 // model with no account is listed, not failed. Several models sharing an account show it once.
@@ -206,7 +207,10 @@ async function verifyModels(env: WorkerEnv, say: Say): Promise<void> {
 async function verifyAccounts(env: WorkerEnv, say: Say): Promise<boolean> {
   const accounts = await createSandboxAccounts(env.GEMINI_AGENT_KEYS);
   if (accounts.size === 0) {
-    say('sandbox accounts are not configured (GEMINI_AGENT_KEYS is not set), so arena trades are not mirrored');
+    say(
+      'sandbox accounts are not configured (neither GEMINI_AGENT_KEYS nor GEMINI_AGENT_API_KEY and GEMINI_AGENT_API_SECRET is set), ' +
+        'so arena trades are not mirrored',
+    );
     return true;
   }
   const groups = accountGroups(accounts);
@@ -256,6 +260,8 @@ async function verifyAccounts(env: WorkerEnv, say: Say): Promise<boolean> {
   const secrets = [
     ...Object.values(ARENA_KEY_VARS).map((variable) => env[variable]),
     ...Object.values(env.GEMINI_AGENT_KEYS).flatMap(({ apiKey, apiSecret }) => [apiKey, apiSecret]),
+    env.GEMINI_AGENT_API_KEY,
+    env.GEMINI_AGENT_API_SECRET,
   ].filter((key): key is string => Boolean(key));
   const say: Say = (line) => console.log(secrets.reduce((text, key) => text.split(key).join('[key]'), line));
 

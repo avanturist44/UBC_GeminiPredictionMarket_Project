@@ -208,7 +208,7 @@ log('info', 'worker started', {
   // Agent keys only, grouped by the account they share; never the keys themselves.
   sandboxAccounts: sandboxMirror
     ? accountGroups(sandboxAccounts).map(({ agentKeys }) => agentKeys.join(', '))
-    : 'not configured (GEMINI_AGENT_KEYS): arena trades are not mirrored in the sandbox',
+    : 'not configured (GEMINI_AGENT_KEYS, or GEMINI_AGENT_API_KEY and GEMINI_AGENT_API_SECRET): arena trades are not mirrored in the sandbox',
   escrow: env.ESCROW_ADDRESS ?? 'not configured: theses are published without an on-chain record, and tips are off',
   // Hosts only: a dedicated endpoint's path holds its access token.
   arcRpc: arcRpcUrls(env.ARC_RPC_URL).map((url) => new URL(url).host),

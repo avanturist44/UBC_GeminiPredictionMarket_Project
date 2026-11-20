@@ -1,77 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { parseEnv } from '../src/env';
-import {
-  accountGroups,
-  createSandboxAccount,
-  createSandboxAccounts,
-  type SandboxAccountOptions,
-} from '../src/sandbox-account';
+import { accountGroups, createSandboxAccount, createSandboxAccounts } from '../src/sandbox-account';
 import { SandboxRefused } from '../src/sandbox-mirror';
-
-/** The SDK's fetch, answered here instead of by the network. */
-type FetchLike = NonNullable<SandboxAccountOptions['fetch']>;
+import { eventWith, fakeGemini, filled, json, refusal, type Reply } from './fake-gemini';
 
 const SYMBOL = 'GEMI-BTC15M2611180500-UP';
 const EVENT = 'BTC15M2611180500';
 const TRADE_ID = '6f1c2a40-8f8e-4d55-9a57-2f0f6f0b6b51';
 const KEYS = { apiKey: 'account-test-key', apiSecret: 'test-secret' };
-
-interface Sent {
-  url: string;
-  method: string;
-  /** The signed envelope, decoded; null for an unsigned request. */
-  payload: Record<string, unknown> | null;
-  body: Record<string, unknown> | null;
-}
-type Reply = { status: number; body: string } | Error;
-
-const json = (status: number, body: unknown): Reply => ({ status, body: JSON.stringify(body) });
-const refusal = (status: number, reason: string): Reply => json(status, { result: 'error', reason, message: reason });
-
-/** Gemini's REST API, answered from `routes` ("METHOD /path"), with every request kept. */
-function fakeGemini(routes: Record<string, (sent: Sent) => Reply>) {
-  const sent: Sent[] = [];
-  let inFlight = 0;
-  let mostAtOnce = 0;
-  const fetch: FetchLike = async (url, init) => {
-    inFlight += 1;
-    mostAtOnce = Math.max(mostAtOnce, inFlight);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 2));
-      const envelope = init.headers['X-GEMINI-PAYLOAD'];
-      const request: Sent = {
-        url,
-        method: init.method,
-        payload: envelope ? (JSON.parse(Buffer.from(envelope, 'base64').toString('utf8')) as Record<string, unknown>) : null,
-        body: init.body ? (JSON.parse(init.body) as Record<string, unknown>) : null,
-      };
-      sent.push(request);
-      const route = routes[`${init.method} ${new URL(url).pathname}`];
-      const reply = route ? route(request) : refusal(404, 'NotFound');
-      if (reply instanceof Error) throw reply;
-      return new Response(reply.body, { status: reply.status, headers: { 'content-type': 'application/json' } });
-    } finally {
-      inFlight -= 1;
-    }
-  };
-  return { fetch, sent, mostAtOnce: () => mostAtOnce };
-}
-
-const event = json(200, {
-  ticker: EVENT,
-  contracts: [
-    { instrumentSymbol: 'GEMI-BTC15M2611180500-DOWN', prices: { buy: { yes: '0.10', no: '0.90' } } },
-    { instrumentSymbol: SYMBOL, prices: { buy: { yes: '0.55', no: '0.47' }, bestBid: '0.53', bestAsk: '0.55' } },
-  ],
-});
-/** The sandbox's reply to an order: filled in full at its price, echoing the client order id. */
-const filled = (sent: Sent): Reply => ({
-  status: 201,
-  // Order ids are 64-bit; the SDK reads them without rounding.
-  body:
-    `{"orderId":145853902320985497,"clientOrderId":${JSON.stringify(sent.body?.clientOrderId)},"status":"filled",` +
-    `"filledQuantity":${JSON.stringify(sent.body?.quantity)},"avgExecutionPrice":${JSON.stringify(sent.body?.price)}}`,
-});
+const event = eventWith(SYMBOL);
 const order = { symbol: SYMBOL, side: 'no' as const, quantity: '10', price: '0.47', clientOrderId: TRADE_ID };
 
 describe('createSandboxAccount', () => {
@@ -116,7 +53,14 @@ describe('createSandboxAccount', () => {
   });
 
   it('turns a refusal into SandboxRefused and passes a network failure on', async () => {
-    const replies: Reply[] = [refusal(406, 'InsufficientFunds'), refusal(400, 'InvalidOrder'), refusal(429, 'RateLimited'), new TypeError('fetch failed')];
+    const replies: Reply[] = [
+      refusal(406, 'InsufficientFunds'),
+      refusal(400, 'InvalidOrder'),
+      refusal(429, 'RateLimited'),
+      // A rejected nonce means the order was never looked at, so asking again is safe.
+      refusal(400, 'InvalidNonce'),
+      new TypeError('fetch failed'),
+    ];
     const gemini = fakeGemini({ 'POST /v1/prediction-markets/order': () => replies.shift()! });
     const account = await createSandboxAccount(KEYS, { fetch: gemini.fetch });
     const outcome = (promise: Promise<unknown>) =>
@@ -127,6 +71,7 @@ describe('createSandboxAccount', () => {
 
     expect(await outcome(account.place(order))).toBe('refused: insufficient_funds');
     expect(await outcome(account.place(order))).toBe('refused: invalid_request');
+    expect(await outcome(account.place(order))).toBe('no answer');
     expect(await outcome(account.place(order))).toBe('no answer');
     expect(await outcome(account.place(order))).toBe('no answer');
   });
@@ -147,7 +92,7 @@ describe('createSandboxAccount', () => {
     expect(gemini.sent[0]!.payload).toMatchObject({ request: '/v1/prediction-markets/orders/history', limit: 1000 });
   });
 
-  it('makes one call at a time, each signed request with a nonce second of its own', async () => {
+  it('makes one call at a time, each signed request with a nonce second of its own and never ahead of the clock', async () => {
     const gemini = fakeGemini({
       'POST /v1/prediction-markets/order': filled,
       'POST /v1/prediction-markets/orders/history': () => json(200, { orders: [] }),
@@ -162,6 +107,9 @@ describe('createSandboxAccount', () => {
     expect(gemini.mostAtOnce()).toBe(1);
     const nonces = gemini.sent.map((s) => s.payload?.nonce);
     expect(new Set(nonces).size).toBe(3);
+    // Gemini takes a time-based nonce within 30 seconds of its clock. One that ran ahead with every
+    // call would, after enough calls, be refused for every request.
+    for (const s of gemini.sent) expect(Number(s.payload?.nonce)).toBeLessThanOrEqual(Math.floor(s.at / 1000));
   });
 
   it('reads terms and available USD, and accepts nothing', async () => {
@@ -221,6 +169,38 @@ describe('GEMINI_AGENT_KEYS', () => {
   it('maps arena agent keys to their sandbox keys, and several may share one', () => {
     const value = JSON.stringify({ 'arena-gpt': KEYS, 'arena-claude': KEYS });
     expect(env(value).GEMINI_AGENT_KEYS).toEqual({ 'arena-gpt': KEYS, 'arena-claude': KEYS });
+  });
+
+  it('maps every arena model to one key pair given as GEMINI_AGENT_API_KEY and GEMINI_AGENT_API_SECRET', () => {
+    const pair = { GEMINI_AGENT_API_KEY: KEYS.apiKey, GEMINI_AGENT_API_SECRET: KEYS.apiSecret };
+    expect(parseEnv({ DATABASE_URL: 'postgres://test', ...pair }).GEMINI_AGENT_KEYS).toEqual({
+      'arena-gemini': KEYS,
+      'arena-claude': KEYS,
+      'arena-gpt': KEYS,
+      'arena-grok': KEYS,
+      'arena-deepseek': KEYS,
+    });
+    // GEMINI_AGENT_KEYS wins when both forms are set.
+    const one = { 'arena-gpt': { apiKey: 'account-other', apiSecret: 'other-secret' } };
+    expect(
+      parseEnv({ DATABASE_URL: 'postgres://test', ...pair, GEMINI_AGENT_KEYS: JSON.stringify(one) }).GEMINI_AGENT_KEYS,
+    ).toEqual(one);
+    // Empty means not set.
+    expect(parseEnv({ DATABASE_URL: 'postgres://test', GEMINI_AGENT_API_KEY: '', GEMINI_AGENT_API_SECRET: '' }).GEMINI_AGENT_KEYS).toEqual({});
+  });
+
+  it('refuses half a key pair, naming both variables but neither value', () => {
+    for (const half of [{ GEMINI_AGENT_API_KEY: 'account-leak' }, { GEMINI_AGENT_API_SECRET: 'secret-leak' }]) {
+      let message = '';
+      try {
+        parseEnv({ DATABASE_URL: 'postgres://test', ...half });
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toContain('GEMINI_AGENT_API_KEY');
+      expect(message).toContain('GEMINI_AGENT_API_SECRET');
+      expect(message).not.toContain('leak');
+    }
   });
 
   it('refuses a malformed or wrongly shaped value, naming the variable but never its value', () => {
