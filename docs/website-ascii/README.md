@@ -8,6 +8,13 @@ decorative, not market data. Definition is strongest at the margins and quieter
 in the reading area; the sidebar keeps its existing opaque surface. Content,
 navigation, APIs and trading behavior stay as they were.
 
+Trade posts and reusable thesis cards have explicit, opaque `bg-background` surfaces
+so the ASCII field does not show through their content. Position panels retain their
+existing solid card color. This applies in `components/post.tsx` and
+`components/thesis-card.tsx`. The production rebuild and TypeScript checks passed;
+the local Home feed returned no thesis cards during the follow-up browser check,
+so a live card could not be visually inspected in that preview.
+
 Implementation:
 
 - `apps/web/components/ascii-background.tsx`: client-only canvas drawing, capped at
@@ -67,3 +74,21 @@ are saved alongside this document.
 
 The Sites skill's local repository workflow was used. No deployment or merge into
 the shared branch was performed.
+
+## Team branch freshness check
+
+Remote references were fetched again after the solid-card request. `origin/main`
+remains at `2ef8008`, and is already an ancestor of this website branch.
+
+| Remote branch | Relationship to the website baseline |
+| --- | --- |
+| `main` | Latest shared head fully included |
+| `model-arena-and-tip-retries` | Fully included through main |
+| `phase-3` | Fully included through main |
+| `ashley` | Older root-level extension prototype; integrated into main by `963f180`, not a direct ancestry merge |
+| `avi/extension-ui-redesign` | Two separate UI commits from the older `963f180` base; main has a newer extension implementation |
+| `avi/ubc-hack` | Diverged, with 17 unique commits including alternate backend/services, contracts and schema migrations |
+
+The older diverged branches have not been merged wholesale. The user was asked
+whether they also want that broader reconciliation; preserving the latest shared
+main is the current baseline while that choice is pending.

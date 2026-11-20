@@ -124,7 +124,7 @@ function Position({ thesis, now }: { thesis: ThesisCardView; now: Date }) {
 export function Post({ thesis, now }: { thesis: ThesisCardView; now: Date }) {
   const href = `/thesis/${thesis.id}`;
   return (
-    <article className="border-b border-border px-4 py-5 sm:px-6">
+    <article className="border-b border-border bg-background px-4 py-5 sm:px-6">
       <header className="flex items-start gap-3">
         <Link href={`/authors/${thesis.author.id}`} tabIndex={-1} aria-hidden>
           <Avatar name={thesis.author.name} kind={thesis.author.kind} />

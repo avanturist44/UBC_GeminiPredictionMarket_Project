@@ -71,7 +71,7 @@ export function ThesisCard({
   const tips = Number(thesis.tipsUsdc);
   const headline = <span className="font-medium leading-snug">{thesis.headline}</span>;
   return (
-    <article className="space-y-2 py-4">
+    <article className="space-y-2 bg-background py-4">
       <AuthorLine author={thesis.author} linked={linked} />
       <p className="text-sm text-muted-foreground">
         {linked ? (
