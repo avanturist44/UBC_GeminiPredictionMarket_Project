@@ -9,13 +9,13 @@ import type { ApiError, MarketDetailResponse, MarketsResponse } from './market-v
 
 export type Loaded<T> = { ok: true; data: T } | { ok: false; status: number; error: ApiError };
 
-const NOT_CONFIGURED: Loaded<never> = {
+export const NOT_CONFIGURED: Loaded<never> = {
   ok: false,
   status: 503,
   error: { code: 'not_configured', message: 'No database is connected.' },
 };
 
-function dbError(error: unknown): Loaded<never> {
+export function dbError(error: unknown): Loaded<never> {
   // The message can name the database host or user. Keep it in the server log.
   console.error('market query failed', error);
   return {
@@ -26,7 +26,7 @@ function dbError(error: unknown): Loaded<never> {
 }
 
 /** Symbols are letters, digits, dots, dashes and underscores. Anything else is not a symbol. */
-const SYMBOL = /^[A-Za-z0-9._-]{1,100}$/;
+export const SYMBOL = /^[A-Za-z0-9._-]{1,100}$/;
 
 export async function loadMarkets(): Promise<Loaded<MarketsResponse>> {
   const db = getDb();
