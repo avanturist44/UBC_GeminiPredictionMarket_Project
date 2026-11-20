@@ -1,7 +1,8 @@
 {
   "passed": true,
   "checks": [
-    "Collapsed card 263px vs 362px before (27% shorter), identical fixture",
+    "Collapsed card 250px vs 362px before (31% shorter), identical fixture",
+    "Actual excerpt teaser; header thesis counts toggle comparison with accessible expanded state; no standalone collapsed statistics row",
     "Sample cards disclosed; fictitious sample thesis links are noninteractive",
     "Light, dark, dim; dynamic theme changes; 320/390/600px; text, media and thread layouts",
     "0%/100% and missing/invalid prices; NO position; missing author/entry; long titles; inert server HTML",

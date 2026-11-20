@@ -52,9 +52,18 @@ try{
     assert.equal(await card().locator('details[open]').count(),0);await fits();
     const before=JSON.parse(await readFile(new URL('baseline.json',work),'utf8'));assert(height<before.height*.8);
     checks.push(`Collapsed card ${Math.round(height)}px vs ${Math.round(before.height)}px before (${Math.round((1-height/before.height)*100)}% shorter), identical fixture`);
-    await card().getByText('Reasoning & author record',{exact:true}).click();
+    assert(await card().locator('.teaser').isVisible());
+    assert.equal(await card().locator('.consensus-toggle').getAttribute('aria-expanded'),'false');
+    assert.equal(await card().locator('.summary-section').isVisible(),false);
+    await card().locator('.consensus-toggle').focus();await page.keyboard.press('Enter');
+    assert(await card().locator('.summary-section').isVisible());
+    await page.keyboard.press('Enter');
+    assert.equal(await card().locator('.summary-section').isVisible(),false);
+    await card().getByText('Read the reasoning',{exact:true}).click();
     await card().getByText('9 theses',{exact:true}).click();await screenshot('after-expanded.png');await fits();
     assert(await card().getByText('Submitted thesis positions · not market probability',{exact:true}).isVisible());
+    assert.equal(await card().locator('.consensus-toggle').getAttribute('aria-expanded'),'true');
+    checks.push('Actual excerpt teaser; header thesis counts toggle comparison with accessible expanded state; no standalone collapsed statistics row');
     assert.equal(await card().locator('a').count(),0);checks.push('Sample cards disclosed; fictitious sample thesis links are noninteractive');
     for(const [name,options]of [['light',{theme:'light',media:true}],['dim-phone',{theme:'dim',width:390,text:'Ethereum and the ETH/BTC ratio.'}],['narrow-thread',{width:320,thread:true,text:'The 2028 presidential election: '+ 'Long post text '.repeat(20)}]]){
       await fixture(name,options);await fits();await screenshot(`after-${name}.png`);

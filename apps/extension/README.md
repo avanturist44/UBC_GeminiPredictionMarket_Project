@@ -13,10 +13,12 @@ A card appears only for a market that has at least one published thesis.
 ## Redesigned feed UI
 
 The default card shows the market question, YES probability, featured thesis headline,
-author/position and submitted YES/NO thesis counts. Open **Reasoning & author record**
-for the existing excerpt, author history and copy-trade link. Open the thesis-count row
+author/position and a one-line excerpt teaser. Open **Read the reasoning**
+for the existing excerpt, author history and copy-trade link. Open the compact thesis-count control in the header
 for the summary and distribution. Distribution counts describe submitted theses, not
 market odds. All existing live links, APIs and trading flows remain in place.
+The liquid-glass surface uses neutral translucency, background blur and a fine highlight;
+reduced-transparency preferences receive an opaque surface.
 
 Default, Dim and Lights out themes are supported, including theme changes on mounted
 cards. Narrow cards put the odds below the question to keep titles readable. Styles
