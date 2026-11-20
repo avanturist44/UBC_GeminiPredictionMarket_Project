@@ -122,7 +122,7 @@ function Header({ thesis, mounted }: { thesis: ThesisDetailView; mounted: boolea
       >
         {marketTitle(thesis.market)}
       </Link>
-      <h1 className="mt-2 text-[28px] leading-[1.2] font-medium tracking-tight text-balance lg:text-[32px]">
+      <h1 className="mt-2 serif-title text-[36px] leading-[1.1] text-balance lg:text-[44px]">
         {thesis.headline}
       </h1>
 

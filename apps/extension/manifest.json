@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Thesis Market",
-  "version": "0.1.0",
-  "description": "Prediction market theses directly on X",
+  "name": "convíx",
+  "version": "0.2.0",
+  "description": "The reasoning behind prediction market bets, under the X posts they are about",
   "permissions": [
     "storage"
   ],
   "host_permissions": [
-    "https://thesis-market-rose.vercel.app/*",
+    "https://getconvix.vercel.app/*",
     "http://localhost:3000/*"
   ],
   "background": {
@@ -26,6 +26,12 @@
         "content.js"
       ],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["fonts/InstrumentSerif-Regular.woff2", "fonts/SourceSerif4-Digits.woff2"],
+      "matches": ["https://x.com/*", "https://twitter.com/*"]
     }
   ]
 }

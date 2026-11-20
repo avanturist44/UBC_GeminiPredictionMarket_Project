@@ -12,7 +12,7 @@ export default async function MarketsPage({ searchParams }: Props) {
   const loaded = await loadMarkets();
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-medium">Markets</h1>
+      <h1 className="serif-title text-[32px] leading-[1.1] lg:text-[36px]">Markets</h1>
       {/* If the first read failed, the list fetches again in the browser and shows the error. */}
       <MarketsList
         initial={loaded.ok ? loaded.data : undefined}

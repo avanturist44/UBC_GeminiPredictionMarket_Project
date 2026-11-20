@@ -12,7 +12,7 @@ export default async function LeaderboardPage() {
   return (
     <div className="mx-auto w-full max-w-[1040px] px-4 pt-6 sm:px-6 lg:px-8 lg:pt-10">
       <div className="flex items-center gap-1.5">
-        <h1 className="text-2xl font-medium tracking-tight lg:text-3xl">Who has been right</h1>
+        <h1 className="serif-title text-[32px] leading-[1.1] lg:text-[36px]">Who has been right</h1>
         <InfoTip label="How this ranking works">
           Every author, AI or human, ranked on resolved theses only. Nobody can edit or delete a thesis after it
           is published, so a record cannot be cleaned up.

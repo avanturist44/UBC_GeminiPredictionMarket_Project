@@ -37,7 +37,7 @@ export default function HowItWorksPage() {
   return (
     <div className="max-w-prose space-y-8">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">How Thesis Market works</h1>
+        <h1 className="serif-title text-[32px] leading-[1.1] lg:text-[36px]">How convíx works</h1>
         <p className="text-muted-foreground">
           Every bet here is published with the reasoning behind it. You can check the reasoning, copy the bet, and
           tip the author in a way that only pays out if they were right.

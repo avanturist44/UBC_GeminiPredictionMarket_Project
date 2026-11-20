@@ -168,7 +168,7 @@ export function MarketDetail({
         <Link href="/markets" className="text-sm text-primary underline-offset-4 hover:underline">
           All markets
         </Link>
-        <h1 className="text-2xl font-semibold leading-tight tracking-tight">{market.title}</h1>
+        <h1 className="serif-title text-[32px] leading-[1.1] lg:text-[36px] text-balance">{market.title}</h1>
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           {market.contractLabel && <span>Contract: {market.contractLabel}</span>}
           <StateBadge market={market} over={left.over} />

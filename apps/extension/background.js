@@ -17,7 +17,7 @@ async function loadMarkets() {
     await chrome.storage.session.set({ markets: { at: Date.now(), data } });
     return data;
   } catch (e) {
-    console.warn("[thesis-market] markets fetch failed", e);
+    console.warn("[convix] markets fetch failed", e);
     return stored ? stored.data : [];
   }
 }
@@ -32,7 +32,7 @@ async function loadCard(symbol) {
     cardCache.set(symbol, { at: Date.now(), card });
     return card;
   } catch (e) {
-    console.warn("[thesis-market] card fetch failed", e);
+    console.warn("[convix] card fetch failed", e);
     return hit ? hit.card : null;
   }
 }

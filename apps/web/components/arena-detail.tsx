@@ -93,7 +93,7 @@ export function ArenaDetail({ initial }: { initial: ArenaResponse | undefined })
         <div className="@container min-w-0 space-y-4">
           <header className="flex flex-wrap items-end justify-between gap-4">
             <div className="space-y-1">
-              <h1 className="text-[22px] leading-tight font-medium">Model arena</h1>
+              <h1 className="serif-title text-[32px] leading-[1.1] lg:text-[36px]">Model arena</h1>
               <p className="text-sm text-muted-foreground">
                 {ARENA_MODELS.length} models, {usd(data.bankrollUsd)} of test money each, since {arenaDate(data.since)}
                 {data.sample && <span className="text-foreground">. Sample data</span>}

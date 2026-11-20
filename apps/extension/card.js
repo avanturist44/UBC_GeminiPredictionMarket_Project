@@ -52,13 +52,16 @@ const TMCard = (() => {
     --yes: #136b45; --no: #b3242a; --yes-tint: rgba(36,160,100,.13); --no-tint: rgba(220,50,56,.11);
   }
   .card { --accent: #6d8bff; --accent-top: #8ba3ff; --on-accent: #0b0d14; }
+  /* The site's serif, for the name and the thesis headline. One weight: never bolded. */
+  .card { --serif: "convix digits", "convix serif", "Instrument Serif", ui-serif, Georgia, serif; }
 
   a, button { -webkit-tap-highlight-color: transparent; }
   a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   .top { display: flex; align-items: center; gap: 8px; height: 24px; }
-  .brand { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; font-weight: 500; color: var(--fg2); }
+  .brand { display: inline-flex; align-items: center; gap: 6px; color: var(--fg); }
   .brand svg { width: 12px; height: 12px; flex: none; }
+  .wordmark { font-family: var(--serif); font-size: 18px; line-height: 1; font-weight: 400; font-synthesis: none; }
   .note { margin-left: auto; font-size: 12px; line-height: 16px; color: var(--fg3); white-space: nowrap; }
   .close {
     all: unset; box-sizing: border-box; flex: none; display: grid; place-items: center;
@@ -97,7 +100,8 @@ const TMCard = (() => {
   .side.yes { color: var(--yes); background: var(--yes-tint); }
   .side.no { color: var(--no); background: var(--no-tint); }
   .headline {
-    grid-column: 2; margin-top: 4px; font-size: 15px; line-height: 20px;
+    grid-column: 2; margin-top: 4px;
+    font-family: var(--serif); font-size: 20px; line-height: 24px; font-weight: 400; font-synthesis: none;
     display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
   }
 
@@ -165,6 +169,28 @@ const TMCard = (() => {
   const cross = () => icon("0 0 10 10", [["path", { d: "M1.5 1.5l7 7M8.5 1.5l-7 7", stroke: "currentColor", "stroke-width": 1.6, "stroke-linecap": "round" }]]);
   const chevron = () => icon("0 0 12 12", [["path", { d: "M4.5 2.5L8 6l-3.5 3.5", fill: "none", stroke: "currentColor", "stroke-width": 1.6, "stroke-linecap": "round", "stroke-linejoin": "round" }]]);
 
+  // The serif ships inside the extension and is registered from its bytes, so X's
+  // content-security policy, which governs font URLs, never applies. A font added to the
+  // page's font set is visible inside the card's shadow root. Until it loads, Georgia stands in.
+  // As on the site, the digits come from Source Serif 4: Instrument Serif's 1 looks like an l.
+  let serifRequested = false;
+  function addFont(file, family, descriptors) {
+    return fetch(chrome.runtime.getURL("fonts/" + file))
+      .then((res) => {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.arrayBuffer();
+      })
+      .then((bytes) => new FontFace(family, bytes, descriptors).load())
+      .then((face) => document.fonts.add(face))
+      .catch((e) => console.warn("[convix] " + file + " did not load", e));
+  }
+  function loadSerif() {
+    if (serifRequested) return;
+    serifRequested = true;
+    addFont("InstrumentSerif-Regular.woff2", "convix serif", {});
+    addFont("SourceSerif4-Digits.woff2", "convix digits", { unicodeRange: "U+0030-0039" });
+  }
+
   function isDark() {
     const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(document.body).backgroundColor);
     if (!m) return true;
@@ -197,7 +223,7 @@ const TMCard = (() => {
   function header(card, onClose) {
     const top = el("div", "top");
     const brand = el("span", "brand");
-    brand.append(ring(), "Thesis Market");
+    brand.append(ring(), el("span", "wordmark", "convíx"));
     const close = el("button", "close");
     close.type = "button";
     close.title = "Hide cards for this market";
@@ -268,6 +294,7 @@ const TMCard = (() => {
   }
 
   function mount(card, { onClose }) {
+    loadSerif();
     const host = document.createElement("div");
     host.setAttribute("data-tm-card", card.symbol);
     const root = host.attachShadow({ mode: "open" });

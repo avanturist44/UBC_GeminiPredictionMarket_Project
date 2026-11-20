@@ -13,7 +13,7 @@ export default async function WritePage({ searchParams }: Props) {
   const [{ market }, markets, user] = await Promise.all([searchParams, loadMarkets(), getSessionUser()]);
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Write a thesis</h1>
+      <h1 className="serif-title text-[32px] leading-[1.1] lg:text-[36px]">Write a thesis</h1>
       <ThesisEditor
         markets={markets.ok ? markets.data : undefined}
         me={user ? await toMe(user) : null}

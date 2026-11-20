@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { IBM_Plex_Sans } from 'next/font/google';
+import { IBM_Plex_Sans, Instrument_Serif } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { BottomNav, SideNav, TopBar } from '@/components/app-nav';
 import { LiveStrip } from '@/components/live-strip';
@@ -12,8 +12,16 @@ const plex = IBM_Plex_Sans({
   variable: '--font-plex',
 });
 
+// The voice of the name, page titles and thesis headlines: theses read like opinion columns.
+// It has one weight, so it is never bolded.
+const instrument = Instrument_Serif({
+  subsets: ['latin'],
+  weight: '400',
+  variable: '--font-instrument',
+});
+
 export const metadata: Metadata = {
-  title: { default: 'Thesis Market', template: '%s | Thesis Market' },
+  title: { default: 'convíx', template: '%s | convíx' },
   description: 'Every bet on Gemini Prediction Markets, published with a thesis you can check and copy.',
 };
 
@@ -21,7 +29,7 @@ export const viewport: Viewport = { width: 'device-width', initialScale: 1, them
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={plex.variable}>
+    <html lang="en" className={`${plex.variable} ${instrument.variable}`}>
       <body>
         <div className="lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
           <SideNav />

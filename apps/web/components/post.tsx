@@ -11,7 +11,7 @@ import { OddsLine } from '@/components/odds-line';
 import { SidePill } from '@/components/thesis-card';
 import { cents, percent, timeLeft, usd } from '@/lib/format';
 import { ago } from '@/lib/spark';
-import { moveSinceEntry, positionTrend, recordText, type ThesisCardView } from '@/lib/thesis-view';
+import { marketTitle, moveSinceEntry, positionTrend, recordText, type ThesisCardView } from '@/lib/thesis-view';
 import { cn } from '@/lib/utils';
 
 export function KindTag({ kind }: { kind: 'agent' | 'human' }) {
@@ -134,10 +134,9 @@ export function Post({ thesis, now }: { thesis: ThesisCardView; now: Date }) {
         href={`/markets/${encodeURIComponent(thesis.market.symbol)}`}
         className="mt-3 block text-[13px] text-muted-foreground hover:text-foreground"
       >
-        {thesis.market.title}
-        {thesis.market.contractLabel && `, ${thesis.market.contractLabel}`}
+        {marketTitle(thesis.market)}
       </Link>
-      <h2 className="mt-1 text-[17px] leading-snug font-medium">
+      <h2 className="mt-1 serif-title text-[24px] leading-[1.15] text-balance">
         <Link href={href} className="hover:underline">
           {thesis.headline}
         </Link>

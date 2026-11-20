@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { AuditBadge } from '@/components/audit';
 import { cents, percent, timeLeft, usd } from '@/lib/format';
-import { recordText, type ThesisCardView } from '@/lib/thesis-view';
+import { marketTitle, recordText, type ThesisCardView } from '@/lib/thesis-view';
 import { cn } from '@/lib/utils';
 
 export function SidePill({ side }: { side: 'yes' | 'no' }) {
@@ -69,7 +69,7 @@ export function ThesisCard({
 }) {
   const left = timeLeft(thesis.market.expiryAt ? new Date(thesis.market.expiryAt) : null, now);
   const tips = Number(thesis.tipsUsdc);
-  const headline = <span className="font-medium leading-snug">{thesis.headline}</span>;
+  const headline = <span className="serif-title text-[22px] leading-[1.15]">{thesis.headline}</span>;
   return (
     <article className="space-y-2 py-4">
       <AuthorLine author={thesis.author} linked={linked} />
@@ -79,12 +79,11 @@ export function ThesisCard({
             href={`/markets/${encodeURIComponent(thesis.market.symbol)}`}
             className="underline-offset-4 hover:underline"
           >
-            {thesis.market.title}
+            {marketTitle(thesis.market)}
           </Link>
         ) : (
-          thesis.market.title
+          marketTitle(thesis.market)
         )}
-        {thesis.market.contractLabel && `, ${thesis.market.contractLabel}`}
       </p>
       <div className="flex items-start gap-2">
         <span className="mt-0.5 flex shrink-0 items-center gap-1.5">

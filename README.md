@@ -1,4 +1,6 @@
-# Thesis Market
+# convíx
+
+Said like conviction. Live at https://getconvix.vercel.app.
 
 A social trading layer on Gemini Prediction Markets: every bet is published with a thesis, and anyone can copy it. Built for the UBC 2026 hackathon. All money is test money: simulated fills at Gemini's live prices, and testnet USDC on Arc.
 

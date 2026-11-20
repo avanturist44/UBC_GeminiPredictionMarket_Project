@@ -3,8 +3,8 @@
 const TM = {
   // Where the web app runs. For local development use "http://localhost:3000" for both
   // (pnpm dev:web). Any other origin must also be added to host_permissions in manifest.json.
-  API_BASE: "https://thesis-market-rose.vercel.app",
-  SITE_BASE: "https://thesis-market-rose.vercel.app",
+  API_BASE: "https://getconvix.vercel.app",
+  SITE_BASE: "https://getconvix.vercel.app",
 
   // true = use the sample data in mock.js so you can test with no backend.
   USE_MOCK: false,

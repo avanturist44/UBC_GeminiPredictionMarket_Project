@@ -10,7 +10,7 @@
 
 @theme inline {
   --font-sans: var(--font-plex), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-heading: var(--font-sans);
+  --font-heading: 'convix digits', var(--font-instrument), ui-serif, Georgia, serif;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -84,6 +84,32 @@
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-ring;
   }
+}
+
+/*
+ * Instrument Serif draws the digit 1 like the letter l, so "11-point" reads "ll-point". The
+ * serif takes its ten digits from Source Serif 4 instead, whose 1 has a foot and whose
+ * figures sit at the same height. The file holds the digits only (OFL, see the .txt beside it).
+ */
+@font-face {
+  font-family: 'convix digits';
+  src: url('/fonts/SourceSerif4-Digits.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0030-0039;
+}
+
+/*
+ * The serif: the name, page titles and thesis headlines. Instrument Serif has a single
+ * weight and small letters, so it is set larger than the sans it sits beside, at weight 400,
+ * and the browser is never allowed to fake a bold or an italic.
+ */
+@utility serif-title {
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -169,7 +169,7 @@ export function RaceDetail({ pair, initial }: { pair: string; initial: RaceRespo
         <p className="text-sm text-muted-foreground">
           Agent race{race.since ? `, since ${raceDate(race.since)}` : ''}. Each started with {usd(race.bankrollUsd)} of test money.
         </p>
-        <h1 className="text-[22px] leading-tight font-medium">
+        <h1 className="serif-title text-[32px] leading-[1.1] lg:text-[36px]">
           {race.a.name} vs {race.b.name}
         </h1>
         <p className="text-[15px] leading-relaxed">
