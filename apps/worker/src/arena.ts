@@ -42,6 +42,7 @@ import {
   openMarkets,
   type AgentCycle,
 } from './agent-kit';
+import { checkServedModel } from './arena-contenders';
 import type { Logger } from './recorder';
 import { agentLedger } from './thesis-pipeline';
 
@@ -213,6 +214,21 @@ async function look(
   if (!allowed.ok) return done(null, { decision: 'skip', reason: allowed.message });
 
   const quote = { yesBid: market.yesBid, yesAsk: market.yesAsk };
+  /**
+   * A model call that failed, or an answer that cannot count as the model's. Logged with its
+   * error and no probability, so it counts toward the halt; the one that makes it
+   * ARENA_ERROR_HALT in a row halts the model until midnight UTC.
+   */
+  const failedCall = async (reason: string, error: string, signal: Record<string, unknown> = {}): Promise<ArenaResult> => {
+    const halt = 1 + (await failuresInARow(db, key, ARENA_ERROR_HALT - 1)) >= ARENA_ERROR_HALT;
+    const why = halt ? `The model call failed, ${ARENA_ERROR_HALT} times in a row. Halted until midnight UTC.` : reason;
+    const result = await done(market, { decision: 'skip', reason: why }, { quote, ...signal }, error);
+    if (halt) {
+      await haltForToday(db, key, now);
+      logger.warn(`arena: ${entrant.id} halted until midnight UTC after ${ARENA_ERROR_HALT} failed model calls in a row`);
+    }
+    return result;
+  };
   const served: Record<string, unknown> = {};
   let estimate: NewsEstimate;
   try {
@@ -240,25 +256,24 @@ async function look(
       );
     }
     logger.warn(`arena: ${entrant.id} on ${market.instrumentSymbol} failed: ${errorText(error)}`);
-    const halt = 1 + (await failuresInARow(db, key, ARENA_ERROR_HALT - 1)) >= ARENA_ERROR_HALT;
-    const result = await done(
-      market,
-      {
-        decision: 'skip',
-        reason: halt
-          ? `The model call failed, ${ARENA_ERROR_HALT} times in a row. Halted until midnight UTC.`
-          : error instanceof LlmError && error.code === 'ungrounded'
-            ? 'It answered without searching the web, so it did not trade.'
-            : 'The model call failed.',
-      },
-      { quote },
+    const ungrounded = error instanceof LlmError && error.code === 'ungrounded';
+    return failedCall(
+      ungrounded ? 'It answered without searching the web, so it did not trade.' : 'The model call failed.',
       errorText(error),
     );
-    if (halt) {
-      await haltForToday(db, key, now);
-      logger.warn(`arena: ${entrant.id} halted until midnight UTC after ${ARENA_ERROR_HALT} failed model calls in a row`);
-    }
-    return result;
+  }
+
+  // An answer from another model than the roster's is not this model's: it neither trades nor
+  // publishes, and counts as a failed call.
+  const servedModel = typeof served.model === 'string' ? served.model : '';
+  const sameModel = checkServedModel(entrant, servedModel);
+  if (!sameModel.ok) {
+    logger.warn(`arena: ${entrant.id} on ${market.instrumentSymbol} was not traded: ${sameModel.message}`);
+    return failedCall(
+      `It was answered by ${servedModel || 'an unnamed model'}, not ${entrant.model}, so it did not trade.`,
+      sameModel.message,
+      { model: servedModel },
+    );
   }
 
   let acted: Awaited<ReturnType<typeof actOnEstimate>>;
@@ -281,8 +296,8 @@ async function look(
 /**
  * How many of the agent's latest model calls, newest first, failed before the last one that
  * answered (at most `limit`). A call that answered logs the model's probability, even when
- * acting on it then failed; a call that failed logs only an error. Runs without a call, such
- * as a budget refusal, count neither way.
+ * acting on it then failed; a call that failed, or was answered by another model, logs only an
+ * error. Runs without a call, such as a budget refusal, count neither way.
  */
 async function failuresInARow(db: Db, agentKey: string, limit: number): Promise<number> {
   const answeredSql = sql<boolean>`${agentRuns.signal} ->> 'probabilityYes' is not null`;

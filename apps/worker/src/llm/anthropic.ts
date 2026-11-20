@@ -12,7 +12,8 @@ import { redact } from './http';
  *   output is not used, so the same request shape works with and without web search.
  * - A refusal is reported as an error, never read as an answer. Server-side fallbacks are
  *   requested by default, so a declined request is re-run on a fallback model by the API;
- *   if the account or model does not accept that parameter, calls go on without it.
+ *   if the account or model does not accept that parameter, calls go on without it. A caller
+ *   that must get the model it named, such as the arena, turns them off (`fallbacks: false`).
  * - Another endpoint that speaks the Anthropic API (DeepSeek's) is used through `baseUrl`,
  *   with its own hosted search tool in `searchTool`. Fallbacks are Anthropic's own and are
  *   not requested there. Such an endpoint must be given its own key.
@@ -37,6 +38,11 @@ export interface AnthropicProviderOptions {
    * does not report its searches is counted as having run them all.
    */
   maxSearches?: number;
+  /**
+   * Ask the API to re-run a declined request on a fallback model (default true). Off where an
+   * answer must come from `model` itself. Never sent to another endpoint (`baseUrl`).
+   */
+  fallbacks?: boolean;
   /** An Anthropic-compatible endpoint, such as https://api.deepseek.com/anthropic. Anthropic's when omitted. */
   baseUrl?: string;
   /** That endpoint's hosted search tool, sent as given in place of Anthropic's web search. */
@@ -76,7 +82,7 @@ export function createAnthropicProvider(options: AnthropicProviderOptions): LlmP
     options.searchTool
       ? (options.searchTool as unknown as Anthropic.Beta.BetaToolUnion)
       : { type: 'web_search_20260209', name: 'web_search', max_uses: allowance };
-  let useFallbacks = !options.baseUrl;
+  let useFallbacks = !options.baseUrl && options.fallbacks !== false;
   const logger = options.logger ?? console;
 
   /** `searchAllowance`: how many of the call's searches this request may still run. */

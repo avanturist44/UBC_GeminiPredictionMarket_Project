@@ -274,6 +274,15 @@ describe('createAnthropicProvider', () => {
     expect(calls[0]!.body.max_tokens).toBe(16_000);
   });
 
+  it('requests no server-side fallbacks when told not to, so the answer is the model asked for', async () => {
+    const { fetch, calls } = fakeFetch(() => json(200, message({ model: 'claude-sonnet-5-5' })));
+    const claude = createAnthropicProvider({ model: 'claude-sonnet-5-5', apiKey: KEY, fallbacks: false, fetch });
+    await claude.complete(request({ useSearch: true }));
+    expect(calls[0]!.url).toMatch(/^https:\/\/api\.anthropic\.com\/v1\/messages/);
+    expect(calls[0]!.body).not.toHaveProperty('fallbacks');
+    expect(calls[0]!.headers.get('anthropic-beta')).toBeNull();
+  });
+
   it('reports the searches each turn ran, from usage.server_tool_use', async () => {
     // A long search pauses once and is resumed: both turns' searches count.
     const { fetch, calls } = queued([json(200, searched(2, 'pause_turn')), json(200, searched(1, 'end_turn')), json(200, message())]);

@@ -70,7 +70,8 @@ type Reply = Partial<NewsEstimate> | Error;
 
 /**
  * A model that answers with `reply` (or throws it) and reports each call. `reply` may be a
- * function, for an answer that changes from one cycle to the next.
+ * function, for an answer that changes from one cycle to the next. Its completion names the
+ * model that served it: `completion.model`, which the arena checks against the roster's.
  */
 function fakeLlm(
   reply: Reply | (() => Reply),
@@ -100,13 +101,24 @@ interface Call {
   args: GenerateJsonArgs<unknown>;
 }
 
-/** Every roster model; each answers `replies[id]`, or 0.6 (no edge) when not given. */
-function arena(replies: Partial<Record<ModelId, Reply | (() => Reply)>> = {}, calls: Call[] = []): ArenaContender[] {
+/**
+ * Every roster model; each answers `replies[id]`, or 0.6 (no edge) when not given, served by its
+ * roster model or by `served[id]`.
+ */
+function arena(
+  replies: Partial<Record<ModelId, Reply | (() => Reply)>> = {},
+  calls: Call[] = [],
+  served: Partial<Record<ModelId, string>> = {},
+): ArenaContender[] {
   return ARENA_ROSTER.map((entrant) => ({
     entrant,
-    llm: fakeLlm(replies[entrant.id] ?? {}, (args) => calls.push({ id: entrant.id, args })),
+    llm: fakeLlm(replies[entrant.id] ?? {}, (args) => calls.push({ id: entrant.id, args }), {
+      model: served[entrant.id] ?? entrant.model,
+    }),
   }));
 }
+
+const modelOf = (id: ModelId) => ARENA_ROSTER.find((entrant) => entrant.id === id)!.model;
 
 /** Replies in order, one per call. */
 const inTurn = (replies: Reply[]) => () => {
@@ -148,7 +160,7 @@ describe('runArenaCycle', () => {
     const seen: string[] = [];
     const contenders = ARENA_ROSTER.map((entrant) => ({
       entrant,
-      llm: fakeLlm({ probability_yes: 0.5 }, (args) => seen.push(args.user)),
+      llm: fakeLlm({ probability_yes: 0.5 }, (args) => seen.push(args.user), { model: entrant.model }),
     }));
     const out = await cycle(contenders);
     expect(new Set(seen).size).toBe(1);
@@ -219,10 +231,15 @@ describe('runArenaCycle', () => {
 
   /** An answer that skipped validation: acting on it throws after the model was paid. */
   const brokenAnswer = <T>() => ({ ...estimate(), evidence: undefined }) as unknown as T;
+  /** The model `id`, answering with brokenAnswer. */
+  const answersBroken = async <T>(id: ModelId, args: GenerateJsonArgs<T>) => {
+    await args.onCompletion?.({ text: '', model: modelOf(id), usage: { inputTokens: 10, outputTokens: 5 } });
+    return brokenAnswer<T>();
+  };
 
   it('a failure after the model answered is logged against the market, and does not stop the others', async () => {
     const { id: marketId } = await upsertMarket(db, market());
-    const broken: Llm = { model: 'fake-model', generateJson: async <T>() => brokenAnswer<T>() };
+    const broken: Llm = { model: 'fake-model', generateJson: <T>(args: GenerateJsonArgs<T>) => answersBroken('gemini', args) };
     const contenders = arena({ claude: { probability_yes: 0.9 } }).map((c) =>
       c.entrant.id === 'gemini' ? { ...c, llm: broken } : c,
     );
@@ -253,16 +270,16 @@ describe('runArenaCycle', () => {
     const turns: Array<'fail' | 'broken'> = ['fail', 'fail', 'fail', 'fail', 'broken', 'fail', 'fail', 'fail', 'fail'];
     const flaky: Llm = {
       model: 'fake-model',
-      generateJson: async <T>() => {
+      generateJson: async <T>(args: GenerateJsonArgs<T>) => {
         if (turns.shift() === 'fail') throw fail;
-        return brokenAnswer<T>();
+        return answersBroken('grok', args);
       },
     };
     const contenders = arena().map((c) => (c.entrant.id === 'grok' ? { ...c, llm: flaky } : c));
     for (let i = 0; i < 9; i += 1) await cycle(contenders, new Date(NOW.getTime() + i * 60_000));
     expect(await haltedKeys(db)).toEqual([]);
     // Nor does a run of them halt on its own.
-    const broken: Llm = { model: 'fake-model', generateJson: async <T>() => brokenAnswer<T>() };
+    const broken: Llm = { model: 'fake-model', generateJson: <T>(args: GenerateJsonArgs<T>) => answersBroken('grok', args) };
     const always = arena().map((c) => (c.entrant.id === 'grok' ? { ...c, llm: broken } : c));
     for (let i = 9; i < 15; i += 1) await cycle(always, new Date(NOW.getTime() + i * 60_000));
     expect(await haltedKeys(db)).toEqual([]);
@@ -301,6 +318,43 @@ describe('runArenaCycle', () => {
     const fifth = await cycle(contenders, new Date(NOW.getTime() + 4 * 60_000));
     expect(await haltedKeys(db)).toEqual(['arena-gpt']);
     expect(result(fifth, 'gpt')!.reason).toContain('5 times in a row');
+  });
+
+  it('an answer served by another model than the roster’s does not trade, and counts toward the halt', async () => {
+    await upsertMarket(db, market());
+    const warnings: string[] = [];
+    const contenders = arena({ gpt: { probability_yes: 0.9 } }, [], { gpt: 'gpt-5-mini' });
+    const out = await runArenaCycle({
+      db,
+      contenders,
+      tradingEnabled: () => true,
+      logger: { ...logger, warn: (line: string) => warnings.push(line) },
+      now: () => NOW,
+    });
+    expect(result(out, 'gpt')).toEqual({
+      id: 'gpt',
+      decision: 'skip',
+      reason: 'It was answered by gpt-5-mini, not gpt-5, so it did not trade.',
+    });
+    expect(await thesisAuthorKeys(db)).toEqual([]);
+    const [run] = await runsOf('arena-gpt');
+    expect(run!.error).toContain('gpt-5-mini');
+    // Not an answer from this model: nothing of it is kept as the model's.
+    expect(run!.signal).not.toHaveProperty('probabilityYes');
+    expect(warnings.join('\n')).toContain('gpt-5-mini');
+
+    for (let i = 1; i < 4; i += 1) await cycle(contenders, new Date(NOW.getTime() + i * 60_000));
+    expect(await haltedKeys(db)).toEqual([]);
+    const fifth = await cycle(contenders, new Date(NOW.getTime() + 4 * 60_000));
+    expect(await haltedKeys(db)).toEqual(['arena-gpt']);
+    expect(result(fifth, 'gpt')!.reason).toContain('5 times in a row');
+  });
+
+  it('an answer served by the roster model with a version or date after its id trades', async () => {
+    await upsertMarket(db, market());
+    const out = await cycle(arena({ gpt: { probability_yes: 0.9 } }, [], { gpt: 'gpt-5-2025-08-07' }));
+    expect(result(out, 'gpt')).toMatchObject({ decision: 'trade' });
+    expect(await thesisAuthorKeys(db)).toEqual(['arena-gpt']);
   });
 
   it('five consecutive errors halt only that model', async () => {
@@ -342,7 +396,9 @@ describe('runArenaCycle', () => {
   it('keeps Google’s search suggestions with the run that used them', async () => {
     await upsertMarket(db, market());
     const contenders = arena().map((c) =>
-      c.entrant.id === 'gemini' ? { ...c, llm: fakeLlm({}, () => {}, { searchSuggestionsHtml: '<div class="chips">brent</div>' }) } : c,
+      c.entrant.id === 'gemini'
+        ? { ...c, llm: fakeLlm({}, () => {}, { model: c.entrant.model, searchSuggestionsHtml: '<div class="chips">brent</div>' }) }
+        : c,
     );
     await cycle(contenders);
     const [gemini] = await runsOf('arena-gemini');

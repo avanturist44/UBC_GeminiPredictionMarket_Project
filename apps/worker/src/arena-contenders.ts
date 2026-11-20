@@ -36,13 +36,14 @@ export const ARENA_KEY_VARS = {
 
 /**
  * The real adapters. `fetch` stands in for the network in tests. `logger` hears from the
- * Anthropic-API adapters when a model asks for a tool it was not given.
+ * Anthropic-API adapters when a model asks for a tool it was not given. None asks for server-side
+ * fallbacks: an answer shown as one model's must come from that model.
  */
 export function arenaProviders(fetch?: typeof globalThis.fetch, logger?: Pick<Logger, 'warn'>): ProviderFactory {
   return ({ provider, model }, apiKey) => {
     switch (provider) {
       case 'anthropic':
-        return createAnthropicProvider({ model, apiKey, logger, fetch });
+        return createAnthropicProvider({ model, apiKey, fallbacks: false, logger, fetch });
       case 'deepseek':
         // DeepSeek serves the Anthropic API, with its own hosted search tool.
         return createAnthropicProvider({
@@ -50,6 +51,7 @@ export function arenaProviders(fetch?: typeof globalThis.fetch, logger?: Pick<Lo
           apiKey,
           baseUrl: 'https://api.deepseek.com/anthropic',
           searchTool: { type: 'deepseek_web_search', name: 'deepseek_web_search' },
+          fallbacks: false,
           logger,
           fetch,
         });

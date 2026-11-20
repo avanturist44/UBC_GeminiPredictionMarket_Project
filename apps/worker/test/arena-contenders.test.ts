@@ -168,6 +168,9 @@ describe('arenaProviders (the default factory)', () => {
     expect(claude!.url).toMatch(/^https:\/\/api\.anthropic\.com\/v1\/messages/);
     expect(claude!.headers.get('authorization')).toBe('Bearer k-claude');
     expect(claude!.body.model).toBe('claude-sonnet-5-5');
+    // No server-side fallbacks: an answer shown as Claude's must come from the roster's model.
+    expect(claude!.body).not.toHaveProperty('fallbacks');
+    expect(claude!.headers.get('anthropic-beta')).toBeNull();
 
     // The Responses API: OpenAI bounds a call's searches with max_tool_calls, xAI with both.
     expect(gpt!.url).toBe('https://api.openai.com/v1/responses');
