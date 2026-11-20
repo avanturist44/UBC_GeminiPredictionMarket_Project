@@ -1,10 +1,13 @@
 import 'server-only';
 import { AGENT_RULES, LIMIT_BOUNDS, checkLimitValue, type LimitName } from '@thesis/core';
 import {
+  COUNTED_TRADES,
   getAccount,
   getAccountStats,
   getActivity,
+  getAuthorPortfolioData,
   getAuthorStanding,
+  getAuthorStats,
   getAuthorTheses,
   getLeaderboard,
   getPortfolioData,
@@ -22,6 +25,7 @@ import type {
   AuthorResponse,
   LeaderboardResponse,
   LeaderboardRow,
+  PositionView,
 } from './record-view';
 import { NOT_CONFIGURED, UUID, dbError, toMe } from './thesis-data';
 import { toThesisCard } from './thesis-mapping';
@@ -72,20 +76,57 @@ export async function loadAuthor(id: string): Promise<Loaded<AuthorResponse>> {
   const db = getDb();
   if (!db) return NOT_CONFIGURED;
   try {
-    const [standing, views] = await Promise.all([getAuthorStanding(db, id, new Date()), getAuthorTheses(db, id)]);
+    const now = new Date();
+    const [standing, views, portfolioData, stats] = await Promise.all([
+      getAuthorStanding(db, id, now),
+      getAuthorTheses(db, id),
+      getAuthorPortfolioData(db, id, { now, slots: PORTFOLIO_SLOTS }),
+      getAuthorStats(db, id),
+    ]);
     if (!standing) return notFound;
     const isAgent = standing.author.kind === 'agent';
+    // Valued like an account with no cash, so the change is the author's profit.
+    const portfolio = buildPortfolio(portfolioData, { now, cashUsd: 0 });
+    const positions = views.flatMap((view): PositionView[] => {
+      const p = view.position;
+      if (!p || !(COUNTED_TRADES as readonly string[]).includes(p.status)) return [];
+      return [
+        {
+          tradeId: p.id,
+          thesisId: view.thesis.id,
+          headline: view.thesis.headline,
+          marketSymbol: view.market.instrumentSymbol,
+          marketTitle: view.market.title,
+          contractLabel: view.market.contractLabel,
+          expiryAt: view.market.expiryAt?.toISOString() ?? null,
+          own: true,
+          side: p.side,
+          quantity: p.quantity,
+          price: p.price,
+          costUsd: p.costUsd,
+          payoutUsd: p.payoutUsd,
+          settled: p.status === 'settled',
+          markPrice: portfolio.marks.get(p.id)?.markPrice ?? null,
+          valueUsd: portfolio.marks.get(p.id)?.valueUsd ?? null,
+        },
+      ];
+    });
     return {
       ok: true,
       data: {
-        asOf: new Date().toISOString(),
+        asOf: now.toISOString(),
         author: {
           ...toRow(standing),
           strategySummary: standing.author.strategySummary,
           agentStatus: standing.agentStatus,
           limits: isAgent ? AGENT_LIMITS : [],
+          joinedAt: standing.author.createdAt.toISOString(),
+          walletAddress: standing.author.walletAddress,
+          portfolio: portfolio.view,
+          stats,
         },
         theses: views.map((view) => toThesisCard(view)),
+        positions,
       },
     };
   } catch (error) {

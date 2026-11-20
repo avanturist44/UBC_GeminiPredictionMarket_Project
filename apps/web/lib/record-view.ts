@@ -58,6 +58,25 @@ export interface AuthorView extends LeaderboardRow {
   agentStatus: AgentStatusView | null;
   /** The hard limits an agent trades within. Empty for people. */
   limits: Array<{ label: string; value: string }>;
+  /** When the author first appeared here. */
+  joinedAt: string;
+  /** Where their tips are paid, on Arc testnet. Null when they have none. */
+  walletAddress: string | null;
+  /**
+   * The positions behind their public theses over time, valued like an account with no
+   * cash: `changeUsd` is their profit, and the line less `startUsd` is profit at each moment.
+   */
+  portfolio: PortfolioView;
+  stats: AuthorStatsView;
+}
+
+export interface AuthorStatsView {
+  /** People who have copied one of the author's public theses. */
+  copiers: number;
+  /** Tips paid to the author because a thesis was right. */
+  tipsEarnedUsdc: string;
+  /** Tips in escrow on the author's open theses. */
+  tipsHeldUsdc: string;
 }
 
 export interface AuthorResponse {
@@ -65,6 +84,20 @@ export interface AuthorResponse {
   author: AuthorView;
   /** The author's public theses, newest first. */
   theses: ThesisCardView[];
+  /** The position behind each public thesis, newest first, valued now. */
+  positions: PositionView[];
+}
+
+/** Profit on settled positions, and on open ones at what they are worth now (cost when no price is known). */
+export function profitSplit(positions: readonly PositionView[]): { settledUsd: number; openUsd: number } {
+  let settledUsd = 0;
+  let openUsd = 0;
+  for (const p of positions) {
+    const cost = Number(p.costUsd);
+    if (p.settled) settledUsd += Number(p.payoutUsd ?? 0) - cost;
+    else openUsd += (p.valueUsd === null ? cost : Number(p.valueUsd)) - cost;
+  }
+  return { settledUsd, openUsd };
 }
 
 export interface ActivityItemView {

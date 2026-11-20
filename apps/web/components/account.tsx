@@ -3,14 +3,28 @@
 import { LIMIT_BOUNDS } from '@thesis/core/browser';
 import { ArrowUpRight, CalendarDays, SlidersHorizontal, X } from 'lucide-react';
 import Link from 'next/link';
-import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { AccountChart } from '@/components/account-chart';
 import { Avatar } from '@/components/avatar';
 import { InfoTip } from '@/components/info-tip';
 import { LoadError } from '@/components/load-error';
-import { SidePill } from '@/components/thesis-card';
+import {
+  Divider,
+  FigureBlock,
+  FigureRow,
+  Identity,
+  PositionList,
+  Stat,
+  Tabs,
+  WalletLink,
+  chip,
+  momentText,
+  shortDate,
+  textLink,
+  tone,
+} from '@/components/profile-parts';
 import { Button } from '@/components/ui/button';
-import { cents, contracts, usd } from '@/lib/format';
+import { usd } from '@/lib/format';
 import {
   signedUsd,
   tipStatusText,
@@ -18,7 +32,6 @@ import {
   type AccountResponse,
   type PortfolioPoint,
   type PortfolioView,
-  type PositionView,
   type TipView,
 } from '@/lib/record-view';
 import { EXPLORER_ADDRESS, EXPLORER_TX, isTxHash, type MeResponse } from '@/lib/thesis-view';
@@ -26,20 +39,10 @@ import { useLive } from '@/lib/use-live';
 import { cn } from '@/lib/utils';
 
 const field = 'w-full rounded-md border border-input bg-background px-3 py-2 text-base tabular-nums';
-const link = 'text-primary underline-offset-4 hover:underline';
-const chip = 'inline-flex h-8 items-center gap-1.5 rounded-full bg-secondary px-3 text-sm text-muted-foreground';
 
 /** A UTC day as "November 20". */
 const utcDayText = (day: string) =>
   new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' });
-/** "Nov 18", in UTC so the server and the browser agree. */
-const shortDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-/** "Nov 19, 3:40 PM" in the reader's own time. Only drawn in the browser, while scrubbing. */
-const momentText = (t: number) =>
-  new Date(t).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-const shortAddress = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
-const tone = (amount: number) => (amount > 0.004 ? 'text-yes' : amount < -0.004 ? 'text-no' : 'text-muted-foreground');
 
 function signedPercent(change: number, start: number): string {
   const pct = start > 0 ? (change / start) * 100 : 0;
@@ -203,17 +206,12 @@ function AccountValue({ portfolio }: { portfolio: PortfolioView }) {
   const change = value - start;
   const hasLine = portfolio.points.length >= 2;
   return (
-    <div className="min-w-0 lg:text-right">
-      <p className="flex h-6 items-center gap-0.5 text-sm text-muted-foreground lg:justify-end">
-        Account value
-        <InfoTip label="About account value">
-          Your cash plus your open positions at Gemini&apos;s live prices, in test dollars. The line starts at your
-          first position.
-        </InfoTip>
-      </p>
-      <p className="mt-1 text-4xl font-medium tracking-tight tabular-nums lg:text-5xl">{usd(value)}</p>
-      <p className="mt-2 text-sm tabular-nums">
-        {portfolio.since ? (
+    <FigureBlock
+      label="Account value"
+      tip="Your cash plus your open positions at Gemini's live prices, in test dollars. The line starts at your first position."
+      figure={usd(value)}
+      sub={
+        portfolio.since ? (
           <>
             <span className={tone(change)}>
               {signedUsd(change)} ({signedPercent(change, start)})
@@ -224,121 +222,27 @@ function AccountValue({ portfolio }: { portfolio: PortfolioView }) {
           </>
         ) : (
           <span className="text-muted-foreground">No positions yet</span>
-        )}
-      </p>
-      <AccountChart
-        className="mt-4 h-24 lg:h-28"
-        points={portfolio.points}
-        startUsd={start}
-        onScrub={setScrub}
-        label={
-          hasLine
-            ? `Account value from ${usd(start)} at your first position to ${usd(portfolio.valueUsd)} now`
-            : 'No account line yet'
-        }
-      />
-      {!hasLine && <p className="mt-2 text-sm text-muted-foreground">The line starts with your first position.</p>}
-    </div>
+        )
+      }
+      chart={
+        <AccountChart
+          className="mt-4 h-24 lg:h-28"
+          points={portfolio.points}
+          startUsd={start}
+          onScrub={setScrub}
+          label={
+            hasLine
+              ? `Account value from ${usd(start)} at your first position to ${usd(portfolio.valueUsd)} now`
+              : 'No account line yet'
+          }
+        />
+      }
+      note={hasLine ? undefined : 'The line starts with your first position.'}
+    />
   );
-}
-
-function Stat({ label, tip, children }: { label: string; tip?: ReactNode; children: ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <p className="flex h-6 items-center gap-0.5 text-sm text-muted-foreground">
-        {label}
-        {tip && <InfoTip label={`About ${label.toLowerCase()}`}>{tip}</InfoTip>}
-      </p>
-      <p className="mt-1 truncate text-lg font-medium tabular-nums">{children}</p>
-    </div>
-  );
-}
-
-function Divider() {
-  return <span aria-hidden className="hidden h-12 w-px self-center bg-border xl:block" />;
 }
 
 type TabKey = 'open' | 'settled' | 'tips';
-
-function PositionRow({ position }: { position: PositionView }) {
-  const cost = Number(position.costUsd);
-  const title = position.headline ?? position.marketTitle;
-  const worth = position.settled ? Number(position.payoutUsd ?? 0) : position.valueUsd === null ? null : Number(position.valueUsd);
-  return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 border-b py-4 sm:grid-cols-[minmax(0,1fr)_96px_128px]">
-      <div className="min-w-0">
-        <div className="flex items-start gap-2">
-          <span className="mt-0.5 shrink-0">
-            <SidePill side={position.side} />
-          </span>
-          {position.thesisId ? (
-            <Link href={`/thesis/${position.thesisId}`} className="line-clamp-2 font-medium underline-offset-4 hover:underline">
-              {title}
-            </Link>
-          ) : (
-            <span className="line-clamp-2 font-medium">{title}</span>
-          )}
-        </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {position.own ? 'Your thesis' : 'Copied'}
-          {/* The title already names the market when there is no thesis headline. */}
-          {position.headline && (
-            <>
-              {' '}
-              on{' '}
-              <Link
-                href={`/markets/${encodeURIComponent(position.marketSymbol)}`}
-                className="underline-offset-4 hover:underline"
-              >
-                {position.contractLabel ? position.marketTitle.replace(/\?\s*$/, '') : position.marketTitle}
-              </Link>
-            </>
-          )}
-          {position.contractLabel && `, ${position.contractLabel}`}. {contracts(position.quantity)} contracts at{' '}
-          {cents(position.price)}
-          <span className="sm:hidden">, cost {usd(cost)}</span>
-          {!position.settled && `, pays ${usd(Number(position.quantity))} if ${position.side.toUpperCase()} wins`}
-        </p>
-      </div>
-      <p className="hidden text-right tabular-nums sm:block">{usd(cost)}</p>
-      <div className="text-right tabular-nums">
-        <p>{worth === null ? usd(cost) : usd(worth)}</p>
-        {worth !== null && <p className={cn('text-sm', tone(worth - cost))}>{signedUsd(worth - cost)}</p>}
-      </div>
-    </li>
-  );
-}
-
-function PositionList({ positions, settled }: { positions: PositionView[]; settled: boolean }) {
-  if (positions.length === 0) {
-    return settled ? (
-      <p className="py-8 text-sm text-muted-foreground">
-        Nothing has settled yet. A position settles when its market resolves.
-      </p>
-    ) : (
-      <p className="py-8 text-sm text-muted-foreground">
-        You hold nothing right now.{' '}
-        <Link href="/" className={link}>
-          Find a thesis to copy
-        </Link>
-      </p>
-    );
-  }
-  return (
-    <>
-      <div className="hidden grid-cols-[minmax(0,1fr)_96px_128px] gap-x-6 border-b py-3 text-sm text-muted-foreground sm:grid">
-        <span>Position</span>
-        <span className="text-right">Cost</span>
-        <span className="text-right">{settled ? 'Paid' : 'Worth now'}</span>
-      </div>
-      <ul>
-        {positions.map((p) => (
-          <PositionRow key={p.tradeId} position={p} />
-        ))}
-      </ul>
-    </>
-  );
-}
 
 function TipRow({ tip }: { tip: TipView }) {
   const tx = isTxHash(tip.settleTx) ? tip.settleTx : isTxHash(tip.depositTx) ? tip.depositTx : null;
@@ -386,51 +290,6 @@ function TipList({ tips }: { tips: TipView[] }) {
   );
 }
 
-function Tabs({
-  tabs,
-  active,
-  onChange,
-}: {
-  tabs: Array<{ key: TabKey; label: string; count: number }>;
-  active: TabKey;
-  onChange: (key: TabKey) => void;
-}) {
-  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
-    const index = tabs.findIndex((tab) => tab.key === active);
-    const next = tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]!;
-    onChange(next.key);
-    document.getElementById(`tab-${next.key}`)?.focus();
-  }
-  return (
-    <div role="tablist" aria-label="Your positions and tips" onKeyDown={onKeyDown} className="flex gap-6 border-b sm:gap-8">
-      {tabs.map((tab) => {
-        const selected = tab.key === active;
-        return (
-          <button
-            key={tab.key}
-            id={`tab-${tab.key}`}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            aria-controls={`panel-${tab.key}`}
-            tabIndex={selected ? 0 : -1}
-            onClick={() => onChange(tab.key)}
-            className={cn(
-              'relative flex h-12 items-center gap-1.5 text-[15px] whitespace-nowrap transition-colors',
-              selected ? 'font-medium text-foreground' : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {tab.label}
-            <span className="text-sm font-normal text-muted-foreground tabular-nums">{tab.count}</span>
-            {selected && <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary" />}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 export function Account({ initial }: { initial: AccountResponse }) {
   const { data, error, retry } = useLive<AccountResponse>('/api/me', initial, 10_000);
   const me = data ?? initial;
@@ -448,33 +307,32 @@ export function Account({ initial }: { initial: AccountResponse }) {
   return (
     <div>
       <header className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)] lg:gap-12">
-        <div className="flex min-w-0 items-start gap-4 lg:gap-5">
-          <Avatar name={me.displayName} kind="human" className="size-16 text-xl lg:size-20 lg:text-2xl" />
-          <div className="min-w-0 pt-1">
-            <div className="flex min-w-0 items-center gap-2">
-              <h1 className="truncate text-2xl font-medium tracking-tight lg:text-3xl">{me.displayName}</h1>
+        <Identity
+          avatar={<Avatar name={me.displayName} kind="human" className="size-16 text-xl lg:size-20 lg:text-2xl" />}
+          name={me.displayName}
+          tag={
+            <>
               <span className="shrink-0 rounded-md border border-input px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
                 Guest
               </span>
               <InfoTip label="About guest sessions">
                 A guest session on this browser. All funds here are simulated.
               </InfoTip>
-            </div>
-            {me.walletAddress ? (
-              <a
+            </>
+          }
+          wallet={
+            me.walletAddress ? (
+              <WalletLink
+                address={me.walletAddress}
                 href={`${EXPLORER_ADDRESS}${me.walletAddress}`}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1 inline-flex items-center gap-0.5 text-sm text-muted-foreground tabular-nums transition-colors hover:text-foreground"
-              >
-                {shortAddress(me.walletAddress)}
-                <ArrowUpRight aria-hidden className="size-3.5" />
-                <span className="sr-only">See the tip wallet on the explorer</span>
-              </a>
+                label="See the tip wallet on the explorer"
+              />
             ) : (
               <p className="mt-1 text-sm text-muted-foreground">No tip wallet yet</p>
-            )}
-            <ul className="mt-4 flex flex-wrap gap-2">
+            )
+          }
+          chips={
+            <>
               <li className={chip}>
                 <CalendarDays aria-hidden className="size-4" />
                 Joined {shortDate(me.joinedAt)}
@@ -486,9 +344,9 @@ export function Account({ initial }: { initial: AccountResponse }) {
                   no order is sent to a Gemini account.
                 </InfoTip>
               </li>
-            </ul>
-          </div>
-        </div>
+            </>
+          }
+        />
         <AccountValue portfolio={me.portfolio} />
       </header>
 
@@ -498,10 +356,7 @@ export function Account({ initial }: { initial: AccountResponse }) {
         </div>
       )}
 
-      <section
-        aria-label="Your figures"
-        className="mt-10 grid grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-4 xl:flex xl:flex-wrap xl:items-end xl:gap-x-8"
-      >
+      <FigureRow label="Your figures">
         <Stat label="Cash" tip="Test dollars you can trade with. Every guest starts with $1,000.">
           {usd(me.paperBalanceUsd)}
         </Stat>
@@ -531,10 +386,11 @@ export function Account({ initial }: { initial: AccountResponse }) {
         <Stat label="Tip wallet" tip={walletTip}>
           {me.walletAddress ? `${me.tipBalanceUsdc ?? '–'} USDC` : 'None yet'}
         </Stat>
-      </section>
+      </FigureRow>
 
       <div className="mt-10">
         <Tabs
+          label="Your positions and tips"
           active={tab}
           onChange={setTab}
           tabs={[
@@ -547,7 +403,23 @@ export function Account({ initial }: { initial: AccountResponse }) {
           {tab === 'tips' ? (
             <TipList tips={me.tips} />
           ) : (
-            <PositionList positions={tab === 'open' ? open : settled} settled={tab === 'settled'} />
+            <PositionList
+              positions={tab === 'open' ? open : settled}
+              settled={tab === 'settled'}
+              prefix={(p) => (p.own ? 'Your thesis' : 'Copied')}
+              empty={
+                tab === 'settled' ? (
+                  'Nothing has settled yet. A position settles when its market resolves.'
+                ) : (
+                  <>
+                    You hold nothing right now.{' '}
+                    <Link href="/" className={textLink}>
+                      Find a thesis to copy
+                    </Link>
+                  </>
+                )
+              }
+            />
           )}
         </div>
       </div>

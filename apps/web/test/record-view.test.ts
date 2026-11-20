@@ -3,13 +3,51 @@ import { usdcUnitsToText } from '../lib/format';
 import { disagreementLines } from '../lib/market-view';
 import {
   activityText,
+  profitSplit,
   rankAuthors,
   signedUsd,
   tipStatusText,
   usdc,
   type ActivityItemView,
   type LeaderboardRow,
+  type PositionView,
 } from '../lib/record-view';
+
+describe('profitSplit', () => {
+  const position = (over: Partial<PositionView>): PositionView => ({
+    tradeId: 't',
+    thesisId: 'th',
+    headline: 'h',
+    marketSymbol: 's',
+    marketTitle: 'm',
+    contractLabel: null,
+    expiryAt: null,
+    own: true,
+    side: 'yes',
+    quantity: '10',
+    price: '0.50',
+    costUsd: '5.00',
+    payoutUsd: null,
+    settled: false,
+    markPrice: null,
+    valueUsd: null,
+    ...over,
+  });
+
+  it('splits profit into settled positions and open ones at their current worth', () => {
+    const split = profitSplit([
+      position({ settled: true, payoutUsd: '10.00' }),
+      position({ settled: true, payoutUsd: '0.00', costUsd: '9.99' }),
+      position({ valueUsd: '6.20' }),
+    ]);
+    expect(split.settledUsd).toBeCloseTo(-4.99);
+    expect(split.openUsd).toBeCloseTo(1.2);
+  });
+
+  it('holds an open position with no price at cost', () => {
+    expect(profitSplit([position({ valueUsd: null })])).toEqual({ settledUsd: 0, openUsd: 0 });
+  });
+});
 
 const author = (
   name: string,
