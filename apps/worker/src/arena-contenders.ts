@@ -15,6 +15,13 @@ import type { Logger } from './recorder';
  * one daily dollar guard, shared with every other model call.
  */
 
+/**
+ * How long an arena search call may take: longer than the worker's usual two minutes, which a
+ * reasoning model that searches can run past. The spend guard holds the call's worst case until
+ * the provider answers, however long that is.
+ */
+export const ARENA_SEARCH_TIMEOUT_MS = 180_000;
+
 /** Builds the provider adapter for one entrant, given that entrant's key. Tests pass their own. */
 export type ProviderFactory = (entrant: ArenaEntrant, apiKey: string) => LlmProvider;
 
@@ -27,12 +34,15 @@ export const ARENA_KEY_VARS = {
   deepseek: 'DEEPSEEK_API_KEY',
 } as const satisfies Record<ArenaProvider, keyof WorkerEnv>;
 
-/** The real adapters. `fetch` stands in for the network in tests. */
-export function arenaProviders(fetch?: typeof globalThis.fetch): ProviderFactory {
+/**
+ * The real adapters. `fetch` stands in for the network in tests. `logger` hears from the
+ * Anthropic-API adapters when a model asks for a tool it was not given.
+ */
+export function arenaProviders(fetch?: typeof globalThis.fetch, logger?: Pick<Logger, 'warn'>): ProviderFactory {
   return ({ provider, model }, apiKey) => {
     switch (provider) {
       case 'anthropic':
-        return createAnthropicProvider({ model, apiKey, fetch });
+        return createAnthropicProvider({ model, apiKey, logger, fetch });
       case 'deepseek':
         // DeepSeek serves the Anthropic API, with its own hosted search tool.
         return createAnthropicProvider({
@@ -40,6 +50,7 @@ export function arenaProviders(fetch?: typeof globalThis.fetch): ProviderFactory
           apiKey,
           baseUrl: 'https://api.deepseek.com/anthropic',
           searchTool: { type: 'deepseek_web_search', name: 'deepseek_web_search' },
+          logger,
           fetch,
         });
       case 'openai':
@@ -61,7 +72,7 @@ export function createArenaContenders(
   db: Db,
   logger: Logger,
   guard: SpendGuard,
-  make: ProviderFactory = arenaProviders(),
+  make: ProviderFactory = arenaProviders(undefined, logger),
 ): ArenaContender[] {
   const contenders: ArenaContender[] = [];
   const missing: string[] = [];
@@ -77,6 +88,7 @@ export function createArenaContenders(
       purposePrefix: `arena:${entrant.id}`,
       guard,
       logger,
+      searchTimeoutMs: ARENA_SEARCH_TIMEOUT_MS,
     });
     contenders.push({ entrant, llm });
   }

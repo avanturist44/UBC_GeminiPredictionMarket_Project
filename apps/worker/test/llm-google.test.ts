@@ -79,12 +79,23 @@ describe('createGoogleProvider', () => {
     expect(await provider.complete(request({ useSearch: true }))).not.toHaveProperty('searchSuggestionsHtml');
   });
 
-  it('counts one search for a grounded answer and none for an ungrounded one', async () => {
+  it('counts each Gemini search query', async () => {
     const [first] = grounded().candidates;
+    const withQueries = (webSearchQueries?: string[]) =>
+      grounded({ candidates: [{ ...first, groundingMetadata: { ...first!.groundingMetadata, webSearchQueries } }] });
     const ungrounded = grounded({ candidates: [{ ...first, groundingMetadata: undefined }] });
-    const { fetch } = queued([json(200, grounded()), json(200, ungrounded)]);
+    const { fetch } = queued([
+      json(200, withQueries(['brent price today', 'opec output november', 'brent futures curve'])),
+      json(200, withQueries(undefined)),
+      json(200, withQueries([])),
+      json(200, ungrounded),
+    ]);
     const provider = gemini(fetch);
 
+    // Gemini 3 bills each query it ran.
+    expect((await provider.complete(request({ useSearch: true }))).searches).toBe(3);
+    // A grounded answer that does not list its queries ran at least one.
+    expect((await provider.complete(request({ useSearch: true }))).searches).toBe(1);
     expect((await provider.complete(request({ useSearch: true }))).searches).toBe(1);
     expect((await provider.complete(request({ useSearch: true }))).searches).toBe(0);
   });

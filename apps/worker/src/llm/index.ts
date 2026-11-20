@@ -46,6 +46,8 @@ export function withSpendCap(
     excludePrefix?: string;
     /** The daily dollar cap: the one guard the worker shares between every Llm it builds. */
     guard: SpendGuard;
+    /** How long a search call may take. createLlm's default (120 seconds) when omitted. */
+    searchTimeoutMs?: number;
     /** Told about each call as it is recorded, for a script that prints them. Whatever it throws is ignored. */
     onRecorded?: (call: { purpose: string; model: string; usage: LlmUsage; costUsd: number }) => void;
     now?: () => Date;
@@ -119,7 +121,7 @@ export function withSpendCap(
   return {
     model: provider.model,
     generateJson: <T>(args: GenerateJsonArgs<T>) =>
-      createLlm({ provider: metered(args.purpose), beforeCall }).generateJson(args),
+      createLlm({ provider: metered(args.purpose), beforeCall, searchTimeoutMs: options.searchTimeoutMs }).generateJson(args),
   };
 }
 
@@ -130,6 +132,7 @@ export function createWorkerLlm(db: Db, settings: LlmSettings, logger: Logger, g
     model: settings.model,
     apiKey: settings.apiKey,
     effort: settings.effort,
+    logger,
   });
   return withSpendCap(db, provider, {
     dailyTokenCap: settings.dailyTokenCap,

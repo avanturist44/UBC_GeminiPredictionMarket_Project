@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { LlmError, WORST_CALL, type LlmCompletion, type LlmProvider, type LlmRequest } from '@thesis/core';
+import type { Logger } from '../recorder';
 import { redact } from './http';
 
 /**
@@ -17,6 +18,9 @@ import { redact } from './http';
  *   not requested there. Such an endpoint must be given its own key.
  * - Every reply is capped at WORST_CALL.outputTokens, so no call costs more than the daily
  *   dollar cap assumes.
+ * - A model that ends its turn asking for a client tool it was never given (`tool_use`) is told,
+ *   as that tool's error result, that only web search is available, and the call goes on. This
+ *   is a continuation like a paused search, and shares their limit and the call's searches.
  */
 
 export interface AnthropicProviderOptions {
@@ -37,14 +41,22 @@ export interface AnthropicProviderOptions {
   baseUrl?: string;
   /** That endpoint's hosted search tool, sent as given in place of Anthropic's web search. */
   searchTool?: Record<string, unknown>;
+  /** Told the names of any tool the model asks for without being given it. Console when omitted. */
+  logger?: Pick<Logger, 'warn'>;
   /** For tests: stands in for the network. */
   fetch?: typeof fetch;
 }
 
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 
-/** A search call can pause after ten server-side steps. Resume it at most this many times. */
+/**
+ * A search call can pause after ten server-side steps, and a model can ask for a tool it was not
+ * given. Either is continued at most this many times in all.
+ */
 const MAX_CONTINUATIONS = 3;
+
+/** The error result sent back for each tool the model asked for and was not given. */
+const STRAY_TOOL_REPLY = 'Only web search is available here. Reply now with the JSON object.';
 
 export function createAnthropicProvider(options: AnthropicProviderOptions): LlmProvider {
   if (options.baseUrl && !options.apiKey) {
@@ -65,6 +77,7 @@ export function createAnthropicProvider(options: AnthropicProviderOptions): LlmP
       ? (options.searchTool as unknown as Anthropic.Beta.BetaToolUnion)
       : { type: 'web_search_20260209', name: 'web_search', max_uses: allowance };
   let useFallbacks = !options.baseUrl;
+  const logger = options.logger ?? console;
 
   /** `searchAllowance`: how many of the call's searches this request may still run. */
   async function request(
@@ -119,13 +132,43 @@ export function createAnthropicProvider(options: AnthropicProviderOptions): LlmP
           // An endpoint that does not report its searches (DeepSeek's) is counted at the most.
           if (input.useSearch) searches += usage.server_tool_use?.web_search_requests ?? maxSearches;
 
-          // The server paused a long search. Sending its own reply back resumes it, while the
-          // call has searches left. A paused reply is unfinished, so once they are used up the
-          // call fails below as stopped early, rather than return part of an answer.
-          if (response.stop_reason === 'pause_turn' && turn < MAX_CONTINUATIONS && searches < maxSearches) {
-            messages = [user, { role: 'assistant', content: response.content as Anthropic.Beta.BetaContentBlockParam[] }];
+          // Each continuation sends the conversation so far with the model's reply added as it
+          // came. Only while the call has continuations and searches left; after that an
+          // unfinished reply fails below as stopped early, rather than return part of an answer.
+          const canContinue = turn < MAX_CONTINUATIONS && searches < maxSearches;
+          const reply: Anthropic.Beta.BetaMessageParam = {
+            role: 'assistant',
+            content: response.content as Anthropic.Beta.BetaContentBlockParam[],
+          };
+
+          // The server paused a long search. Sending its own reply back resumes it.
+          if (response.stop_reason === 'pause_turn' && canContinue) {
+            messages = [...messages, reply];
             continue;
           }
+
+          // The model asked for a client tool. It is never given one, so whatever it named does
+          // not exist here: each call gets an error result telling it to answer.
+          const strayTools =
+            response.stop_reason === 'tool_use'
+              ? response.content.filter((block): block is Anthropic.Beta.BetaToolUseBlock => block.type === 'tool_use')
+              : [];
+          if (strayTools.length > 0) {
+            // The names only: a tool's input is the model's text, which is never logged.
+            const names = strayTools.map((block) => block.name.slice(0, 64)).join(', ');
+            logger.warn(`llm: ${options.model} asked for a tool it was not given (${names})`);
+            if (canContinue) {
+              const results: Anthropic.Beta.BetaToolResultBlockParam[] = strayTools.map((block) => ({
+                type: 'tool_result',
+                tool_use_id: block.id,
+                is_error: true,
+                content: STRAY_TOOL_REPLY,
+              }));
+              messages = [...messages, reply, { role: 'user', content: results }];
+              continue;
+            }
+          }
+
           const spent = { inputTokens, outputTokens };
           if (response.stop_reason === 'refusal') {
             throw new LlmError('refused', 'The language model declined the request.', spent);

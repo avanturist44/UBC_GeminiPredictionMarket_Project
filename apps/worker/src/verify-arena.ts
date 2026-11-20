@@ -146,7 +146,7 @@ async function check({ entrant, llm }: ArenaContender, user: string): Promise<Ou
       return;
     }
 
-    say(`asking ${contenders.length} of ${ARENA_ROSTER.length} models at once; a search call can take two minutes\n`);
+    say(`asking ${contenders.length} of ${ARENA_ROSTER.length} models at once; a search call can take three minutes\n`);
     const user = newsQuestion(sampleMarket(now), now);
     const before = await Promise.all(contenders.map(({ entrant }) => recorded(db, verifyPurpose(entrant))));
     const outcomes = await Promise.all(contenders.map((contender) => check(contender, user)));

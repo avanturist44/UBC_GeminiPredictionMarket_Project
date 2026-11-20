@@ -30,7 +30,131 @@ const searched = (count: number, stop: string) =>
     usage: { input_tokens: 100, output_tokens: 10, server_tool_use: { web_search_requests: count, web_fetch_requests: 0 } },
   });
 
+/**
+ * A Claude reply that ends its turn asking for `web_fetch`, a client tool it was never given,
+ * after running `count` searches.
+ */
+const stray = (count: number) =>
+  message({
+    model: 'claude-sonnet-5-5',
+    stop_reason: 'tool_use',
+    content: [
+      { type: 'text', text: 'I will open the agency report.' },
+      { type: 'tool_use', id: 'toolu_stray_1', name: 'web_fetch', input: { url: 'https://example.com/agency-report' } },
+    ],
+    usage: { input_tokens: 100, output_tokens: 10, server_tool_use: { web_search_requests: count, web_fetch_requests: 0 } },
+  });
+
+const STRAY_REPLY = 'Only web search is available here. Reply now with the JSON object.';
+
+/** A logger that keeps its warnings. */
+const warnings = () => {
+  const seen: string[] = [];
+  return { seen, logger: { warn: (m: string) => void seen.push(m) } };
+};
+
 describe('createAnthropicProvider', () => {
+  it('answers a stray client tool call with an error and finishes', async () => {
+    const answer = message({
+      model: 'claude-sonnet-5-5',
+      content: [{ type: 'text', text: '{"ok":true}' }],
+      usage: { input_tokens: 200, output_tokens: 20, server_tool_use: { web_search_requests: 1, web_fetch_requests: 0 } },
+    });
+    const { fetch, calls } = queued([json(200, stray(2)), json(200, answer)]);
+    const { seen, logger } = warnings();
+    const claude = createAnthropicProvider({ model: 'claude-sonnet-5-5', apiKey: KEY, logger, fetch });
+
+    const completion = await claude.complete(request({ useSearch: true }));
+    expect(completion).toEqual({
+      text: '{"ok":true}',
+      model: 'claude-sonnet-5-5',
+      usage: { inputTokens: 300, outputTokens: 30 },
+      searches: 3,
+    });
+
+    expect(calls).toHaveLength(2);
+    const sent = calls[1]!.body.messages as Array<{ role: string; content: unknown }>;
+    // The question, the model's own reply as it came, then one error result for its tool call.
+    expect(sent).toHaveLength(3);
+    expect(sent[0]).toEqual({ role: 'user', content: 'USER MESSAGE' });
+    expect(sent[1]).toEqual({ role: 'assistant', content: stray(2).content });
+    expect(sent[2]).toEqual({
+      role: 'user',
+      content: [{ type: 'tool_result', tool_use_id: 'toolu_stray_1', is_error: true, content: STRAY_REPLY }],
+    });
+    // The continuation still offers only web search, with what is left of the call's five.
+    expect(calls[1]!.body.tools).toEqual([{ type: 'web_search_20260209', name: 'web_search', max_uses: 3 }]);
+
+    // One warning, naming the tool and nothing the model wrote.
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toContain('web_fetch');
+    expect(seen[0]).not.toContain('agency-report');
+    expect(seen[0]).not.toContain('I will open');
+  });
+
+  it('answers every stray tool call in a reply, in one user message', async () => {
+    const twoTools = message({
+      model: 'claude-sonnet-5-5',
+      stop_reason: 'tool_use',
+      content: [
+        { type: 'tool_use', id: 'toolu_a', name: 'web_fetch', input: { url: 'https://example.com/a' } },
+        { type: 'tool_use', id: 'toolu_b', name: 'bash', input: { command: 'ls' } },
+      ],
+      usage: { input_tokens: 100, output_tokens: 10, server_tool_use: { web_search_requests: 0, web_fetch_requests: 0 } },
+    });
+    const { fetch, calls } = queued([json(200, twoTools), json(200, message({ model: 'claude-sonnet-5-5' }))]);
+    const { seen, logger } = warnings();
+    const claude = createAnthropicProvider({ model: 'claude-sonnet-5-5', apiKey: KEY, logger, fetch });
+
+    await claude.complete(request({ useSearch: true }));
+    const sent = calls[1]!.body.messages as Array<{ role: string; content: Array<{ tool_use_id: string }> }>;
+    expect(sent.at(-1)!.content.map((block) => block.tool_use_id)).toEqual(['toolu_a', 'toolu_b']);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toContain('web_fetch');
+    expect(seen[0]).toContain('bash');
+    expect(seen[0]).not.toContain('ls');
+  });
+
+  it('gives up on repeated stray tool calls', async () => {
+    const { fetch, calls } = fakeFetch(() => json(200, stray(0)));
+    const { logger } = warnings();
+    const claude = createAnthropicProvider({ model: 'claude-sonnet-5-5', apiKey: KEY, logger, fetch });
+
+    const error = await failure(claude.complete(request({ useSearch: true })));
+    // The first request and MAX_CONTINUATIONS (3) more, the same limit a paused search has.
+    expect(calls).toHaveLength(4);
+    expect(error).toBeInstanceOf(LlmError);
+    expect(error).toMatchObject({ code: 'provider', usage: { inputTokens: 400, outputTokens: 40 } });
+    expect(error!.message).toContain('tool_use');
+  });
+
+  it('a paused search and a stray tool call share the continuations and the five searches', async () => {
+    const { fetch, calls } = queued([
+      json(200, searched(2, 'pause_turn')),
+      json(200, stray(2)),
+      json(200, searched(1, 'end_turn')),
+    ]);
+    const { logger } = warnings();
+    const claude = createAnthropicProvider({ model: 'claude-sonnet-5-5', apiKey: KEY, logger, fetch });
+
+    expect((await claude.complete(request({ useSearch: true }))).searches).toBe(5);
+    expect(calls.map((call) => (call.body.tools as Array<{ max_uses?: number }>)[0]!.max_uses)).toEqual([5, 3, 1]);
+    // Each request carries everything before it: nothing the model already did is dropped.
+    const roles = (i: number) => (calls[i]!.body.messages as Array<{ role: string }>).map((m) => m.role);
+    expect(roles(1)).toEqual(['user', 'assistant']);
+    expect(roles(2)).toEqual(['user', 'assistant', 'assistant', 'user']);
+  });
+
+  it('stops answering stray tool calls once the call has used its five searches', async () => {
+    const { fetch, calls } = queued([json(200, stray(5)), json(200, message({ model: 'claude-sonnet-5-5' }))]);
+    const { logger } = warnings();
+    const claude = createAnthropicProvider({ model: 'claude-sonnet-5-5', apiKey: KEY, logger, fetch });
+
+    const error = await failure(claude.complete(request({ useSearch: true })));
+    expect(calls).toHaveLength(1);
+    expect(error).toMatchObject({ code: 'provider', usage: { inputTokens: 100, outputTokens: 10 } });
+  });
+
   it('uses baseUrl and searchTool when given', async () => {
     const { fetch, calls } = fakeFetch(() => json(200, message()));
     const deepseek = createAnthropicProvider({

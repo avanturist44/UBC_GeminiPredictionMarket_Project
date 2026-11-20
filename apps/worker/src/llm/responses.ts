@@ -15,6 +15,8 @@ import { httpError, postJson } from './http';
  *   reasoning inside that cap; xAI documents it as applying to visible output only.
  * - A search call is bounded at WORST_CALL.searches, in the field each vendor documents (see
  *   searchBound).
+ * - Grok is asked to reason at low effort (`reasoning.effort`). Its default is high, and cannot
+ *   be turned off; at high effort a search call ran past the arena's timeout.
  */
 
 export interface ResponsesProviderOptions {
@@ -54,6 +56,7 @@ export function createResponsesProvider(options: ResponsesProviderOptions): LlmP
         instructions: input.system,
         input: input.user,
         ...(input.useSearch ? { tools: [{ type: 'web_search' }], ...searchBound(options.vendor) } : {}),
+        ...(options.vendor === 'xai' ? { reasoning: { effort: 'low' } } : {}),
         max_output_tokens: WORST_CALL.outputTokens,
         text: { format: { type: 'json_schema', name: 'reply', schema: withoutMetaKeys(input.jsonSchema), strict: true } },
       };

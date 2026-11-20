@@ -6,6 +6,16 @@ describe('model prices', () => {
     expect(callCostUsd('claude-sonnet-5-5', { inputTokens: 38_000, outputTokens: 1_600 }, 3)).toBeCloseTo(0.122, 6);
   });
 
+  it('prices gemini-3.1-pro-preview, with every search query billed', () => {
+    expect(MODEL_PRICES['gemini-3.1-pro-preview']).toEqual({ inputPerMillion: 2, outputPerMillion: 12, perSearch: 0.014 });
+    expect(callCostUsd('gemini-3.1-pro-preview', { inputTokens: 38_000, outputTokens: 1_600 }, 3)).toBeCloseTo(
+      0.076 + 0.0192 + 0.042,
+      6,
+    );
+    // The model it replaces in the roster keeps its row, for the calls already recorded on it.
+    expect(MODEL_PRICES['gemini-2.5-pro']).toBeDefined();
+  });
+
   it('matches a served id with a date suffix, and never under-prices an unknown model', () => {
     expect(priceFor('gpt-5-2025-08-07')).toEqual(MODEL_PRICES['gpt-5']);
     expect(priceFor('claude-sonnet-5-5')).toEqual(MODEL_PRICES['claude-sonnet-5-5']);
@@ -26,6 +36,6 @@ describe('model prices', () => {
   it('prices the worst single call at 150,000 input and 16,000 output tokens with 5 searches', () => {
     expect(WORST_CALL).toEqual({ inputTokens: 150_000, outputTokens: 16_000, searches: 5 });
     expect(worstCallCostUsd('claude-sonnet-5-5')).toBeCloseTo(0.3 + 0.16 + 0.05, 6);
-    expect(worstCallCostUsd('mystery-model')).toBeCloseTo(0.75 + 0.4 + 0.05, 6);
+    expect(worstCallCostUsd('mystery-model')).toBeCloseTo(0.75 + 0.4 + 0.07, 6);
   });
 });

@@ -20,7 +20,13 @@ export interface ArenaEntrant {
 
 /** In the order the chart colours were validated; the web assigns colours by this order. */
 export const ARENA_ROSTER: readonly ArenaEntrant[] = [
-  { id: 'gemini', agentKey: 'arena-gemini', displayName: 'Gemini 2.5 Pro', provider: 'google', model: 'gemini-2.5-pro' },
+  {
+    id: 'gemini',
+    agentKey: 'arena-gemini',
+    displayName: 'Gemini 3.1 Pro (preview)',
+    provider: 'google',
+    model: 'gemini-3.1-pro-preview',
+  },
   { id: 'claude', agentKey: 'arena-claude', displayName: 'Claude Sonnet 5.5', provider: 'anthropic', model: 'claude-sonnet-5-5' },
   { id: 'gpt', agentKey: 'arena-gpt', displayName: 'GPT-5', provider: 'openai', model: 'gpt-5' },
   { id: 'grok', agentKey: 'arena-grok', displayName: 'Grok 4.7', provider: 'xai', model: 'grok-4.7' },

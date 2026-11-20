@@ -121,6 +121,20 @@ describe('createArenaContenders', () => {
     expect(reserved).toEqual(ARENA_ROSTER.map((e) => e.model));
   });
 
+  it('arena contenders get a 180-second search timeout', async () => {
+    const limits = new Map<ModelId, number>();
+    const timed: ProviderFactory = (e): LlmProvider => ({
+      model: e.model,
+      complete: async (sent) => {
+        limits.set(e.id, sent.timeoutMs);
+        return { text: '{"ok":true}', model: e.model, usage: { inputTokens: 10, outputTokens: 1 }, searches: 1 };
+      },
+    });
+    const contenders = createArenaContenders(env, db, logger, guard, timed);
+    for (const { entrant: e, llm } of contenders) await llm.generateJson({ ...ask(`arena:${e.id}`), useSearch: true });
+    expect(Object.fromEntries(limits)).toEqual(Object.fromEntries(ARENA_ROSTER.map((e) => [e.id, 180_000])));
+  });
+
   it('refuses every model once the day’s dollar cap is reached, before any call', async () => {
     const spent = createSpendGuard({ db, dailyCapUsd: 0.01, logger });
     const contenders = createArenaContenders(env, db, logger, spent, fakeFactory);
@@ -145,7 +159,9 @@ describe('arenaProviders (the default factory)', () => {
     expect(calls).toHaveLength(ARENA_ROSTER.length);
     const [gemini, claude, gpt, grok, deepseek] = calls;
 
-    expect(gemini!.url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent');
+    expect(gemini!.url).toBe(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent',
+    );
     expect(gemini!.headers.get('x-goog-api-key')).toBe('k-gemini');
     expect(gemini!.body.tools).toEqual([{ google_search: {} }]);
 
@@ -159,12 +175,36 @@ describe('arenaProviders (the default factory)', () => {
     expect(gpt!.body).toMatchObject({ model: 'gpt-5', max_tool_calls: 5 });
     expect(grok!.url).toBe('https://api.x.ai/v1/responses');
     expect(grok!.headers.get('authorization')).toBe('Bearer k-grok');
-    expect(grok!.body).toMatchObject({ model: 'grok-4.7', max_turns: 5 });
+    expect(grok!.body).toMatchObject({ model: 'grok-4.7', max_turns: 5, reasoning: { effort: 'low' } });
 
     // DeepSeek speaks the Anthropic API at its own address, with its own key and search tool.
     expect(deepseek!.url).toMatch(/^https:\/\/api\.deepseek\.com\/anthropic\/v1\/messages/);
     expect(deepseek!.headers.get('authorization')).toBe('Bearer k-deepseek');
     expect(deepseek!.body.tools).toEqual([{ type: 'deepseek_web_search', name: 'deepseek_web_search' }]);
+  });
+
+  it('gives the Anthropic-API models the logger, so a stray tool call is reported', async () => {
+    const strayReply = {
+      id: 'msg_1',
+      type: 'message',
+      role: 'assistant',
+      model: 'claude-sonnet-5-5',
+      content: [{ type: 'tool_use', id: 'toolu_1', name: 'web_fetch', input: { url: 'https://example.com' } }],
+      stop_reason: 'tool_use',
+      stop_sequence: null,
+      usage: { input_tokens: 10, output_tokens: 1, server_tool_use: { web_search_requests: 0 } },
+    };
+    const answer = { ...strayReply, content: [{ type: 'text', text: '{"ok":true}' }], stop_reason: 'end_turn' };
+    const warned: string[] = [];
+    const replies = [strayReply, answer, strayReply, answer];
+    const { fetch } = fakeFetch(() => json(200, replies.shift()));
+    const make = arenaProviders(fetch, { warn: (m) => void warned.push(m) });
+
+    for (const id of ['claude', 'deepseek'] as const) {
+      expect((await make(entrant(id), 'k').complete(request({ useSearch: true }))).text).toBe('{"ok":true}');
+    }
+    expect(warned).toHaveLength(2);
+    for (const line of warned) expect(line).toContain('web_fetch');
   });
 });
 
@@ -175,7 +215,7 @@ describe('checkServedModel', () => {
   });
 
   it('accepts the roster id itself, or with a version or date after it', () => {
-    expect(checkServedModel(entrant('gemini'), 'gemini-2.5-pro')).toEqual({ ok: true });
+    expect(checkServedModel(entrant('gemini'), 'gemini-3.1-pro-preview')).toEqual({ ok: true });
     expect(checkServedModel(entrant('claude'), 'claude-sonnet-5-5-20261001')).toEqual({ ok: true });
     expect(checkServedModel(entrant('grok'), 'grok-4.7-0709')).toEqual({ ok: true });
   });

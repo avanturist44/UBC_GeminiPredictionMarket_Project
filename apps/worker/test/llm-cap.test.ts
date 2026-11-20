@@ -57,6 +57,21 @@ describe('withSpendCap scopes', () => {
     expect(await llmTokensSince(db, since)).toBe(107);
   });
 
+  it('gives a search call searchTimeoutMs when set, and the usual 120 seconds when not', async () => {
+    const limits: number[] = [];
+    const timed: LlmProvider = {
+      model: 'fake',
+      complete: async (request) => {
+        limits.push(request.timeoutMs);
+        return { text: '{"ok":true}', model: 'fake', usage: { inputTokens: 1, outputTokens: 1 } };
+      },
+    };
+    const search = { ...args('arena:gpt'), useSearch: true };
+    await withSpendCap(db, timed, { dailyTokenCap: 1000, searchTimeoutMs: 180_000, guard, logger }).generateJson(search);
+    await withSpendCap(db, timed, { dailyTokenCap: 1000, guard, logger }).generateJson(search);
+    expect(limits).toEqual([180_000, 120_000]);
+  });
+
   it('cannot be built without the dollar guard, so no model client goes uncapped', () => {
     // @ts-expect-error the guard is required
     expect(() => withSpendCap(db, fakeProvider(), { dailyTokenCap: 1000, logger })).toThrow(/guard/);

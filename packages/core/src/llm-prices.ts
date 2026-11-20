@@ -20,12 +20,15 @@ export const MODEL_PRICES: Record<string, ModelPrice> = {
   'grok-4.7': { inputPerMillion: 2, outputPerMillion: 6, perSearch: 0.005 },
   // The first 1,500 grounded prompts a day are free; the arena uses at most 24.
   'gemini-2.5-pro': { inputPerMillion: 1.25, outputPerMillion: 10, perSearch: 0 },
+  // Gemini 3 bills each search query: $14 per 1,000 after 5,000 free a month. Counted every
+  // time, so the cap never under-counts.
+  'gemini-3.1-pro-preview': { inputPerMillion: 2, outputPerMillion: 12, perSearch: 0.014 },
   // DeepSeek does not bill its web tools. The token rate is its peak-hour one.
   'deepseek-flash': { inputPerMillion: 0.3, outputPerMillion: 1.2, perSearch: 0 },
 };
 
-/** For a model not listed: above every listed model, so an unknown id is never under-counted. */
-export const UNKNOWN_MODEL_PRICE: ModelPrice = { inputPerMillion: 5, outputPerMillion: 25, perSearch: 0.01 };
+/** For a model not listed: at or above every listed model, so an unknown id is never under-counted. */
+export const UNKNOWN_MODEL_PRICE: ModelPrice = { inputPerMillion: 5, outputPerMillion: 25, perSearch: 0.014 };
 
 /**
  * The most one call is assumed to use, and so what the cap holds back before sending it. The

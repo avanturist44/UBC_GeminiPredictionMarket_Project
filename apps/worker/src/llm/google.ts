@@ -13,7 +13,8 @@ import { httpError, postJson } from './http';
  * - A blocked prompt or reply is reported as a refusal, never read as an answer. Errors never
  *   carry the key or the request; the key travels in a header, not the address.
  * - Every reply is capped at WORST_CALL.outputTokens (`generationConfig.maxOutputTokens`).
- * - Google bills grounding per grounded prompt, so a grounded answer counts as one search.
+ * - Gemini 3 bills grounding per search query, so a grounded answer counts one search for each
+ *   query it lists in `webSearchQueries`, and at least one.
  */
 
 export interface GoogleProviderOptions {
@@ -23,11 +24,16 @@ export interface GoogleProviderOptions {
   fetch?: typeof fetch;
 }
 
+interface GroundingMetadata {
+  webSearchQueries?: string[];
+  searchEntryPoint?: { renderedContent?: string };
+}
+
 interface GenerateContentReply {
   candidates?: Array<{
     content?: { parts?: Array<{ text?: string; thought?: boolean }> };
     finishReason?: string;
-    groundingMetadata?: { searchEntryPoint?: { renderedContent?: string } };
+    groundingMetadata?: GroundingMetadata;
   }>;
   promptFeedback?: { blockReason?: string };
   usageMetadata?: {
@@ -91,9 +97,19 @@ function read(reply: GenerateContentReply, requested: string): LlmCompletion {
     text,
     model: reply.modelVersion ?? requested,
     usage,
-    searches: candidate.groundingMetadata ? 1 : 0,
+    searches: searchesOf(candidate.groundingMetadata),
     ...(typeof suggestions === 'string' && suggestions ? { searchSuggestionsHtml: suggestions } : {}),
   };
+}
+
+/**
+ * Each query a grounded answer lists. One that lists none was still grounded, so it ran at least
+ * one: counting it as one keeps the cap from under-counting.
+ */
+function searchesOf(grounding: GroundingMetadata | undefined): number {
+  if (!grounding) return 0;
+  const queries = grounding.webSearchQueries;
+  return Array.isArray(queries) && queries.length > 0 ? queries.length : 1;
 }
 
 /** Thinking is billed as output and the search results fed back as input, so both count. */

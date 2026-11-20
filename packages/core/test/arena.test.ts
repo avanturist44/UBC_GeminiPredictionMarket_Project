@@ -10,6 +10,15 @@ describe('the arena roster', () => {
     expect(arenaEntrant('news')).toBeUndefined();
   });
 
+  it('the gemini entrant is gemini-3.1-pro-preview', () => {
+    // Google no longer serves gemini-2.5-pro to new keys; this is the newest Pro the key lists.
+    expect(arenaEntrant('arena-gemini')).toMatchObject({
+      provider: 'google',
+      model: 'gemini-3.1-pro-preview',
+      displayName: 'Gemini 3.1 Pro (preview)',
+    });
+  });
+
   it('shares one strategy sentence', () => {
     expect(ARENA_STRATEGY).toMatch(/10 points/);
   });

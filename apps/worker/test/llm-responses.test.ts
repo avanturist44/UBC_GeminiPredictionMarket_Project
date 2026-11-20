@@ -61,6 +61,22 @@ describe('createResponsesProvider', () => {
     expect(calls[1]!.body).not.toHaveProperty('max_turns');
   });
 
+  it('asks Grok to reason at low effort, and GPT is unchanged', async () => {
+    // grok-4.7 reasons at high effort unless told otherwise, which with search ran past the timeout.
+    const xai = fakeFetch(() => json(200, completed({ model: 'grok-4.7' })));
+    await grok(xai.fetch).complete(request({ useSearch: true }));
+    await grok(xai.fetch).complete(request({ useSearch: false }));
+    expect(xai.calls.map((call) => call.body.reasoning)).toEqual([{ effort: 'low' }, { effort: 'low' }]);
+
+    const openai = fakeFetch(() => json(200, completed()));
+    await gpt(openai.fetch).complete(request({ useSearch: true }));
+    await gpt(openai.fetch).complete(request({ useSearch: false }));
+    for (const call of openai.calls) expect(call.body).not.toHaveProperty('reasoning');
+    expect(Object.keys(openai.calls[0]!.body).sort()).toEqual(
+      ['input', 'instructions', 'max_output_tokens', 'max_tool_calls', 'model', 'text', 'tools'].sort(),
+    );
+  });
+
   it('caps every reply at 16,000 output tokens', async () => {
     const { fetch, calls } = fakeFetch(() => json(200, completed()));
     const provider = gpt(fetch);
