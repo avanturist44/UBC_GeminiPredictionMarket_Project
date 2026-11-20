@@ -75,6 +75,11 @@ export interface ArenaExchange {
   price: number | null;
 }
 
+/** Whether any trade or position on the page has a sandbox order, so the README speaks of them. */
+export function showsSandboxOrders(data: Pick<ArenaResponse, 'trades' | 'positions'>): boolean {
+  return [...data.trades, ...data.positions].some((row) => row.exchange !== null);
+}
+
 /** The muted line under a position or trade, or null when there is no order. */
 export function exchangeLine(exchange: ArenaExchange | null): string | null {
   if (!exchange) return null;

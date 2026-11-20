@@ -26,7 +26,7 @@ import { createThesisPipeline, type BookQuote } from './thesis-pipeline';
  * - the resolver: when Gemini reports a result, marks theses right or wrong and pays positions;
  * - the model arena: one trading agent per AI model whose key is set, all looking at the same market;
  * - the sandbox mirror, when GEMINI_AGENT_KEYS is set: each arena trade also placed as a real
- *   order from that model's own Gemini sandbox account;
+ *   order from its Gemini sandbox account (models may share one);
  * - the `news` and `fade` agents, if switched on, when a language model is configured.
  * The on-chain registrar and tip settlement are added once the escrow is deployed.
  */

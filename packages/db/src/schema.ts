@@ -386,9 +386,9 @@ export const likes = pgTable(
 export type SandboxOrderStatus = 'pending' | 'filled' | 'partial' | 'unfilled' | 'failed';
 
 /**
- * An arena model's paper trade, also placed as a real immediate-or-cancel order from that model's
- * own Gemini sandbox account. The sandbox price sits beside the paper one and never changes the
- * score: sandbox books are made by bots and do not track production.
+ * An arena model's paper trade, also placed as a real immediate-or-cancel order from its Gemini
+ * sandbox account (models may share one). The sandbox price sits beside the paper one and never
+ * changes the score: sandbox books are made by bots and do not track production.
  */
 export const sandboxOrders = pgTable(
   'sandbox_orders',

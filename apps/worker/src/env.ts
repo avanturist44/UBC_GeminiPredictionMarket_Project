@@ -84,9 +84,10 @@ const EnvSchema = z.object({
    * audits of their theses. The rest of the day's cap is kept for people's audits.
    */
   ARENA_DAILY_USD_CAP: blank(z.coerce.number().positive().default(18)),
-  // Each arena model's own Gemini sandbox account, where its paper trades are also placed as real
-  // orders. Absent or {} means no accounts, and the sandbox mirror does not run. Without it, one
-  // key pair in the two variables after it is every arena model's (they share one account).
+  // Each arena model's Gemini sandbox account (models may share one), where its paper trades are
+  // also placed as real orders. Absent or {} means no accounts, and the sandbox mirror does not
+  // run. Without it, one key pair in the two variables after it is every arena model's (they share
+  // one account).
   GEMINI_AGENT_KEYS: blank(AgentKeysSchema),
   GEMINI_AGENT_API_KEY: blank(z.string().optional()),
   GEMINI_AGENT_API_SECRET: blank(z.string().optional()),

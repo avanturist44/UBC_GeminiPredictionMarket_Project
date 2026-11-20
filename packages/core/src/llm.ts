@@ -180,7 +180,8 @@ export function createLlm(options: CreateLlmOptions): Llm {
       let user = args.user;
       let problem = '';
       let ungrounded = false;
-      // One retry when the reply is not the JSON asked for, then give up.
+      // One retry when the reply is not the JSON asked for, or when a call that must search ran
+      // no search, then give up.
       for (let attempt = 0; attempt < 2; attempt += 1) {
         await options.beforeCall?.(args.purpose);
         let completion: LlmCompletion;

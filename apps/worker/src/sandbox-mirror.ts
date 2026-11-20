@@ -1,8 +1,8 @@
 /**
  * The sandbox mirror: each arena model's own paper trade is also placed as a real
- * immediate-or-cancel order from that model's own Gemini sandbox account, as proof that the
- * model holds an exchange account. The sandbox price is recorded beside the paper price and never
- * used for the score: sandbox books are made by bots and do not track production.
+ * immediate-or-cancel order from its Gemini sandbox account (models may share one), as proof
+ * that the model holds an exchange account. The sandbox price is recorded beside the paper price
+ * and never used for the score: sandbox books are made by bots and do not track production.
  *
  * A trade is claimed by writing its `pending` row before the sandbox is called, so it is placed at
  * most once. A call that gets no answer leaves the row pending; the next attempt first looks the

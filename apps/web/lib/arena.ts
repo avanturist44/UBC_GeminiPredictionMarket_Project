@@ -149,10 +149,13 @@ export function buildArena(data: ArenaData, options: { now: Date; bankrollUsd: n
 /** Ends a headline as a sentence, unless it already ends like one. */
 const sentence = (text: string) => (/[.?!…]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`);
 
-/** A look, as the model's message: what it looked at, the thesis it sent if it traded, and why. */
+/**
+ * A look, as the model's message: what it looked at, the thesis it sent if it traded, and why. A
+ * look that traded has only sent its thesis to the auditor: the fill, if any, comes after the audit.
+ */
 function message(model: ModelId, run: ArenaRun, reason: string): ArenaMessage {
   const market = run.marketTitle ? dealLabel({ title: run.marketTitle, contractLabel: run.contractLabel }) : null;
-  const what = `${run.decision === 'trade' ? 'Traded' : 'Passed'}${market ? ` on ${market}` : ''}.`;
+  const what = `${run.decision === 'trade' ? 'Sent a thesis' : 'Passed'}${market ? ` on ${market}` : ''}.`;
   const headline = run.decision === 'trade' && run.thesisHeadline ? sentence(run.thesisHeadline) : null;
   return {
     id: `${model}:${run.createdAt.getTime()}`,

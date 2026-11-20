@@ -6,7 +6,13 @@ import { buildArena } from '../lib/arena';
 import { loadArena } from '../lib/arena-data';
 import { buildArenaMock } from '../lib/arena-mock';
 import { readFileSync } from 'node:fs';
-import { SEARCH_SUGGESTIONS_SANDBOX, exchangeLine, searchSuggestionsDoc, type ArenaResponse } from '../lib/arena-view';
+import {
+  SEARCH_SUGGESTIONS_SANDBOX,
+  exchangeLine,
+  searchSuggestionsDoc,
+  showsSandboxOrders,
+  type ArenaResponse,
+} from '../lib/arena-view';
 
 const state = vi.hoisted(() => ({ db: null as Db | null }));
 vi.mock('server-only', () => ({}));
@@ -236,6 +242,24 @@ describe('the live arena', () => {
     expect(a.positions.find((p) => p.id === 'open-none')!.exchange).toBeNull();
     // Only status, quantity and price reach the page.
     expect(Object.keys(byId('done').exchange!).sort()).toEqual(['price', 'quantity', 'status']);
+    // So the README speaks of sandbox orders.
+    expect(showsSandboxOrders(a)).toBe(true);
+  });
+
+  it('says nothing of sandbox orders when no trade or position on the page has one', () => {
+    const none = build(arenaData({ trades: { gpt: [trade('m1')] }, markets: [market('m1')] }));
+    expect(showsSandboxOrders(none)).toBe(false);
+    const onlyOpen = build(
+      arenaData({
+        trades: { gpt: [trade('m1', { id: 'open' })] },
+        markets: [market('m1')],
+        exchanges: { open: { status: 'pending', filledQuantity: null, sandboxPrice: null } },
+      }),
+    );
+    expect(showsSandboxOrders(onlyOpen)).toBe(true);
+    // The README's paragraph is drawn only then.
+    const panel = readFileSync(new URL('../components/arena-panel.tsx', import.meta.url), 'utf8');
+    expect(panel).toMatch(/\{showsSandboxOrders\(data\) && \(\s*<section[^>]*>\s*<h3[^>]*>Sandbox orders<\/h3>/);
   });
 
   it('draws every line from the first trade at the bankroll to today’s values', () => {
@@ -278,7 +302,8 @@ describe('the live arena', () => {
       }),
     );
     expect(a.messages.map((m) => m.text)).toEqual([
-      'Traded on Oil (Brent) price on November 19, $90 or above. Brent holds above $90 into the close. Puts YES at 72%, 17 points from the price. Thesis sent to the auditor.',
+      // A look that traded only sent its thesis to the auditor: the fill comes after the audit.
+      'Sent a thesis on Oil (Brent) price on November 19, $90 or above. Brent holds above $90 into the close. Puts YES at 72%, 17 points from the price. Thesis sent to the auditor.',
       'Passed. An earlier thesis is still with the auditor.',
     ]);
     expect(a.messages[0]!.searchSuggestionsHtml).toBe('<div class="chip">brent close</div>');
@@ -306,6 +331,7 @@ describe('the sandbox order line', () => {
   it('is absent from the sample, and the README names no particular sandbox account', () => {
     const sample = buildArenaMock(NOW);
     expect([...sample.trades, ...sample.positions].every((row) => row.exchange === null)).toBe(true);
+    expect(showsSandboxOrders(sample)).toBe(false);
     const panel = readFileSync(new URL('../components/arena-panel.tsx', import.meta.url), 'utf8');
     expect(panel).not.toMatch(/own sandbox account|model.s own/i);
   });

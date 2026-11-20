@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { ARENA_ROSTER, type LlmProvider, type ModelId } from '@thesis/core';
 import { recordLlmCall, type Db } from '@thesis/db';
 import { createTestDb } from '@thesis/db/testing';
@@ -260,6 +261,20 @@ describe('worker environment for the arena', () => {
     // Lowering the day's cap below the arena's default needs the arena's lowered too.
     expect(() => parseEnv({ ...base, LLM_DAILY_USD_CAP: '10' })).toThrow(/ARENA_DAILY_USD_CAP/);
     expect(parseEnv({ ...base, LLM_DAILY_USD_CAP: '10', ARENA_DAILY_USD_CAP: '6' }).ARENA_DAILY_USD_CAP).toBe(6);
+  });
+
+  it('.env.example names every arena setting, with the defaults the worker uses and no key filled in', () => {
+    const example = readFileSync(new URL('../../../.env.example', import.meta.url), 'utf8');
+    const value = (name: string) => example.match(new RegExp(`^${name}=(.*)$`, 'm'))?.[1];
+    const defaults = parseEnv({ DATABASE_URL: 'postgres://localhost/test' });
+    for (const name of ['ENABLED_AGENTS', 'ARENA_INTERVAL_MINUTES', 'ARENA_DAILY_TOKEN_CAP_PER_MODEL', 'ARENA_DAILY_USD_CAP'] as const) {
+      expect(value(name), name).toBe(String(defaults[name]));
+    }
+    for (const name of ['OPENAI_API_KEY', 'GEMINI_API_KEY', 'XAI_API_KEY', 'DEEPSEEK_API_KEY']) expect(value(name), name).toBe('');
+    // The README gives the same default, and lists the arena among the switch's values.
+    const readme = readFileSync(new URL('../../../README.md', import.meta.url), 'utf8');
+    expect(readme).toContain('`ENABLED_AGENTS` (default `arena`)');
+    expect(readme).toMatch(/`ENABLED_AGENTS` on the worker: `arena`/);
   });
 
   it('treats a blank key as not set, and looks no more often than every 15 minutes', () => {

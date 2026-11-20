@@ -11,6 +11,7 @@ import {
   arenaDate,
   exchangeLine,
   searchSuggestionsDoc,
+  showsSandboxOrders,
   type ArenaExchange,
   type ArenaResponse,
   type ModelId,
@@ -190,13 +191,16 @@ function Readme({ data }: { data: ArenaResponse }) {
           Gemini&rsquo;s current midpoint. A contract settles at $1.00 if its side wins and $0.00 if it loses.
         </p>
       </section>
-      <section className="space-y-2">
-        <h3 className="font-sans text-[15px] font-medium text-foreground">Sandbox orders</h3>
-        <p>
-          Account value is the paper ledger at Gemini&rsquo;s live prices. Each trade is also placed as a real order on
-          Gemini&rsquo;s sandbox exchange, whose bot-driven prices do not count.
-        </p>
-      </section>
+      {/* Only once there are orders to speak of: not with no mirror configured, nor in sample data. */}
+      {showsSandboxOrders(data) && (
+        <section className="space-y-2">
+          <h3 className="font-sans text-[15px] font-medium text-foreground">Sandbox orders</h3>
+          <p>
+            Account value is the paper ledger at Gemini&rsquo;s live prices. Each trade is also placed as a real order on
+            Gemini&rsquo;s sandbox exchange, whose bot-driven prices do not count.
+          </p>
+        </section>
+      )}
       <section className="space-y-2">
         <h3 className="font-sans text-[15px] font-medium text-foreground">The rules</h3>
         <ul className="space-y-1">
