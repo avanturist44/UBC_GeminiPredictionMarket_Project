@@ -3,6 +3,8 @@ import { createDb, listLiveTrackedMarkets } from '@thesis/db';
 import { runMigrations } from '@thesis/db/migrate';
 import type { Address, Hex } from 'viem';
 import { runFadeCycle, runNewsCycle } from './agents';
+import { runArenaCycle } from './arena';
+import { createArenaContenders } from './arena-contenders';
 import { createEscrowChain } from './chain';
 import { createCircleWallets } from './circle';
 import { loadEnv } from './env';
@@ -20,7 +22,8 @@ import { createThesisPipeline, type BookQuote } from './thesis-pipeline';
  * - the price recorder: a REST poll every 30 seconds and a WebSocket stream of live quotes;
  * - the thesis pipeline: audits every waiting thesis, fills its author's position, publishes;
  * - the resolver: when Gemini reports a result, marks theses right or wrong and pays positions;
- * - the `news` agent (and `fade`, if switched on), when a language model is configured.
+ * - the model arena: one trading agent per AI model whose key is set, all looking at the same market;
+ * - the `news` and `fade` agents, if switched on, when a language model is configured.
  * The on-chain registrar and tip settlement are added once the escrow is deployed.
  */
 
@@ -76,9 +79,17 @@ const agentLlm = createWorkerLlm(db, { ...llmSettings, model: env.LLM_AGENT_MODE
 const enabledAgents = new Set(
   env.ENABLED_AGENTS.split(',')
     .map((name) => name.trim().toLowerCase())
-    .filter((name) => name === 'news' || name === 'fade'),
+    .filter((name) => name === 'arena' || name === 'news' || name === 'fade'),
 );
-const agents = agentLlm ? [...enabledAgents] : [];
+/**
+ * The arena's models: each with its own daily token cap, apart from the auditor's, and all under
+ * the same dollar guard as every other model call. A model without its key is left out.
+ */
+const arena = enabledAgents.has('arena') ? createArenaContenders(env, db, logger, spendGuard) : [];
+const agents = [
+  ...(agentLlm ? [...enabledAgents].filter((name) => name !== 'arena') : []),
+  ...(arena.length > 0 ? ['arena'] : []),
+];
 const tradingEnabled = () => env.TRADING_ENABLED;
 
 // The on-chain jobs run only when the contract, both keys and Circle are all configured.
@@ -165,7 +176,17 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 
 log('info', 'worker started', {
   jobs: ['price-recorder', 'thesis-pipeline', 'resolver', ...agents, ...(onchain ? ['tips', 'tip-settlement'] : [])],
-  agentModel: agents.length > 0 ? env.LLM_AGENT_MODEL : 'no agents running',
+  agentModel: agents.some((name) => name !== 'arena') ? env.LLM_AGENT_MODEL : 'no news or fade agent running',
+  arena:
+    arena.length > 0
+      ? {
+          models: arena.map(({ entrant }) => `${entrant.id}: ${entrant.model}`),
+          intervalMinutes: env.ARENA_INTERVAL_MINUTES,
+          dailyTokenCapPerModel: env.ARENA_DAILY_TOKEN_CAP_PER_MODEL,
+        }
+      : enabledAgents.has('arena')
+        ? 'not running: no arena model has its API key set'
+        : 'not enabled (ENABLED_AGENTS)',
   escrow: env.ESCROW_ADDRESS ?? 'not configured: theses are published without an on-chain record, and tips are off',
   // Hosts only: a dedicated endpoint's path holds its access token.
   arcRpc: arcRpcUrls(env.ARC_RPC_URL).map((url) => new URL(url).host),
@@ -195,6 +216,12 @@ if (onchain) {
   every('tip settlement', 30_000, 25_000, async () => {
     const summary = await jobs.runSettlementCycle();
     if (summary.paid > 0 || summary.refunded > 0) log('info', 'tip settlement', { ...summary });
+  });
+}
+if (arena.length > 0) {
+  // Every model on the same market with the same prompt, then each trades on its own.
+  every('arena', env.ARENA_INTERVAL_MINUTES * 60_000, 60_000, async () => {
+    log('info', 'arena', { ...(await runArenaCycle({ db, contenders: arena, tradingEnabled, logger })) });
   });
 }
 if (agentLlm) {

@@ -8,6 +8,7 @@
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "verify:llm": "tsx src/verify-llm.ts",
+    "verify:arena": "tsx src/verify-arena.ts",
     "verify:escrow": "tsx src/verify-escrow.ts"
   },
   "dependencies": {

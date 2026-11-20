@@ -22,9 +22,20 @@ const EnvSchema = z.object({
   // The agents search the web on every look, which is where most of the spend goes, so
   // they run on a cheaper model than the auditor and only as often as set here.
   LLM_AGENT_MODEL: blank(z.string().default('claude-sonnet-5-5')),
-  /** Which of the model-backed agents run: `news`, `fade`, both (comma-separated) or `none`. */
-  ENABLED_AGENTS: blank(z.string().default('news')),
+  /** Which of the model-backed agents run: `arena`, `news`, `fade`, several (comma-separated) or `none`. */
+  ENABLED_AGENTS: blank(z.string().default('arena')),
   NEWS_INTERVAL_MINUTES: blank(z.coerce.number().int().min(5).default(60)),
+  // The model arena: one trading agent per AI model (packages/core/src/arena.ts). Claude uses
+  // LLM_API_KEY; each other model its own vendor's key. A model whose key is not set is left out.
+  OPENAI_API_KEY: blank(z.string().optional()),
+  /** Google's key, for the Gemini model. Not the Gemini exchange. */
+  GEMINI_API_KEY: blank(z.string().optional()),
+  XAI_API_KEY: blank(z.string().optional()),
+  DEEPSEEK_API_KEY: blank(z.string().optional()),
+  /** How often every arena model looks at a market, all at once. Each look is a web-search call per model. */
+  ARENA_INTERVAL_MINUTES: blank(z.coerce.number().int().min(15).default(60)),
+  /** Input plus output tokens each arena model may use per UTC day, apart from the auditor's budget. */
+  ARENA_DAILY_TOKEN_CAP_PER_MODEL: blank(z.coerce.number().int().positive().default(1_000_000)),
   // The escrow on Arc testnet and the Circle wallets that tip into it. All test money.
   // With any of these missing the worker runs without the on-chain jobs.
   ARC_RPC_URL: blank(z.string().url().default('https://rpc.testnet.arc.io')),
@@ -48,7 +59,12 @@ export type WorkerEnv = z.infer<typeof EnvSchema>;
 export function loadEnv(): WorkerEnv {
   const rootEnv = fileURLToPath(new URL('../../../.env', import.meta.url));
   if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
-  const parsed = EnvSchema.safeParse(process.env);
+  return parseEnv(process.env);
+}
+
+/** Validates the worker's settings from `source`, filling in the defaults. */
+export function parseEnv(source: Record<string, string | undefined>): WorkerEnv {
+  const parsed = EnvSchema.safeParse(source);
   if (!parsed.success) {
     const problems = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     throw new Error(`Invalid worker environment: ${problems}`);
