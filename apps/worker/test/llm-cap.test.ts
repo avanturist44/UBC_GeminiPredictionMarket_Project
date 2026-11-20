@@ -26,6 +26,24 @@ afterEach(() => close());
 const call = (purpose: string, inputTokens: number) =>
   recordLlmCall(db, { purpose, model: 'm', inputTokens, outputTokens: 0, costUsd: '0' });
 
+describe('withSpendCap provider flags', () => {
+  it("the spend cap keeps the provider's schema flag", async () => {
+    const systems: string[] = [];
+    const provider = (enforcesJsonSchema: boolean): LlmProvider => ({
+      ...fakeProvider(),
+      enforcesJsonSchema,
+      complete: async (request) => {
+        systems.push(request.system);
+        return { text: '{"ok":true}', model: 'fake', usage: { inputTokens: 1, outputTokens: 1 } };
+      },
+    });
+    await withSpendCap(db, provider(true), { dailyTokenCap: 1000, guard, logger }).generateJson(args('a'));
+    await withSpendCap(db, provider(false), { dailyTokenCap: 1000, guard, logger }).generateJson(args('a'));
+    expect(systems[0]).not.toContain('Reply with a single JSON object');
+    expect(systems[1]).toContain('Reply with a single JSON object');
+  });
+});
+
 describe('withSpendCap scopes', () => {
   it("arena calls never count against the auditor's cap", async () => {
     await call('arena:gpt', 900);

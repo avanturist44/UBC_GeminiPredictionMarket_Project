@@ -87,6 +87,7 @@ async function check({ entrant, llm }: ArenaContender, user: string): Promise<Ou
       user,
       schema: NewsEstimateSchema,
       useSearch: true,
+      requireSearch: true,
       onCompletion: (c) => {
         completion = c;
       },

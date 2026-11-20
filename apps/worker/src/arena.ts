@@ -171,6 +171,8 @@ async function look(
       user,
       schema: NewsEstimateSchema,
       useSearch: true,
+      // Sources a model never read are not a basis for a trade.
+      requireSearch: true,
       onCompletion: (completion) => {
         served.model = completion.model;
         // Google's terms require its search suggestions to be shown with a grounded answer.
@@ -194,7 +196,9 @@ async function look(
         decision: 'skip',
         reason: halt
           ? `The model call failed, ${ARENA_ERROR_HALT} times in a row. Halted until midnight UTC.`
-          : 'The model call failed.',
+          : error instanceof LlmError && error.code === 'ungrounded'
+            ? 'It answered without searching the web, so it did not trade.'
+            : 'The model call failed.',
       },
       { quote },
       errorText(error),

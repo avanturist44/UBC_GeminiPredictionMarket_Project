@@ -278,6 +278,29 @@ describe('runArenaCycle', () => {
     expect(run).toMatchObject({ decision: 'skip', error: null });
   });
 
+  it('a model that answers without searching does not trade', async () => {
+    await upsertMarket(db, market());
+    const calls: Call[] = [];
+    const ungrounded = new LlmError('ungrounded', 'The language model answered without searching the web.');
+    const contenders = arena({ gpt: ungrounded }, calls);
+    const out = await cycle(contenders);
+    expect(calls.find((c) => c.id === 'gpt')!.args.requireSearch).toBe(true);
+    expect(result(out, 'gpt')).toMatchObject({
+      decision: 'skip',
+      reason: 'It answered without searching the web, so it did not trade.',
+    });
+    expect(await thesisAuthorKeys(db)).not.toContain('arena-gpt');
+    const [run] = await runsOf('arena-gpt');
+    expect(run!.error).toContain('without searching');
+
+    // Five in a row halt the model for the day, like any other failed call.
+    for (let i = 1; i < 4; i += 1) await cycle(contenders, new Date(NOW.getTime() + i * 60_000));
+    expect(await haltedKeys(db)).toEqual([]);
+    const fifth = await cycle(contenders, new Date(NOW.getTime() + 4 * 60_000));
+    expect(await haltedKeys(db)).toEqual(['arena-gpt']);
+    expect(result(fifth, 'gpt')!.reason).toContain('5 times in a row');
+  });
+
   it('five consecutive errors halt only that model', async () => {
     await upsertMarket(db, market());
     const calls: Call[] = [];

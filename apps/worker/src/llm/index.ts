@@ -97,6 +97,8 @@ export function withSpendCap(
    */
   const metered = (purpose: string): LlmProvider => ({
     model: provider.model,
+    // The wrapper builds its prompt from this flag, so it must survive the metering layer.
+    enforcesJsonSchema: provider.enforcesJsonSchema,
     async complete(request) {
       const reservation = await guard.reserve(provider.model);
       // A provider that does not say how many searches it ran is counted at the most.

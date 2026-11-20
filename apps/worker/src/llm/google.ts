@@ -6,8 +6,9 @@ import { httpError, postJson } from './http';
  *
  * - The only tool a call is ever given is Grounding with Google Search. Nothing the model
  *   returns can run code here, place a trade or read the database.
- * - Replies are asked for as JSON in the prompt and validated by the wrapper. No response
- *   schema is sent, because a schema and search together are not accepted by every model.
+ * - The JSON Schema goes to Gemini as its own structured-output setting, and the wrapper leaves
+ *   the JSON rule out of the prompt (`enforcesJsonSchema`): with the schema pasted into the
+ *   prompt, Gemini almost never searched. The wrapper still validates every reply.
  * - A grounded answer comes with Google's Search Suggestions, which Google's terms require
  *   to be shown with it. They are returned as `searchSuggestionsHtml`.
  * - A blocked prompt or reply is reported as a refusal, never read as an answer. Errors never
@@ -55,13 +56,19 @@ export function createGoogleProvider(options: GoogleProviderOptions): LlmProvide
 
   return {
     model: options.model,
+    enforcesJsonSchema: true,
 
     async complete(input: LlmRequest): Promise<LlmCompletion> {
       const body = {
         systemInstruction: { parts: [{ text: input.system }] },
         contents: [{ role: 'user', parts: [{ text: input.user }] }],
         ...(input.useSearch ? { tools: [{ google_search: {} }] } : {}),
-        generationConfig: { maxOutputTokens: WORST_CALL.outputTokens },
+        generationConfig: {
+          maxOutputTokens: WORST_CALL.outputTokens,
+          ...(input.jsonSchema == null
+            ? {}
+            : { responseMimeType: 'application/json', responseJsonSchema: input.jsonSchema }),
+        },
       };
 
       const headers = { 'x-goog-api-key': options.apiKey };

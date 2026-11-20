@@ -1,7 +1,7 @@
 import { LlmError } from '@thesis/core';
 import { describe, expect, it } from 'vitest';
 import { createGoogleProvider } from '../src/llm/google';
-import { failure, fakeFetch, hangingFetch, json, queued, request } from './fake-fetch';
+import { SCHEMA, failure, fakeFetch, hangingFetch, json, queued, request } from './fake-fetch';
 
 const KEY = 'AIzaTest0123456789abcdef';
 const SUGGESTIONS = '<style>.chip{}</style><div class="chip"><a href="https://www.google.com/search?q=brent">brent</a></div>';
@@ -41,10 +41,28 @@ describe('createGoogleProvider', () => {
       systemInstruction: { parts: [{ text: 'SYSTEM PROMPT' }] },
       contents: [{ role: 'user', parts: [{ text: 'USER MESSAGE' }] }],
       tools: [{ google_search: {} }],
-      generationConfig: { maxOutputTokens: 16_000 },
+      generationConfig: { maxOutputTokens: 16_000, responseMimeType: 'application/json', responseJsonSchema: SCHEMA },
     });
     expect(calls[1]!.body).not.toHaveProperty('tools');
-    // Only the output cap: no responseSchema, the shape comes from the JSON rule in the system prompt.
+    // The request helper's schema is sent too, so this call's generationConfig carries it.
+    expect(calls[1]!.body.generationConfig).toEqual({
+      maxOutputTokens: 16_000,
+      responseMimeType: 'application/json',
+      responseJsonSchema: SCHEMA,
+    });
+  });
+
+  it('asks Gemini for JSON in its own structured-output mode', async () => {
+    const { fetch, calls } = fakeFetch(() => json(200, grounded()));
+    const provider = gemini(fetch);
+    expect(provider.enforcesJsonSchema).toBe(true);
+    await provider.complete(request({ useSearch: true, jsonSchema: SCHEMA }));
+    await provider.complete(request({ useSearch: true, jsonSchema: undefined }));
+    expect(calls[0]!.body.generationConfig).toEqual({
+      maxOutputTokens: 16_000,
+      responseMimeType: 'application/json',
+      responseJsonSchema: SCHEMA,
+    });
     expect(calls[1]!.body.generationConfig).toEqual({ maxOutputTokens: 16_000 });
   });
 

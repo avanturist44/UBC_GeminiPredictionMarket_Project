@@ -42,14 +42,21 @@ export interface LlmRequest {
 
 export interface LlmProvider {
   readonly model: string;
+  /**
+   * The provider hands `jsonSchema` to the model as its own structured-output setting, so the
+   * wrapper leaves the JSON rule and the pasted schema out of the prompt. Some models search
+   * far less when the prompt also carries a schema to fill in.
+   */
+  readonly enforcesJsonSchema?: boolean;
   complete(request: LlmRequest): Promise<LlmCompletion>;
 }
 
 /**
  * `unavailable` means the provider will not serve this account at all right now (no credit,
  * a rejected key): trying again in a minute will not help, so callers give up at once.
+ * `ungrounded` means a call that had to search the web answered without running a search.
  */
-export type LlmErrorCode = 'timeout' | 'invalid_output' | 'refused' | 'budget' | 'unavailable' | 'provider';
+export type LlmErrorCode = 'timeout' | 'invalid_output' | 'refused' | 'budget' | 'unavailable' | 'provider' | 'ungrounded';
 
 export class LlmError extends Error {
   constructor(
@@ -70,6 +77,12 @@ export interface GenerateJsonArgs<T> {
   user: string;
   schema: z.ZodType<T>;
   useSearch?: boolean;
+  /**
+   * With `useSearch`: a reply from a call that ran no search is not an answer, because the
+   * sources it cites were never read. It is asked for again once, then fails as `ungrounded`.
+   * A provider that does not report searches is taken to have searched.
+   */
+  requireSearch?: boolean;
   /**
    * Called once with the completion whose reply validated, and awaited before the value is
    * returned. Whatever it throws or rejects with is caught: the answer is still returned.
@@ -151,11 +164,14 @@ export function createLlm(options: CreateLlmOptions): Llm {
     async generateJson<T>(args: GenerateJsonArgs<T>): Promise<T> {
       const useSearch = args.useSearch ?? false;
       const jsonSchema = z.toJSONSchema(args.schema);
-      const system = [args.system, DATA_RULE, `${JSON_RULE}\n${JSON.stringify(jsonSchema)}`].join('\n\n');
+      const system = provider.enforcesJsonSchema
+        ? [args.system, DATA_RULE].join('\n\n')
+        : [args.system, DATA_RULE, `${JSON_RULE}\n${JSON.stringify(jsonSchema)}`].join('\n\n');
       const limit = useSearch ? searchTimeoutMs : timeoutMs;
 
       let user = args.user;
       let problem = '';
+      let ungrounded = false;
       // One retry when the reply is not the JSON asked for, then give up.
       for (let attempt = 0; attempt < 2; attempt += 1) {
         await options.beforeCall?.(args.purpose);
@@ -174,6 +190,13 @@ export function createLlm(options: CreateLlmOptions): Llm {
           throw new LlmError('provider', error instanceof Error ? error.message : String(error));
         }
         await options.onUsage?.(args.purpose, completion);
+
+        // Only an explicit 0 is ungrounded: an adapter that cannot tell counts the most searches.
+        ungrounded = Boolean(args.requireSearch) && completion.searches === 0;
+        if (ungrounded) {
+          user = `${args.user}\n\nYour previous reply ran no web search, so the sources it cited were never read. Search the web, then reply with only the JSON object.`;
+          continue;
+        }
 
         try {
           const parsed = args.schema.safeParse(extractJson(completion.text));
@@ -194,6 +217,7 @@ export function createLlm(options: CreateLlmOptions): Llm {
         }
         user = `${args.user}\n\nYour previous reply could not be used: ${problem}. Reply again with only the JSON object.`;
       }
+      if (ungrounded) throw new LlmError('ungrounded', 'The language model answered without searching the web.');
       throw new LlmError('invalid_output', `The language model's reply did not match the required shape: ${problem}`);
     },
   };
