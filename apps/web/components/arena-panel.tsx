@@ -6,6 +6,7 @@ import { SidePill } from '@/components/thesis-card';
 import { cents, usd } from '@/lib/format';
 import { ARENA_MODELS, MODEL_BY_ID, arenaDate, type ArenaResponse, type ModelId } from '@/lib/arena-view';
 import { signedUsd } from '@/lib/record-view';
+import { EXPLORER_ADDRESS } from '@/lib/thesis-view';
 import { cn } from '@/lib/utils';
 
 /**
@@ -87,11 +88,30 @@ function Chat({ data, model }: { data: ArenaResponse; model: ModelId | 'all' }) 
             <span className="ml-auto shrink-0 text-[13px] text-muted-foreground">{ago(m.at, data.asOf)}</span>
           </div>
           <p className="leading-relaxed text-muted-foreground">{m.text}</p>
+          {m.searchSuggestionsHtml && <SearchSuggestions html={m.searchSuggestionsHtml} />}
         </li>
       ))}
     </ul>
   );
 }
+
+/**
+ * Google's search suggestions for a grounded Gemini answer, which its terms require showing
+ * with the answer. The HTML is Google's, so it runs in a frame with every sandbox
+ * restriction on: no scripts, and no access to this page.
+ */
+function SearchSuggestions({ html }: { html: string }) {
+  return (
+    <iframe
+      sandbox=""
+      srcDoc={`<!doctype html><meta charset="utf-8"><style>html,body{margin:0}</style>${html}`}
+      title="Google Search suggestions"
+      className="block h-14 w-full border-0"
+    />
+  );
+}
+
+const shortAddress = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
 
 function Positions({ data, model }: { data: ArenaResponse; model: ModelId | 'all' }) {
   const groups = ARENA_MODELS.filter((m) => model === 'all' || m.id === model)
@@ -165,19 +185,35 @@ function Readme({ data }: { data: ArenaResponse }) {
       <section className="space-y-2">
         <h3 className="font-sans text-[15px] font-medium text-foreground">The contestants</h3>
         <ul className="space-y-2 font-sans text-sm text-foreground">
-          {ARENA_MODELS.map((m) => (
-            <li key={m.id} className="flex items-center gap-2">
-              <ModelMark id={m.id} size={20} />
-              {m.name}
-              <span className="text-muted-foreground">{m.provider}</span>
-            </li>
-          ))}
+          {ARENA_MODELS.map((m) => {
+            const wallet = data.standings.find((s) => s.id === m.id)?.walletAddress;
+            return (
+              <li key={m.id} className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <ModelMark id={m.id} size={20} />
+                  {m.name}
+                  <span className="text-muted-foreground">{m.provider}</span>
+                </div>
+                {wallet && (
+                  <a
+                    href={`${EXPLORER_ADDRESS}${wallet}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={wallet}
+                    className="ml-7 inline-block font-mono text-[13px] text-primary underline-offset-4 hover:underline"
+                  >
+                    Tip wallet {shortAddress(wallet)}
+                  </a>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </section>
       {data.sample && (
         <section className="space-y-2">
           <h3 className="font-sans text-[15px] font-medium text-foreground">Sample data</h3>
-          <p>These results are generated to show the design. Real runs replace them when the multi-model agents are merged.</p>
+          <p>These results are generated to show the design. Real runs replace them when the arena goes live.</p>
         </section>
       )}
     </div>

@@ -134,7 +134,13 @@ export function ArenaDetail({ initial }: { initial: ArenaResponse | undefined })
           <figure className="space-y-2 rounded-xl border border-border bg-card p-4">
             <figcaption className="text-sm font-medium">Total account value</figcaption>
             <div className="h-80 lg:h-[60vh] lg:max-h-[680px] lg:min-h-[400px]">
-              <ArenaChart data={data} mode={mode} range={range} variant="full" />
+              {data.points.length > 0 ? (
+                <ArenaChart data={data} mode={mode} range={range} variant="full" />
+              ) : (
+                <p className="flex h-full items-center justify-center px-4 text-center text-sm text-muted-foreground">
+                  No model has opened a position yet. Each line starts at the first one.
+                </p>
+              )}
             </div>
           </figure>
 

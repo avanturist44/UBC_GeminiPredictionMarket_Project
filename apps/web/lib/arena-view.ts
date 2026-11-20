@@ -2,8 +2,8 @@
  * What `/api/arena` sends: several models trading Gemini's prediction markets from the same
  * bankroll. Plain data, safe to import from client components.
  *
- * The response says whether it is sample data. Until the multi-model agents are merged it
- * always is, and every screen that shows it says so.
+ * The response says whether it is sample data. It is unless the server runs with
+ * `ARENA_SOURCE=live`, and every screen that shows sample data says so.
  */
 
 import { ARENA_ROSTER, type ArenaProvider, type ModelId } from '@thesis/core/browser';
@@ -56,6 +56,8 @@ export interface ArenaStanding {
   changeUsd: number;
   /** The same change as a percentage of the bankroll. */
   changePct: number;
+  /** The model's Arc testnet wallet, for tips. Absent until it has one. */
+  walletAddress?: string;
 }
 
 /** One moment: every model's account value, in dollars, keyed by model id. */
@@ -69,7 +71,7 @@ export interface ArenaTrade {
   quantity: number;
   /** What one contract cost. */
   entryPrice: number;
-  /** What it paid: 1 if the side won, 0 if it lost. */
+  /** What it paid per contract: 1 if the side won, 0 if it lost, its price back if void. */
   exitPrice: number;
   pnlUsd: number;
   openedAt: string;
@@ -94,6 +96,12 @@ export interface ArenaMessage {
   model: ModelId;
   at: string;
   text: string;
+  /**
+   * Google's search suggestions for a grounded Gemini answer, as Google renders them. Its
+   * terms require showing them with the answer. Third-party HTML: only ever rendered inside
+   * a sandboxed frame.
+   */
+  searchSuggestionsHtml?: string;
 }
 
 export interface ArenaMatchup {
