@@ -215,19 +215,56 @@ describe('runArenaCycle', () => {
     expect(run!.error).toContain('503');
   });
 
-  it('a failure after the model answered does not stop the others', async () => {
-    await upsertMarket(db, market());
-    const broken: Llm = {
-      model: 'fake-model',
-      // An answer that skipped validation: reading it throws.
-      generateJson: async <T>() => ({ ...estimate(), evidence: undefined }) as unknown as T,
-    };
+  /** An answer that skipped validation: acting on it throws after the model was paid. */
+  const brokenAnswer = <T>() => ({ ...estimate(), evidence: undefined }) as unknown as T;
+
+  it('a failure after the model answered is logged against the market, and does not stop the others', async () => {
+    const { id: marketId } = await upsertMarket(db, market());
+    const broken: Llm = { model: 'fake-model', generateJson: async <T>() => brokenAnswer<T>() };
     const contenders = arena({ claude: { probability_yes: 0.9 } }).map((c) =>
       c.entrant.id === 'gemini' ? { ...c, llm: broken } : c,
     );
-    const out = await cycle(contenders);
-    expect(result(out, 'gemini')).toMatchObject({ decision: 'skip' });
+    const warnings: string[] = [];
+    const out = await runArenaCycle({
+      db,
+      contenders,
+      tradingEnabled: () => true,
+      logger: { ...logger, warn: (line: string) => warnings.push(line) },
+      now: () => NOW,
+    });
+    expect(result(out, 'gemini')).toMatchObject({ decision: 'skip', reason: 'The trade could not be submitted.' });
+    expect(result(out, 'claude')).toMatchObject({ decision: 'trade' });
     expect(await thesisAuthorKeys(db)).toEqual(['arena-claude']);
+
+    const [run] = await runsOf('arena-gemini');
+    expect(run).toMatchObject({ marketId, decision: 'skip', reason: 'The trade could not be submitted.' });
+    expect(run!.error).toEqual(expect.any(String));
+    // The model did answer: its probability is kept.
+    expect(run!.signal).toMatchObject({ probabilityYes: 0.6 });
+    expect(warnings.join('\n')).toContain('gemini');
+  });
+
+  it('a failure after the model answered is not a model error toward the halt', async () => {
+    await upsertMarket(db, market());
+    const fail = new LlmError('provider', 'HTTP 500');
+    // Four model errors, one answer that cannot be acted on, four more model errors.
+    const turns: Array<'fail' | 'broken'> = ['fail', 'fail', 'fail', 'fail', 'broken', 'fail', 'fail', 'fail', 'fail'];
+    const flaky: Llm = {
+      model: 'fake-model',
+      generateJson: async <T>() => {
+        if (turns.shift() === 'fail') throw fail;
+        return brokenAnswer<T>();
+      },
+    };
+    const contenders = arena().map((c) => (c.entrant.id === 'grok' ? { ...c, llm: flaky } : c));
+    for (let i = 0; i < 9; i += 1) await cycle(contenders, new Date(NOW.getTime() + i * 60_000));
+    expect(await haltedKeys(db)).toEqual([]);
+    // Nor does a run of them halt on its own.
+    const broken: Llm = { model: 'fake-model', generateJson: async <T>() => brokenAnswer<T>() };
+    const always = arena().map((c) => (c.entrant.id === 'grok' ? { ...c, llm: broken } : c));
+    for (let i = 9; i < 15; i += 1) await cycle(always, new Date(NOW.getTime() + i * 60_000));
+    expect(await haltedKeys(db)).toEqual([]);
+    expect((await runsOf('arena-grok')).filter((r) => r.reason === 'The trade could not be submitted.')).toHaveLength(7);
   });
 
   it('a model refused by its budget logs a budget skip', async () => {

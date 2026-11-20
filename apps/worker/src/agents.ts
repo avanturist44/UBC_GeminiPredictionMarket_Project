@@ -2,7 +2,6 @@ import {
   FadeFindingSchema,
   NewsEstimateSchema,
   decideFade,
-  decideNews,
   findMove,
   windowOpensAt,
   yesMidpoint,
@@ -14,6 +13,7 @@ import {
   GEMINI_EVENT_URL,
   HOUR,
   NEWS_SYSTEM,
+  actOnEstimate,
   cents,
   describeMarket,
   errorText,
@@ -110,32 +110,8 @@ export async function runNewsCycle(deps: AgentJobDeps): Promise<AgentCycle> {
       schema: NewsEstimateSchema,
       useSearch: true,
     });
-    const decision = decideNews(estimate, quote);
-    const signal = {
-      probabilityYes: estimate.probability_yes,
-      confidence: estimate.confidence,
-      sources: estimate.evidence.length,
-      quote,
-    };
-    if (decision.decision === 'skip') {
-      return logRun(db, NEWS.agentKey, market, { decision: 'skip', reason: decision.reason }, signal);
-    }
-    const submitted = await submit(db, author, market, decision, {
-      headline: estimate.headline,
-      body: estimate.body,
-      evidence: estimate.evidence,
-    });
-    if (!submitted.ok) return logRun(db, NEWS.agentKey, market, { decision: 'skip', reason: submitted.reason }, signal);
-    return logRun(
-      db,
-      NEWS.agentKey,
-      market,
-      {
-        decision: 'trade',
-        reason: `Puts YES at ${Math.round(estimate.probability_yes * 100)}%, ${Math.round(decision.edge * 100)} points from the price. Thesis sent to the auditor.`,
-      },
-      { ...signal, side: decision.side, limitPrice: decision.limitPrice, edge: decision.edge, thesisId: submitted.thesisId },
-    );
+    const { cycle, signal } = await actOnEstimate(db, author, market, estimate, quote);
+    return logRun(db, NEWS.agentKey, market, cycle, signal);
   } catch (error) {
     deps.logger.warn(`news: ${market.instrumentSymbol} failed: ${errorText(error)}`);
     return logRun(db, NEWS.agentKey, market, { decision: 'skip', reason: 'The model call failed.' }, { quote }, errorText(error));

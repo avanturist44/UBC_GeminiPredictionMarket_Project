@@ -2,11 +2,13 @@ import { randomUUID } from 'node:crypto';
 import {
   AGENT_RULES,
   dataBlock,
+  decideNews,
   planOrder,
   sideAsk,
   thesisContentHash,
   thesisOnchainId,
   type AgentDecision,
+  type NewsEstimate,
 } from '@thesis/core';
 import {
   agentRuns,
@@ -178,6 +180,41 @@ export async function submit(
     stakeUsd: String(AGENT_RULES.stakeUsd),
   });
   return { ok: true, thesisId: id };
+}
+
+/**
+ * The `news` strategy once a model has answered: decide in code from its probability, and
+ * when there is a trade, hand the thesis to the pipeline. Returns the run to log, with the
+ * signal it carries. News and every arena model act on an answer through this one function.
+ */
+export async function actOnEstimate(
+  db: Db,
+  author: AuthorRow,
+  market: MarketRecord,
+  estimate: NewsEstimate,
+  quote: { yesBid: string | null; yesAsk: string | null },
+): Promise<{ cycle: Pick<AgentCycle, 'decision' | 'reason'>; signal: Record<string, unknown> }> {
+  const decision = decideNews(estimate, quote);
+  const signal = {
+    probabilityYes: estimate.probability_yes,
+    confidence: estimate.confidence,
+    sources: estimate.evidence.length,
+    quote,
+  };
+  if (decision.decision === 'skip') return { cycle: { decision: 'skip', reason: decision.reason }, signal };
+  const submitted = await submit(db, author, market, decision, {
+    headline: estimate.headline,
+    body: estimate.body,
+    evidence: estimate.evidence,
+  });
+  if (!submitted.ok) return { cycle: { decision: 'skip', reason: submitted.reason }, signal };
+  return {
+    cycle: {
+      decision: 'trade',
+      reason: `Puts YES at ${Math.round(estimate.probability_yes * 100)}%, ${Math.round(decision.edge * 100)} points from the price. Thesis sent to the auditor.`,
+    },
+    signal: { ...signal, side: decision.side, limitPrice: decision.limitPrice, edge: decision.edge, thesisId: submitted.thesisId },
+  };
 }
 
 export const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));

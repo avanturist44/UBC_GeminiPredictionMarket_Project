@@ -3,7 +3,6 @@ import {
   ARENA_STRATEGY,
   LlmError,
   NewsEstimateSchema,
-  decideNews,
   windowOpensAt,
   type ArenaEntrant,
   type Llm,
@@ -27,6 +26,7 @@ import {
 import {
   HOUR,
   NEWS_SYSTEM,
+  actOnEstimate,
   errorText,
   isHalted,
   lastLooks,
@@ -34,7 +34,6 @@ import {
   marketsWithThesis,
   newsQuestion,
   openMarkets,
-  submit,
   type AgentCycle,
 } from './agent-kit';
 import type { Logger } from './recorder';
@@ -129,7 +128,10 @@ async function chooseMarket(db: Db, now: Date): Promise<MarketRecord | undefined
     .sort((a, b) => lastLook(a.id) - lastLook(b.id))[0];
 }
 
-/** One model's turn at the cycle's market. Every path logs one run under its agent key. */
+/**
+ * One model's turn at the cycle's market. Every path logs one run under its agent key; only
+ * a failure to write that run itself falls back to the worker log (in `runArenaCycle`).
+ */
 async function look(
   deps: ArenaDeps,
   now: Date,
@@ -204,50 +206,39 @@ async function look(
     return result;
   }
 
-  const decision = decideNews(estimate, quote);
-  const signal = {
-    probabilityYes: estimate.probability_yes,
-    confidence: estimate.confidence,
-    sources: estimate.evidence.length,
-    quote,
-    ...served,
-  };
-  if (decision.decision === 'skip') return done(market, { decision: 'skip', reason: decision.reason }, signal);
-  const submitted = await submit(db, author, market, decision, {
-    headline: estimate.headline,
-    body: estimate.body,
-    evidence: estimate.evidence,
-  });
-  if (!submitted.ok) return done(market, { decision: 'skip', reason: submitted.reason }, signal);
-  return done(
-    market,
-    {
-      decision: 'trade',
-      reason: `Puts YES at ${Math.round(estimate.probability_yes * 100)}%, ${Math.round(decision.edge * 100)} points from the price. Thesis sent to the auditor.`,
-    },
-    { ...signal, side: decision.side, limitPrice: decision.limitPrice, edge: decision.edge, thesisId: submitted.thesisId },
-  );
+  let acted: Awaited<ReturnType<typeof actOnEstimate>>;
+  try {
+    acted = await actOnEstimate(db, author, market, estimate, quote);
+  } catch (error) {
+    // The model answered and was paid for; what failed is ours. The run keeps the model's
+    // probability, so it counts as an answer and never toward the model-error halt.
+    logger.warn(`arena: ${entrant.id} on ${market.instrumentSymbol} answered, but acting on it failed: ${errorText(error)}`);
+    return done(
+      market,
+      { decision: 'skip', reason: 'The trade could not be submitted.' },
+      { probabilityYes: estimate.probability_yes, quote, ...served },
+      errorText(error),
+    );
+  }
+  return done(market, acted.cycle, { ...acted.signal, ...served });
 }
 
 /**
  * How many of the agent's latest model calls, newest first, failed before the last one that
- * answered (at most `limit`). A call that failed logs an error; one that answered logs the
- * model's probability. Runs without a call, such as a budget refusal, count neither way.
+ * answered (at most `limit`). A call that answered logs the model's probability, even when
+ * acting on it then failed; a call that failed logs only an error. Runs without a call, such
+ * as a budget refusal, count neither way.
  */
 async function failuresInARow(db: Db, agentKey: string, limit: number): Promise<number> {
+  const answeredSql = sql<boolean>`${agentRuns.signal} ->> 'probabilityYes' is not null`;
   const calls = await db
-    .select({ error: agentRuns.error })
+    .select({ answered: answeredSql })
     .from(agentRuns)
-    .where(
-      and(
-        eq(agentRuns.agentKey, agentKey),
-        or(sql`${agentRuns.error} is not null`, sql`${agentRuns.signal} ->> 'probabilityYes' is not null`),
-      ),
-    )
+    .where(and(eq(agentRuns.agentKey, agentKey), or(sql`${agentRuns.error} is not null`, answeredSql)))
     .orderBy(desc(agentRuns.createdAt))
     .limit(limit);
-  const answered = calls.findIndex((call) => call.error === null);
-  return answered === -1 ? calls.length : answered;
+  const lastAnswer = calls.findIndex((call) => call.answered);
+  return lastAnswer === -1 ? calls.length : lastAnswer;
 }
 
 /** Halts one agent for the current UTC day, the day `isHalted` reads. */
