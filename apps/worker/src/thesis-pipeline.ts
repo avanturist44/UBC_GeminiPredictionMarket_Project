@@ -2,6 +2,8 @@ import {
   AGENT_RULES,
   LlmError,
   MIN_STAKE_USD,
+  arenaAuditPurpose,
+  arenaEntrant,
   auditThesis,
   checkAgentEntry,
   fromUnits,
@@ -10,6 +12,7 @@ import {
   toUnits,
   yesMidpoint,
   type AuditResult,
+  type GenerateJsonArgs,
   type Llm,
 } from '@thesis/core';
 import {
@@ -25,6 +28,7 @@ import {
   isNull,
   markets,
   ne,
+  sql,
   theses,
   trades,
   users,
@@ -32,6 +36,7 @@ import {
   type Db,
   type MarketRecord,
   type ThesisRow,
+  type TradeRow,
 } from '@thesis/db';
 import type { Logger } from './recorder';
 
@@ -118,6 +123,21 @@ type Outcome =
 
 const dayOf = (now: Date) => now.toISOString().slice(0, 10);
 
+/**
+ * An agent's paper account as the fill reads it: its paper trades, what its open positions cost,
+ * and the bankroll left (the starting bankroll plus settled profit, minus what is tied up), both
+ * in units. The arena reads it too, to skip a look whose trade the fill would refuse.
+ */
+export async function agentLedger(db: Db, authorId: string): Promise<{ trades: TradeRow[]; exposure: bigint; balance: bigint }> {
+  const mine = await db.select().from(trades).where(and(eq(trades.authorId, authorId), eq(trades.mode, 'paper')));
+  const open = mine.filter((t) => t.status === 'filled' || t.status === 'partial');
+  const exposure = open.reduce((sum, t) => sum + toUnits(t.costUsd), 0n);
+  const settledPnl = mine
+    .filter((t) => t.status === 'settled')
+    .reduce((sum, t) => sum + toUnits(t.payoutUsd ?? '0') - toUnits(t.costUsd), 0n);
+  return { trades: mine, exposure, balance: toUnits(String(AGENT_RULES.bankrollUsd)) + settledPnl - exposure };
+}
+
 function auditInput(row: Waiting, now: Date) {
   return {
     thesis: {
@@ -146,6 +166,22 @@ export function createThesisPipeline(deps: PipelineDeps): ThesisPipeline {
   const now = deps.now ?? (() => new Date());
   /** Audit failures per thesis, so a failing one is retried with a growing wait, then given up. */
   const failures = new Map<string, { count: number; retryAt: number }>();
+
+  /**
+   * The auditor as one author's thesis is audited. An arena model's thesis is audited under
+   * purposes of its own (`arena-audit:<id>:<step>`), so its cost counts toward the arena's dollar
+   * cap, and toward neither the auditor's token budget nor the model's own.
+   */
+  function auditorFor(author: AuthorRow): Llm | null {
+    const { llm } = deps;
+    const entrant = author.kind === 'agent' && author.agentKey ? arenaEntrant(author.agentKey) : undefined;
+    if (!llm || !entrant) return llm;
+    return {
+      model: llm.model,
+      generateJson: <T>(args: GenerateJsonArgs<T>) =>
+        llm.generateJson({ ...args, purpose: arenaAuditPurpose(entrant.id, args.purpose) }),
+    };
+  }
 
   /** The thesis's audit: the one it has, one already done for identical content, or a new one. */
   async function auditOf(
@@ -178,7 +214,7 @@ export function createThesisPipeline(deps: PipelineDeps): ThesisPipeline {
           claims: cached.audit.claims,
           model: cached.audit.model ?? 'unknown',
         }
-      : await auditThesis(auditInput(row, now()), deps.llm);
+      : await auditThesis(auditInput(row, now()), auditorFor(row.author));
     // A thesis that is already public, with its author's position filled, cannot be blocked
     // after the fact. What would have blocked it is recorded as a flag, with the reason.
     if (options.late && result.verdict === 'blocked') result.verdict = 'flagged';
@@ -286,13 +322,7 @@ export function createThesisPipeline(deps: PipelineDeps): ThesisPipeline {
       }
 
       if (isAgent) {
-        const mine = await tx.select().from(trades).where(and(eq(trades.authorId, row.author.id), eq(trades.mode, 'paper')));
-        const open = mine.filter((t) => t.status === 'filled' || t.status === 'partial');
-        const exposure = open.reduce((sum, t) => sum + toUnits(t.costUsd), 0n);
-        const settledPnl = mine
-          .filter((t) => t.status === 'settled')
-          .reduce((sum, t) => sum + toUnits(t.payoutUsd ?? '0') - toUnits(t.costUsd), 0n);
-        const balance = toUnits(String(AGENT_RULES.bankrollUsd)) + settledPnl - exposure;
+        const { trades: mine, exposure, balance } = await agentLedger(tx, row.author.id);
         const day = dayOf(at);
         const key = row.author.agentKey!;
         await tx.insert(agentState).values({ agentKey: key, day }).onConflictDoNothing();
@@ -493,13 +523,15 @@ export function createThesisPipeline(deps: PipelineDeps): ThesisPipeline {
   return {
     async runCycle() {
       const summary: PipelineSummary = { published: 0, blocked: 0, returned: 0, waiting: 0, backfilled: 0 };
+      // People's theses first, then agents', oldest first within each: an hourly burst of arena
+      // theses never keeps a person waiting, or spends the day's cap ahead of them.
       const waiting = await db
         .select({ thesis: theses, author: authors, market: markets })
         .from(theses)
         .innerJoin(authors, eq(authors.id, theses.authorId))
         .innerJoin(markets, eq(markets.id, theses.marketId))
         .where(eq(theses.status, 'auditing'))
-        .orderBy(asc(theses.createdAt))
+        .orderBy(asc(sql`${authors.kind} = 'agent'`), asc(theses.createdAt))
         .limit(BATCH);
       for (const row of waiting) {
         try {

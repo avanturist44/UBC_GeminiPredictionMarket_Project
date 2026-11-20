@@ -77,6 +77,54 @@ describe('createLlm.generateJson', () => {
     expect(used).toEqual(['p', 'p']);
   });
 
+  it('passes the completion that validated to onCompletion, once', async () => {
+    const { provider } = scripted(['{"answer": "four"}', '{"answer": 4, "why": "fixed"}']);
+    const seen: string[] = [];
+    await createLlm({ provider }).generateJson({
+      purpose: 'p',
+      system: 's',
+      user: 'u',
+      schema: Shape,
+      onCompletion: (c) => void seen.push(c.text),
+    });
+    expect(seen).toEqual(['{"answer": 4, "why": "fixed"}']);
+  });
+
+  it('keeps a good answer when onCompletion throws', async () => {
+    const { provider, requests } = scripted(['{"answer": 4, "why": "w"}']);
+    const result = await createLlm({ provider }).generateJson({
+      purpose: 'p',
+      system: 's',
+      user: 'u',
+      schema: Shape,
+      onCompletion: () => {
+        throw new Error('the caller broke');
+      },
+    });
+    expect(result).toEqual({ answer: 4, why: 'w' });
+    expect(requests).toHaveLength(1);
+  });
+
+  it('waits for an async onCompletion, and keeps the answer when it rejects', async () => {
+    const { provider } = scripted(['{"answer": 4, "why": "w"}']);
+    const order: string[] = [];
+    const result = await createLlm({ provider }).generateJson({
+      purpose: 'p',
+      system: 's',
+      user: 'u',
+      schema: Shape,
+      onCompletion: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        order.push('onCompletion');
+        throw new Error('the caller broke later');
+      },
+    });
+    order.push('returned');
+    // Awaited inside the try: the rejection is caught there, not left unhandled.
+    expect(order).toEqual(['onCompletion', 'returned']);
+    expect(result).toEqual({ answer: 4, why: 'w' });
+  });
+
   it('gives up after the second bad reply', async () => {
     const { provider, requests } = scripted(['nonsense', '{"answer": true}']);
     const error = await createLlm({ provider })

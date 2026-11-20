@@ -1,5 +1,5 @@
-import type { RaceData, RaceMarket, RaceTrade } from '@thesis/db';
-import { equityAt, histories, pricer } from './equity';
+import type { RaceData, RaceMarket } from '@thesis/db';
+import { equityAt, histories, isOpen, pricer } from './ledger';
 import type {
   RaceMark,
   RaceMarketRef,
@@ -34,10 +34,6 @@ const price = (value: number) => value.toFixed(4);
 export function dealLabel(market: Pick<RaceMarketRef, 'title' | 'contractLabel'>): string {
   const title = market.title.replace(/\?\s*$/, '');
   return market.contractLabel ? `${title}, ${market.contractLabel}` : title;
-}
-
-function isOpen(trade: RaceTrade, market: RaceMarket | undefined): boolean {
-  return trade.status !== 'settled' && !market?.resolvedAt;
 }
 
 function marketRef(market: RaceMarket): RaceMarketRef {

@@ -1,16 +1,21 @@
-import { DEFAULT_TRACKED_RULES, arcRpcUrls, createGeminiPublicClient, streamSymbolKey } from '@thesis/core';
+import { ARENA_PURPOSE_PREFIXES, DEFAULT_TRACKED_RULES, arcRpcUrls, createGeminiPublicClient, streamSymbolKey } from '@thesis/core';
 import { createDb, listLiveTrackedMarkets } from '@thesis/db';
 import { runMigrations } from '@thesis/db/migrate';
 import type { Address, Hex } from 'viem';
 import { runFadeCycle, runNewsCycle } from './agents';
+import { runArenaCycle } from './arena';
+import { createArenaContenders } from './arena-contenders';
 import { createEscrowChain } from './chain';
 import { createCircleWallets } from './circle';
 import { loadEnv } from './env';
 import { createWorkerLlm } from './llm';
+import { createSpendGuard } from './llm/spend-guard';
 import { createOnchain, type Onchain } from './onchain';
 import { createQuoteRecorder } from './quotes';
 import { runRecorderCycle, type Logger } from './recorder';
 import { runResolverCycle } from './resolver';
+import { accountGroups, createSandboxAccounts } from './sandbox-account';
+import { createSandboxMirror } from './sandbox-mirror';
 import { createPriceStream } from './stream';
 import { createThesisPipeline, type BookQuote } from './thesis-pipeline';
 
@@ -19,7 +24,10 @@ import { createThesisPipeline, type BookQuote } from './thesis-pipeline';
  * - the price recorder: a REST poll every 30 seconds and a WebSocket stream of live quotes;
  * - the thesis pipeline: audits every waiting thesis, fills its author's position, publishes;
  * - the resolver: when Gemini reports a result, marks theses right or wrong and pays positions;
- * - the `news` agent (and `fade`, if switched on), when a language model is configured.
+ * - the model arena: one trading agent per AI model whose key is set, all looking at the same market;
+ * - the sandbox mirror, when GEMINI_AGENT_KEYS is set: each arena trade also placed as a real
+ *   order from its Gemini sandbox account (models may share one);
+ * - the `news` and `fade` agents, if switched on, when a language model is configured.
  * The on-chain registrar and tip settlement are added once the escrow is deployed.
  */
 
@@ -55,23 +63,54 @@ const stream = createPriceStream({
   logger,
 });
 
+/**
+ * The daily dollar cap over every model call this worker makes, whichever model and whatever for,
+ * with the arena's share of it (its looks and the audits of its theses) capped on its own. There is
+ * one, and every Llm built here is given it.
+ */
+const spendGuard = createSpendGuard({
+  db,
+  dailyCapUsd: env.LLM_DAILY_USD_CAP,
+  arenaDailyCapUsd: env.ARENA_DAILY_USD_CAP,
+  logger,
+});
 const llmSettings = {
   provider: env.LLM_PROVIDER ?? (env.LLM_API_KEY ? ('anthropic' as const) : ('none' as const)),
   apiKey: env.LLM_API_KEY,
   effort: env.LLM_EFFORT,
   dailyTokenCap: env.LLM_DAILY_TOKEN_CAP,
+  /**
+   * Arena models have caps of their own and never spend the auditor's and agents' budget, and
+   * neither do the audits of their theses.
+   */
+  excludePrefix: ARENA_PURPOSE_PREFIXES,
 };
 /** The auditor's model. */
-const llm = createWorkerLlm(db, { ...llmSettings, model: env.LLM_MODEL }, logger);
-/** The agents' model: cheaper, because every look reads several web pages. Same daily cap. */
-const agentLlm = createWorkerLlm(db, { ...llmSettings, model: env.LLM_AGENT_MODEL }, logger);
+const llm = createWorkerLlm(db, { ...llmSettings, model: env.LLM_MODEL }, logger, spendGuard);
+/** The agents' model: cheaper, because every look reads several web pages. Same daily caps. */
+const agentLlm = createWorkerLlm(db, { ...llmSettings, model: env.LLM_AGENT_MODEL }, logger, spendGuard);
 const enabledAgents = new Set(
   env.ENABLED_AGENTS.split(',')
     .map((name) => name.trim().toLowerCase())
-    .filter((name) => name === 'news' || name === 'fade'),
+    .filter((name) => name === 'arena' || name === 'news' || name === 'fade'),
 );
-const agents = agentLlm ? [...enabledAgents] : [];
+/**
+ * The arena's models: each with its own daily token cap, apart from the auditor's, and all under
+ * the same dollar guard as every other model call. A model without its key is left out.
+ */
+const arena = enabledAgents.has('arena') ? createArenaContenders(env, db, logger, spendGuard) : [];
+const agents = [
+  ...(agentLlm ? [...enabledAgents].filter((name) => name !== 'arena') : []),
+  ...(arena.length > 0 ? ['arena'] : []),
+];
 const tradingEnabled = () => env.TRADING_ENABLED;
+
+/**
+ * Each arena model's Gemini sandbox account, by agent key. Models that share a key share one
+ * account. With none configured the mirror does not run.
+ */
+const sandboxAccounts = await createSandboxAccounts(env.GEMINI_AGENT_KEYS, { logger });
+const sandboxMirror = sandboxAccounts.size > 0 ? createSandboxMirror({ db, accounts: sandboxAccounts, logger }) : null;
 
 // The on-chain jobs run only when the contract, both keys and Circle are all configured.
 let onchain: Onchain | null = null;
@@ -156,14 +195,37 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 }
 
 log('info', 'worker started', {
-  jobs: ['price-recorder', 'thesis-pipeline', 'resolver', ...agents, ...(onchain ? ['tips', 'tip-settlement'] : [])],
-  agentModel: agents.length > 0 ? env.LLM_AGENT_MODEL : 'no agents running',
+  jobs: [
+    'price-recorder',
+    'thesis-pipeline',
+    'resolver',
+    ...agents,
+    ...(sandboxMirror ? ['sandbox-mirror'] : []),
+    ...(onchain ? ['tips', 'tip-settlement'] : []),
+  ],
+  agentModel: agents.some((name) => name !== 'arena') ? env.LLM_AGENT_MODEL : 'no news or fade agent running',
+  arena:
+    arena.length > 0
+      ? {
+          models: arena.map(({ entrant }) => `${entrant.id}: ${entrant.model}`),
+          intervalMinutes: env.ARENA_INTERVAL_MINUTES,
+          dailyTokenCapPerModel: env.ARENA_DAILY_TOKEN_CAP_PER_MODEL,
+        }
+      : enabledAgents.has('arena')
+        ? 'not running: no arena model has its API key set'
+        : 'not enabled (ENABLED_AGENTS)',
+  // Agent keys only, grouped by the account they share; never the keys themselves.
+  sandboxAccounts: sandboxMirror
+    ? accountGroups(sandboxAccounts).map(({ agentKeys }) => agentKeys.join(', '))
+    : 'not configured (GEMINI_AGENT_KEYS, or GEMINI_AGENT_API_KEY and GEMINI_AGENT_API_SECRET): arena trades are not mirrored in the sandbox',
   escrow: env.ESCROW_ADDRESS ?? 'not configured: theses are published without an on-chain record, and tips are off',
   // Hosts only: a dedicated endpoint's path holds its access token.
   arcRpc: arcRpcUrls(env.ARC_RPC_URL).map((url) => new URL(url).host),
   intervalMs: env.RECORDER_INTERVAL_MS,
   stream: env.GEMINI_WS_URL,
   auditor: llm ? llm.model : 'phrase screen only (no language model configured)',
+  llmDailyUsdCap: env.LLM_DAILY_USD_CAP,
+  arenaDailyUsdCap: env.ARENA_DAILY_USD_CAP,
   tradingEnabled: env.TRADING_ENABLED,
   rules: DEFAULT_TRACKED_RULES.map((rule) => rule.key),
 });
@@ -186,6 +248,32 @@ if (onchain) {
   every('tip settlement', 30_000, 25_000, async () => {
     const summary = await jobs.runSettlementCycle();
     if (summary.paid > 0 || summary.refunded > 0) log('info', 'tip settlement', { ...summary });
+  });
+}
+if (arena.length > 0) {
+  // Every model on the same market with the same prompt, then each trades on its own.
+  every('arena', env.ARENA_INTERVAL_MINUTES * 60_000, 60_000, async () => {
+    log('info', 'arena', { ...(await runArenaCycle({ db, contenders: arena, tradingEnabled, logger })) });
+  });
+}
+if (sandboxMirror) {
+  // Read only: an account that has not accepted the prediction market terms has every order
+  // refused until a person accepts them on exchange.sandbox.gemini.com. Never accepted here.
+  for (const { account, agentKeys } of accountGroups(sandboxAccounts)) {
+    account.check().then(
+      ({ termsAccepted }) => {
+        if (!termsAccepted) {
+          log('warn', 'sandbox account has not accepted the prediction market terms; its orders will be refused', {
+            agents: agentKeys,
+          });
+        }
+      },
+      (error: unknown) => log('warn', 'sandbox account check failed', { agents: agentKeys, error: errorText(error) }),
+    );
+  }
+  every('sandbox mirror', 10_000, 10_000, async () => {
+    const summary = await sandboxMirror.runCycle();
+    if (summary.placed > 0 || summary.recorded > 0) log('info', 'sandbox mirror', { ...summary });
   });
 }
 if (agentLlm) {

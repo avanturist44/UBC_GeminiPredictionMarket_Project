@@ -27,7 +27,8 @@
 - API keys, sandbox secrets and RPC tokens live only in environment variables and never appear in logs, errors stored in the database, or API responses.
 - Arena model calls never consume the auditor's daily token budget.
 - Copy: sentence case, no exclamation marks, no trailing periods on labels; the "Sample data" note shows exactly when `sample: true`.
-- Next migration number is `0008`. Generate with `corepack pnpm db:generate`.
+- Total model spend stays under **$25 per UTC day** (`LLM_DAILY_USD_CAP=25`), checked before every model call (Task 3b).
+- Migrations: `0008` is Task 3b (`llm_calls.cost_usd`), `0009` is Task 7 (`sandbox_orders`). Generate with `corepack pnpm db:generate`.
 - Test command: `corepack pnpm exec vitest run <file>`; full suite `corepack pnpm exec vitest run --maxWorkers=3`; types `corepack pnpm -s typecheck`.
 
 ## Review Focus
@@ -149,6 +150,71 @@ Behaviour every adapter shares, in the style of `anthropic.ts`: `useSearch` adds
 
 ---
 
+### Task 3b: A hard daily dollar cap across every model call
+
+Agreed with the product owner on 2026-11-19: all model spend stays under **$25 per UTC day**. Token caps alone cannot promise that (worst case with every cap used is about $28), so every call is priced and checked against a dollar cap before it is sent.
+
+**Files:**
+- Create: `packages/core/src/llm-prices.ts`; export it from `packages/core/src/index.ts`
+- Modify: `packages/core/src/llm.ts` (`LlmCompletion.searches?: number`)
+- Modify: `apps/worker/src/llm/anthropic.ts`, `apps/worker/src/llm/responses.ts`, `apps/worker/src/llm/google.ts` (report `searches`)
+- Modify: `packages/db/src/schema.ts` (`llm_calls.cost_usd numeric(12,6) not null default 0`), generate migration `0008`; `packages/db/src/queries/theses.ts` (`recordLlmCall` takes `costUsd`; new `llmCostSince`)
+- Create: `apps/worker/src/llm/spend-guard.ts`
+- Modify: `apps/worker/src/llm/index.ts` (`withSpendCap` takes the guard), `apps/worker/src/env.ts` (`LLM_DAILY_USD_CAP` default 25), `apps/worker/src/index.ts` (one guard shared by every `Llm` the worker creates)
+- Test: `packages/core/test/llm-prices.test.ts`, `apps/worker/test/spend-guard.test.ts`
+
+**Interfaces:**
+- Produces: `MODEL_PRICES: Record<string, { inputPerMillion: number; outputPerMillion: number; perSearch: number }>`; `priceFor(model: string)` (exact id, or the longest listed id the served id starts with, e.g. `gpt-5-2025-08-07` -> `gpt-5`; otherwise `UNKNOWN_MODEL_PRICE`); `callCostUsd(model: string, usage: LlmUsage, searches: number): number`; `worstCallCostUsd(model: string): number` (60,000 input + 8,000 output tokens + 5 searches); `llmCostSince(db: Db, since: Date): Promise<number>`; `createSpendGuard(o: { db: Db; dailyCapUsd: number; logger: Logger; now?: () => Date }): SpendGuard` with `reserve(model: string): Promise<{ settle(costUsd: number): void }>` (throws `LlmError('budget')`); `withSpendCap(db, provider, { …existing, guard?: SpendGuard })`.
+
+Prices, per 1M tokens and per search (rounded up where sources differ; Anthropic and Google from their own pages, the rest from pricing summaries checked 2026-11-19):
+
+| model | input | output | per search |
+| --- | --- | --- | --- |
+| `claude-opus-5-5` | 4.00 | 20.00 | 0.01 |
+| `claude-sonnet-5-5` | 2.00 | 10.00 | 0.01 |
+| `gpt-5` | 1.25 | 10.00 | 0.01 |
+| `grok-4.7` | 2.00 | 6.00 | 0.005 |
+| `gemini-2.5-pro` | 1.25 | 10.00 | 0 (the first 1,500 grounded prompts a day are free; the arena uses at most 24) |
+| `deepseek-flash` | 0.30 | 1.20 | 0 (DeepSeek does not bill its web tools; peak-hour token rate) |
+| `UNKNOWN_MODEL_PRICE` | 5.00 | 25.00 | 0.01 (above every listed model, so an unknown id is never under-counted) |
+
+Searches per call: Anthropic `usage.server_tool_use.web_search_requests`; Responses API the number of `web_search_call` output items; Google 1 when `groundingMetadata` is present. When a provider does not say, count the adapter's maximum (5).
+
+Guard rule: a call is refused when today's recorded `cost_usd` (UTC day) + every reservation still in flight + `worstCallCostUsd(model)` > `dailyCapUsd`. `settle` replaces the reservation with the real cost; the row in `llm_calls` carries `cost_usd`. A failed call that reports usage is priced and recorded too. All model calls run in the one worker process, so in-process reservations cover parallel calls.
+
+- [ ] **Step 1: Write the failing tests**
+
+```ts
+it('prices a call from its tokens and searches', () => {
+  expect(callCostUsd('claude-sonnet-5-5', { inputTokens: 38_000, outputTokens: 1_600 }, 3)).toBeCloseTo(0.122, 6);
+});
+it('matches a served id with a date suffix, and never under-prices an unknown model', () => {
+  expect(priceFor('gpt-5-2025-08-07')).toEqual(MODEL_PRICES['gpt-5']);
+  for (const p of Object.values(MODEL_PRICES)) expect(UNKNOWN_MODEL_PRICE.outputPerMillion).toBeGreaterThanOrEqual(p.outputPerMillion);
+});
+it('refuses a call once the day's spend plus its worst case would pass the cap', async () => {
+  await recordLlmCall(db, { purpose: 'audit-check', model: 'claude-sonnet-5-5', inputTokens: 1, outputTokens: 1, costUsd: '0.80' });
+  const guard = createSpendGuard({ db, dailyCapUsd: 1, logger });
+  await expect(guard.reserve('claude-sonnet-5-5')).rejects.toMatchObject({ code: 'budget' }); // 0.80 + 0.25 > 1
+});
+it('counts calls still in flight', async () => {
+  const guard = createSpendGuard({ db, dailyCapUsd: 1, logger });
+  for (let i = 0; i < 4; i += 1) await guard.reserve('claude-sonnet-5-5'); // 4 × 0.25 = 1.00
+  await expect(guard.reserve('claude-sonnet-5-5')).rejects.toMatchObject({ code: 'budget' });
+});
+it('settling frees the reservation and the recorded cost is what counts', async () => { /* reserve, settle(0.12), record */
+  expect(await llmCostSince(db, startOfToday)).toBeCloseTo(0.12, 6);
+});
+it("yesterday's spend does not count", async () => { /* $5 recorded yesterday, cap $1, a call today is allowed */ });
+```
+
+- [ ] **Step 2: Run and see them fail** — `corepack pnpm exec vitest run packages/core/test/llm-prices.test.ts apps/worker/test/spend-guard.test.ts`.
+- [ ] **Step 3: Implement**, then run `corepack pnpm db:generate` and check the new `0008_*.sql` only adds `llm_calls.cost_usd`. Every existing `withSpendCap` user in `apps/worker/src/index.ts` gets the shared guard.
+- [ ] **Step 4: Run the focused tests, the full suite and typecheck** → PASS.
+- [ ] **Step 5: Commit** — `git commit -m "Hard daily dollar cap on every model call"`
+
+---
+
 ### Task 4: The arena cycle: one market, one prompt, independent decisions
 
 **Files:**
@@ -198,7 +264,7 @@ it('five consecutive errors halt only that model', async () => { /* run 5 cycles
 ### Task 5: Wire the arena into the worker, and a verify script that gates go-live
 
 **Files:**
-- Modify: `apps/worker/src/env.ts` (add `OPENAI_API_KEY`, `GEMINI_API_KEY`, `XAI_API_KEY`, `DEEPSEEK_API_KEY`; Claude keeps using `LLM_API_KEY`; `ARENA_INTERVAL_MINUTES` default 60 min 15, `ARENA_DAILY_TOKEN_CAP_PER_MODEL` default 300000; `ENABLED_AGENTS` accepts `arena` and defaults to `arena`)
+- Modify: `apps/worker/src/env.ts` (add `OPENAI_API_KEY`, `GEMINI_API_KEY`, `XAI_API_KEY`, `DEEPSEEK_API_KEY`; Claude keeps using `LLM_API_KEY`; `ARENA_INTERVAL_MINUTES` default 60 min 15, `ARENA_DAILY_TOKEN_CAP_PER_MODEL` default 1000000 (agreed: hourly looks, 1,000,000 tokens per model per day); `ENABLED_AGENTS` accepts `arena` and defaults to `arena`)
 - Create: `apps/worker/src/arena-contenders.ts`
 - Modify: `apps/worker/src/index.ts` (schedule `runArenaCycle` every `ARENA_INTERVAL_MINUTES`, first run after 60 s)
 - Create: `apps/worker/src/verify-arena.ts`; add `"verify:arena": "tsx src/verify-arena.ts"` to `apps/worker/package.json`
@@ -280,7 +346,7 @@ it('turns agent runs into model chat, newest first', () => { /* runs at 10:00 an
 ### Task 7: Sandbox mirror: each paper trade as a real order from the model's own account
 
 **Files:**
-- Modify: `packages/db/src/schema.ts` (table `sandbox_orders`), generate migration `0008`
+- Modify: `packages/db/src/schema.ts` (table `sandbox_orders`), generate migration `0009`
 - Create: `apps/worker/src/sandbox-account.ts` (the SDK wrapper)
 - Create: `apps/worker/src/sandbox-mirror.ts`
 - Modify: `apps/worker/src/env.ts` (`GEMINI_AGENT_KEYS`: JSON map of agent key → `{ apiKey, apiSecret }`, validated with zod), `apps/worker/src/index.ts` (run the mirror every 10 s when any account is configured)
@@ -319,7 +385,7 @@ it('keeps a trade pending through a network error and retries it', async () => {
 ```
 
 - [ ] **Step 2: Run and see them fail** — `corepack pnpm exec vitest run apps/worker/test/sandbox-mirror.test.ts`.
-- [ ] **Step 3: Add the table, run `corepack pnpm db:generate`, check the generated `0008_*.sql` only creates `sandbox_orders`, then implement the account wrapper and the mirror.** At start-up, log (without keys) any account whose prediction market terms are not accepted; do not accept them in code.
+- [ ] **Step 3: Add the table, run `corepack pnpm db:generate`, check the generated `0009_*.sql` only creates `sandbox_orders`, then implement the account wrapper and the mirror.** At start-up, log (without keys) any account whose prediction market terms are not accepted; do not accept them in code.
 - [ ] **Step 4: Run the mirror tests and the full worker suite** → PASS.
 - [ ] **Step 5: Commit** — `git commit -m "Mirror arena trades as real orders from each model's Gemini sandbox account"`
 
@@ -347,8 +413,8 @@ it('keeps a trade pending through a network error and retries it', async () => {
 
 No new code; each step has a check.
 
-- [ ] **Step 1:** On Railway set `OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY` and `XAI_API_KEY` (once Avi provides it), `ENABLED_AGENTS=arena`, `ARENA_INTERVAL_MINUTES=60`, `ARENA_DAILY_TOKEN_CAP_PER_MODEL=300000` (and `GEMINI_AGENT_KEYS` for Milestone B). On Vercel set `ARENA_SOURCE=live`.
-- [ ] **Step 2:** Deploy: `railway up` (the worker applies migration `0008` on start) and `vercel deploy --prod`. Check: `railway logs` shows `worker started` with `arena` in its jobs and the contenders it found.
+- [ ] **Step 1:** On Railway set `OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY` and `XAI_API_KEY` (once Avi provides it), `ENABLED_AGENTS=arena`, `ARENA_INTERVAL_MINUTES=60`, `ARENA_DAILY_TOKEN_CAP_PER_MODEL=1000000`, `LLM_DAILY_USD_CAP=25` (and `GEMINI_AGENT_KEYS` for Milestone B). On Vercel set `ARENA_SOURCE=live`.
+- [ ] **Step 2:** Deploy: `railway up` (the worker applies migrations `0008` and `0009` on start) and `vercel deploy --prod`. Check: `railway logs` shows `worker started` with `arena` in its jobs and the contenders it found.
 - [ ] **Step 3:** Within the first cycle (about a minute), `select agent_key, decision, reason from agent_runs where agent_key like 'arena-%' order by created_at desc limit 12;` shows one row per configured model.
 - [ ] **Step 4:** Within a few cycles, a trade appears: its thesis is `published` with a `register_tx`, the author has a `wallet_address`, and `/arena` shows it under Positions. With Milestone B, a `sandbox_orders` row follows within 10 seconds.
 - [ ] **Step 5:** `/arena` no longer shows "Sample data", and the home card names two real models.

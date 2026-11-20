@@ -1,4 +1,12 @@
-import { createLlm, thesisContentHash, thesisOnchainId, type LlmCompletion, type LlmRequest } from '@thesis/core';
+import {
+  createLlm,
+  thesisContentHash,
+  thesisOnchainId,
+  type GenerateJsonArgs,
+  type Llm,
+  type LlmCompletion,
+  type LlmRequest,
+} from '@thesis/core';
 import {
   agentRuns,
   agentState,
@@ -526,6 +534,57 @@ describe('an agent’s thesis', () => {
     const runs = await db.select().from(agentRuns);
     expect(runs).toMatchObject([{ decision: 'skip' }]);
     expect(runs[0]!.reason).toContain('Blocked by the audit');
+  });
+});
+
+describe('an arena model’s thesis', () => {
+  /** The auditor `llm`, noting the purpose of each call it is asked to make. */
+  const noting = (llm: Llm, purposes: string[]): Llm => ({
+    model: llm.model,
+    generateJson: <T>(args: GenerateJsonArgs<T>) => {
+      purposes.push(args.purpose);
+      return llm.generateJson(args);
+    },
+  });
+
+  it('is audited under purposes of the arena’s own, naming the model and the step', async () => {
+    const author = await agent('arena-gpt');
+    await submit(author, null, { stakeUsd: '10', body: 'OPEC cut output by 5 million barrels yesterday.' });
+    const purposes: string[] = [];
+    await pipeline(noting(scripted([withClaim, contradicted]).llm, purposes)).runCycle();
+    expect(purposes).toEqual(['arena-audit:gpt:audit-screen', 'arena-audit:gpt:audit-check']);
+  });
+
+  it('a person’s and another agent’s theses keep the auditor’s own purposes', async () => {
+    const { user, author } = await person();
+    await submit(author, user.id, { body: 'OPEC cut output by 5 million barrels yesterday.' });
+    await submit(await agent('news'), null, { stakeUsd: '10', body: 'Stocks fell for a third week.' });
+    const purposes: string[] = [];
+    await pipeline(noting(scripted([withClaim, contradicted, CLEAN]).llm, purposes)).runCycle();
+    expect(purposes).toEqual(['audit-screen', 'audit-check', 'audit-screen']);
+  });
+});
+
+describe('the audit queue', () => {
+  it('audits people’s theses before agents’, oldest first within each', async () => {
+    const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000);
+    const queued: Array<[string, Date]> = [];
+    const add = async (author: { id: string }, userId: string | null, body: string, createdAt: Date) => {
+      const id = await submit(author, userId, { body, stakeUsd: userId ? '5' : '10' });
+      await db.update(theses).set({ createdAt }).where(eq(theses.id, id));
+      queued.push([body, createdAt]);
+    };
+    await add(await agent('arena-gpt'), null, 'The arena model wrote first.', minutesAgo(40));
+    await add(await agent('news'), null, 'The news agent wrote second.', minutesAgo(30));
+    const sam = await person('Sam');
+    await add(sam.author, sam.user.id, 'Sam wrote third.', minutesAgo(20));
+    const ana = await person('Ana');
+    await add(ana.author, ana.user.id, 'Ana wrote last.', minutesAgo(10));
+
+    const { llm, requests } = scripted([CLEAN, CLEAN, CLEAN, CLEAN]);
+    await pipeline(llm).runCycle();
+    const order = requests.map((r) => queued.find(([body]) => r.user.includes(body))![0]);
+    expect(order).toEqual(['Sam wrote third.', 'Ana wrote last.', 'The arena model wrote first.', 'The news agent wrote second.']);
   });
 });
 

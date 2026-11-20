@@ -49,8 +49,23 @@ export interface AgentEntry {
   minutesToExpiry: number | null;
 }
 
+/** What the account rules read: the agent's day and ledger, and the position's cost. */
+export type AgentAccount = Omit<AgentEntry, 'price' | 'spread' | 'minutesToExpiry'>;
+/** What the market rules read: the market at the moment of the fill. */
+export type AgentMarketCheck = Pick<AgentEntry, 'price' | 'spread' | 'minutesToExpiry'>;
+
 /** Whether an agent may open this position. The first rule that fails is returned. */
 export function checkAgentEntry(entry: AgentEntry): RuleResult {
+  const account = checkAgentAccount(entry);
+  return account.ok ? checkAgentMarket(entry) : account;
+}
+
+/**
+ * The first half of checkAgentEntry: halts, the daily limits, one position per contract, the
+ * per-trade and exposure caps and the bankroll. Needs no price, so an agent can check it before
+ * it pays a model to look.
+ */
+export function checkAgentAccount(entry: AgentAccount): RuleResult {
   const r = AGENT_RULES;
   if (entry.halted) return no('halted', `Halted: ${entry.haltReason ?? 'stopped'}.`);
   if (entry.realizedPnlTodayUsd <= -r.dailyLossStopUsd + EPS) {
@@ -63,6 +78,12 @@ export function checkAgentEntry(entry: AgentEntry): RuleResult {
     return no('exposure_cap', `Would take open exposure over $${r.maxOpenExposureUsd}.`);
   }
   if (entry.costUsd > entry.balanceUsd + EPS) return no('bankroll', 'Not enough bankroll left.');
+  return { ok: true };
+}
+
+/** The second half of checkAgentEntry: the price band, the spread and the time to expiry. */
+export function checkAgentMarket(entry: AgentMarketCheck): RuleResult {
+  const r = AGENT_RULES;
   if (entry.price < r.minPrice - EPS || entry.price > r.maxPrice + EPS) {
     return no('price_band', `Price is outside ${r.minPrice} to ${r.maxPrice}.`);
   }

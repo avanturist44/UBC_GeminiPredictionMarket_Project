@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   AGENT_RULES,
+  checkAgentAccount,
   checkAgentEntry,
+  checkAgentMarket,
   decideFade,
   decideNews,
   findMove,
@@ -93,6 +95,28 @@ describe('checkAgentEntry: each limit at, just under and just over its boundary'
 
   it('states the limits it enforces', () => {
     expect(AGENT_RULES).toMatchObject({ bankrollUsd: 1000, maxPerTradeUsd: 20, maxOpenExposureUsd: 150, dailyLossStopUsd: 50, maxTradesPerDay: 30 });
+  });
+});
+
+describe('checkAgentAccount and checkAgentMarket: the two halves of checkAgentEntry', () => {
+  const { price, spread, minutesToExpiry, ...account } = entry();
+  const market = { price, spread, minutesToExpiry };
+
+  it('the account rules need no market, and the market rules no account', () => {
+    expect(checkAgentAccount(account)).toEqual({ ok: true });
+    expect(checkAgentAccount({ ...account, openExposureUsd: 145 })).toMatchObject({ code: 'exposure_cap' });
+    expect(checkAgentAccount({ ...account, tradesToday: 30 })).toMatchObject({ code: 'daily_trades' });
+    expect(checkAgentAccount({ ...account, realizedPnlTodayUsd: -50 })).toMatchObject({ code: 'daily_loss_stop' });
+    expect(checkAgentAccount({ ...account, balanceUsd: 9.99 })).toMatchObject({ code: 'bankroll' });
+    expect(checkAgentMarket(market)).toEqual({ ok: true });
+    expect(checkAgentMarket({ ...market, price: 0.97 })).toMatchObject({ code: 'price_band' });
+    expect(checkAgentMarket({ ...market, spread: 0.08 })).toMatchObject({ code: 'spread' });
+    expect(checkAgentMarket({ ...market, minutesToExpiry: 2 })).toMatchObject({ code: 'time_to_expiry' });
+  });
+
+  it('checkAgentEntry is the account rules, then the market rules', () => {
+    expect(code({ openExposureUsd: 145, price: 0.97 })).toBe('exposure_cap');
+    expect(code({ price: 0.97, spread: 0.08 })).toBe('price_band');
   });
 });
 

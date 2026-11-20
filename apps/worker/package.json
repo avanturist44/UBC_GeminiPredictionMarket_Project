@@ -8,11 +8,13 @@
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "verify:llm": "tsx src/verify-llm.ts",
+    "verify:arena": "tsx src/verify-arena.ts",
     "verify:escrow": "tsx src/verify-escrow.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.10.0",
     "@circle-fin/developer-controlled-wallets": "10.8.1",
+    "@gemini-markets/sdk": "0.1.1",
     "@thesis/core": "workspace:*",
     "@thesis/db": "workspace:*",
     "tsx": "^4.23.15",

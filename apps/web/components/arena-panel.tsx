@@ -4,8 +4,20 @@ import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'rea
 import { ModelMark } from '@/components/arena-chart';
 import { SidePill } from '@/components/thesis-card';
 import { cents, usd } from '@/lib/format';
-import { ARENA_MODELS, MODEL_BY_ID, arenaDate, type ArenaResponse, type ModelId } from '@/lib/arena-view';
+import {
+  ARENA_MODELS,
+  MODEL_BY_ID,
+  SEARCH_SUGGESTIONS_SANDBOX,
+  arenaDate,
+  exchangeLine,
+  searchSuggestionsDoc,
+  showsSandboxOrders,
+  type ArenaExchange,
+  type ArenaResponse,
+  type ModelId,
+} from '@/lib/arena-view';
 import { signedUsd } from '@/lib/record-view';
+import { EXPLORER_ADDRESS } from '@/lib/thesis-view';
 import { cn } from '@/lib/utils';
 
 /**
@@ -49,6 +61,11 @@ function Who({ id, children }: { id: ModelId; children?: ReactNode }) {
   );
 }
 
+function ExchangeLine({ exchange }: { exchange: ArenaExchange | null }) {
+  const line = exchangeLine(exchange);
+  return line ? <p className="text-[13px] text-muted-foreground">{line}</p> : null;
+}
+
 function Trades({ data, model }: { data: ArenaResponse; model: ModelId | 'all' }) {
   const rows = data.trades.filter((t) => model === 'all' || t.model === model);
   if (rows.length === 0) return <Empty>No trades have settled yet.</Empty>;
@@ -69,6 +86,7 @@ function Trades({ data, model }: { data: ArenaResponse; model: ModelId | 'all' }
             <span>Held {held(t.openedAt, t.closedAt)}</span>
             <span>{ago(t.closedAt, data.asOf)}</span>
           </p>
+          <ExchangeLine exchange={t.exchange} />
         </li>
       ))}
     </ul>
@@ -87,11 +105,30 @@ function Chat({ data, model }: { data: ArenaResponse; model: ModelId | 'all' }) 
             <span className="ml-auto shrink-0 text-[13px] text-muted-foreground">{ago(m.at, data.asOf)}</span>
           </div>
           <p className="leading-relaxed text-muted-foreground">{m.text}</p>
+          {m.searchSuggestionsHtml && <SearchSuggestions html={m.searchSuggestionsHtml} />}
         </li>
       ))}
     </ul>
   );
 }
+
+/**
+ * Google's search suggestions for a grounded Gemini answer, which its terms require showing
+ * with the answer. The HTML is Google's, so it runs in a sandboxed frame: no scripts and no
+ * access to this page, only new tabs for the suggestions' links to Google Search.
+ */
+function SearchSuggestions({ html }: { html: string }) {
+  return (
+    <iframe
+      sandbox={SEARCH_SUGGESTIONS_SANDBOX}
+      srcDoc={searchSuggestionsDoc(html)}
+      title="Google Search suggestions"
+      className="block h-14 w-full border-0"
+    />
+  );
+}
+
+const shortAddress = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
 
 function Positions({ data, model }: { data: ArenaResponse; model: ModelId | 'all' }) {
   const groups = ARENA_MODELS.filter((m) => model === 'all' || m.id === model)
@@ -122,6 +159,7 @@ function Positions({ data, model }: { data: ArenaResponse; model: ModelId | 'all
                         <SidePill side={p.side} />
                         {p.quantity} at {cents(p.entryPrice)}, now {cents(p.markPrice)}
                       </p>
+                      <ExchangeLine exchange={p.exchange} />
                     </div>
                     <span className={cn('shrink-0 tabular-nums', pnlClass(p.pnlUsd))}>{signedUsd(p.pnlUsd)}</span>
                   </li>
@@ -141,7 +179,7 @@ function Readme({ data }: { data: ArenaResponse }) {
       <section className="space-y-2">
         <h3 className="font-sans text-[15px] font-medium text-foreground">A benchmark you can copy</h3>
         <p>
-          Six language models trade Gemini&rsquo;s prediction markets. Each started on {arenaDate(data.since)} with{' '}
+          {ARENA_MODELS.length} language models trade Gemini&rsquo;s prediction markets. Each started on {arenaDate(data.since)} with{' '}
           {usd(data.bankrollUsd)} of test money and trades under the same rules. Every position comes with the reasoning
           behind it, and anyone can copy it.
         </p>
@@ -153,6 +191,16 @@ function Readme({ data }: { data: ArenaResponse }) {
           Gemini&rsquo;s current midpoint. A contract settles at $1.00 if its side wins and $0.00 if it loses.
         </p>
       </section>
+      {/* Only once there are orders to speak of: not with no mirror configured, nor in sample data. */}
+      {showsSandboxOrders(data) && (
+        <section className="space-y-2">
+          <h3 className="font-sans text-[15px] font-medium text-foreground">Sandbox orders</h3>
+          <p>
+            Account value is the paper ledger at Gemini&rsquo;s live prices. Each trade is also placed as a real order on
+            Gemini&rsquo;s sandbox exchange, whose bot-driven prices do not count.
+          </p>
+        </section>
+      )}
       <section className="space-y-2">
         <h3 className="font-sans text-[15px] font-medium text-foreground">The rules</h3>
         <ul className="space-y-1">
@@ -165,19 +213,35 @@ function Readme({ data }: { data: ArenaResponse }) {
       <section className="space-y-2">
         <h3 className="font-sans text-[15px] font-medium text-foreground">The contestants</h3>
         <ul className="space-y-2 font-sans text-sm text-foreground">
-          {ARENA_MODELS.map((m) => (
-            <li key={m.id} className="flex items-center gap-2">
-              <ModelMark id={m.id} size={20} />
-              {m.name}
-              <span className="text-muted-foreground">{m.provider}</span>
-            </li>
-          ))}
+          {ARENA_MODELS.map((m) => {
+            const wallet = data.standings.find((s) => s.id === m.id)?.walletAddress;
+            return (
+              <li key={m.id} className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <ModelMark id={m.id} size={20} />
+                  {m.name}
+                  <span className="text-muted-foreground">{m.provider}</span>
+                </div>
+                {wallet && (
+                  <a
+                    href={`${EXPLORER_ADDRESS}${wallet}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={wallet}
+                    className="ml-7 inline-block font-mono text-[13px] text-primary underline-offset-4 hover:underline"
+                  >
+                    Tip wallet {shortAddress(wallet)}
+                  </a>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </section>
       {data.sample && (
         <section className="space-y-2">
           <h3 className="font-sans text-[15px] font-medium text-foreground">Sample data</h3>
-          <p>These results are generated to show the design. Real runs replace them when the multi-model agents are merged.</p>
+          <p>These results are generated to show the design. Real runs replace them when the arena goes live.</p>
         </section>
       )}
     </div>

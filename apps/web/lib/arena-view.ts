@@ -2,11 +2,13 @@
  * What `/api/arena` sends: several models trading Gemini's prediction markets from the same
  * bankroll. Plain data, safe to import from client components.
  *
- * The response says whether it is sample data. Until the multi-model agents are merged it
- * always is, and every screen that shows it says so.
+ * The response says whether it is sample data. It is unless the server runs with
+ * `ARENA_SOURCE=live`, and every screen that shows sample data says so.
  */
 
-export type ModelId = 'gemini' | 'claude' | 'gpt' | 'grok' | 'qwen' | 'deepseek';
+import { ARENA_ROSTER, type ArenaProvider, type ModelId } from '@thesis/core/browser';
+
+export type { ModelId };
 
 export interface ArenaModelMeta {
   id: ModelId;
@@ -15,21 +17,35 @@ export interface ArenaModelMeta {
   /** A provider mark in `public/models`. */
   logo: string;
   /**
-   * The model's line colour. Six slots of a categorical palette validated on the chart
-   * surface (#18181a) for colour-blind separation; the order is the validated order.
+   * The model's line colour. Five slots of a categorical palette validated on the chart
+   * surface (#18181a) for colour-blind separation; the order is the roster's order.
    * Text never takes these colours.
    */
   color: string;
 }
 
-export const ARENA_MODELS: readonly ArenaModelMeta[] = [
-  { id: 'gemini', name: 'Gemini 2.5 Pro', provider: 'Google', logo: '/models/gemini.svg', color: '#3987e5' },
-  { id: 'claude', name: 'Claude Sonnet 4.5', provider: 'Anthropic', logo: '/models/claude.svg', color: '#d95926' },
-  { id: 'gpt', name: 'GPT-5', provider: 'OpenAI', logo: '/models/gpt.svg', color: '#199e70' },
-  { id: 'grok', name: 'Grok 4', provider: 'xAI', logo: '/models/grok.svg', color: '#c98500' },
-  { id: 'qwen', name: 'Qwen3 Max', provider: 'Alibaba', logo: '/models/qwen.svg', color: '#d55181' },
-  { id: 'deepseek', name: 'DeepSeek V3.1', provider: 'DeepSeek', logo: '/models/deepseek.svg', color: '#9085e9' },
-];
+const PROVIDER_NAME: Record<ArenaProvider, string> = {
+  google: 'Google',
+  anthropic: 'Anthropic',
+  openai: 'OpenAI',
+  xai: 'xAI',
+  deepseek: 'DeepSeek',
+};
+
+const LOOK: Record<ModelId, { logo: string; color: string }> = {
+  gemini: { logo: '/models/gemini.svg', color: '#3987e5' },
+  claude: { logo: '/models/claude.svg', color: '#d95926' },
+  gpt: { logo: '/models/gpt.svg', color: '#199e70' },
+  grok: { logo: '/models/grok.svg', color: '#c98500' },
+  deepseek: { logo: '/models/deepseek.svg', color: '#9085e9' },
+};
+
+export const ARENA_MODELS: readonly ArenaModelMeta[] = ARENA_ROSTER.map((e) => ({
+  id: e.id,
+  name: e.displayName,
+  provider: PROVIDER_NAME[e.provider],
+  ...LOOK[e.id],
+}));
 
 export const MODEL_BY_ID = Object.fromEntries(ARENA_MODELS.map((m) => [m.id, m])) as Record<ModelId, ArenaModelMeta>;
 
@@ -40,12 +56,51 @@ export interface ArenaStanding {
   changeUsd: number;
   /** The same change as a percentage of the bankroll. */
   changePct: number;
+  /** The model's Arc testnet wallet, for tips. Absent until it has one. */
+  walletAddress?: string;
 }
 
 /** One moment: every model's account value, in dollars, keyed by model id. */
 export type ArenaPoint = { t: number } & Record<ModelId, number>;
 
+/**
+ * What Gemini's sandbox exchange did with the order placed alongside a trade. It never counts
+ * toward the score; the paper ledger does. Null when no order was placed (and in sample data).
+ * Only the outcome is sent, never an order id or anything about the account.
+ */
+export interface ArenaExchange {
+  status: 'pending' | 'filled' | 'partial' | 'unfilled' | 'failed';
+  quantity: number | null;
+  /** The sandbox's average fill price, 0 to 1. */
+  price: number | null;
+}
+
+/** Whether any trade or position on the page has a sandbox order, so the README speaks of them. */
+export function showsSandboxOrders(data: Pick<ArenaResponse, 'trades' | 'positions'>): boolean {
+  return [...data.trades, ...data.positions].some((row) => row.exchange !== null);
+}
+
+/** The muted line under a position or trade, or null when there is no order. */
+export function exchangeLine(exchange: ArenaExchange | null): string | null {
+  if (!exchange) return null;
+  switch (exchange.status) {
+    case 'filled':
+    case 'partial': {
+      const what = exchange.status === 'filled' ? 'filled' : 'partly filled';
+      if (exchange.quantity === null || exchange.price === null) return `Sandbox order ${what}`;
+      return `Sandbox order ${what}, ${exchange.quantity} at ${Math.round(exchange.price * 100)}¢`;
+    }
+    case 'unfilled':
+      return 'Sandbox order not filled';
+    case 'pending':
+      return 'Sandbox order pending';
+    case 'failed':
+      return 'Sandbox order failed';
+  }
+}
+
 export interface ArenaTrade {
+  exchange: ArenaExchange | null;
   id: string;
   model: ModelId;
   market: string;
@@ -53,7 +108,7 @@ export interface ArenaTrade {
   quantity: number;
   /** What one contract cost. */
   entryPrice: number;
-  /** What it paid: 1 if the side won, 0 if it lost. */
+  /** What it paid per contract: 1 if the side won, 0 if it lost, its price back if void. */
   exitPrice: number;
   pnlUsd: number;
   openedAt: string;
@@ -61,6 +116,7 @@ export interface ArenaTrade {
 }
 
 export interface ArenaPosition {
+  exchange: ArenaExchange | null;
   id: string;
   model: ModelId;
   market: string;
@@ -78,6 +134,12 @@ export interface ArenaMessage {
   model: ModelId;
   at: string;
   text: string;
+  /**
+   * Google's search suggestions for a grounded Gemini answer, as Google renders them. Its
+   * terms require showing them with the answer. Third-party HTML: only ever rendered inside
+   * a sandboxed frame.
+   */
+  searchSuggestionsHtml?: string;
 }
 
 export interface ArenaMatchup {
@@ -101,6 +163,18 @@ export interface ArenaResponse {
   positions: ArenaPosition[];
   messages: ArenaMessage[];
   matchup: ArenaMatchup | null;
+}
+
+/**
+ * The frame around Google's search suggestions. Google's terms need a click on a suggestion
+ * to reach Google Search, so the frame may open a new tab, and that tab is a normal page. It
+ * never gets scripts or this page's origin.
+ */
+export const SEARCH_SUGGESTIONS_SANDBOX = 'allow-popups allow-popups-to-escape-sandbox';
+
+/** Google's suggestion HTML as the frame's document: links open in a new tab, no page margin. */
+export function searchSuggestionsDoc(html: string): string {
+  return `<!doctype html><base target="_blank"><meta charset="utf-8"><style>html,body{margin:0}</style>${html}`;
 }
 
 /** A date that reads the same on the server and in the browser. */
