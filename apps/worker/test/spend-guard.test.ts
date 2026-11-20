@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { withSpendCap } from '../src/llm';
 import { createAnthropicProvider } from '../src/llm/anthropic';
-import { createSpendGuard } from '../src/llm/spend-guard';
+import { httpError } from '../src/llm/http';
+import { createSpendGuard, type SpendGuard } from '../src/llm/spend-guard';
 import { json, queued } from './fake-fetch';
 
 const logger = { info: () => {}, warn: () => {}, error: () => {} };
@@ -134,22 +135,47 @@ describe('withSpendCap with the dollar guard', () => {
     expect(calls()).toBe(0);
   });
 
-  it('a failed call frees its reservation', async () => {
+  /** One generateJson call whose model call fails with `error`. Resolves with what it threw. */
+  const failing = (guard: SpendGuard, error: () => unknown) =>
+    withSpendCap(db, scripted(SONNET, async () => Promise.reject(error())).provider, { dailyTokenCap: 10_000_000, guard, logger })
+      .generateJson(args())
+      .catch((caught: unknown) => caught);
+
+  it('records a failed call that says nothing of its usage at the most it could cost', async () => {
+    // Room for the three worst cases recorded below (1.53) and one more call (0.51), if nothing leaked.
+    const guard = createSpendGuard({ db, dailyCapUsd: 2.1, logger });
+    // A timeout: the provider goes on with the request, and bills it, after the wrapper stops waiting.
+    expect(await failing(guard, () => new LlmError('timeout', 'The language model did not answer in time.'))).toMatchObject({
+      code: 'timeout',
+    });
+    // A server error, and a connection that dropped: either may come after the work was done.
+    expect(await failing(guard, () => new LlmError('provider', 'The language model returned an error (500).'))).toMatchObject({
+      code: 'provider',
+    });
+    expect(await failing(guard, () => new Error('socket hang up'))).toMatchObject({ code: 'provider' });
+
+    // 150,000 in, 16,000 out and 5 searches on Sonnet: 0.30 + 0.16 + 0.05.
+    expect(await rows()).toMatchObject([
+      { purpose: 'news', model: SONNET, inputTokens: 150_000, outputTokens: 16_000, costUsd: '0.510000' },
+      { costUsd: '0.510000' },
+      { costUsd: '0.510000' },
+    ]);
+    // Each was settled at its recorded cost: nothing is still held.
+    await expect(guard.reserve(SONNET)).resolves.toBeDefined(); // 1.53 + 0.51 <= 2.1
+  });
+
+  it('records nothing for a call the provider refused before doing any work', async () => {
     const guard = createSpendGuard({ db, dailyCapUsd: ROOM_FOR_ONE, logger });
-    const { provider } = scripted(SONNET, async () => {
-      throw new Error('socket hang up');
-    });
-    const llm = withSpendCap(db, provider, { dailyTokenCap: 10_000_000, guard, logger });
-    await expect(llm.generateJson(args())).rejects.toMatchObject({ code: 'provider' });
-    const timedOut = scripted(SONNET, async () => {
-      throw new LlmError('timeout', 'The language model did not answer in time.');
-    });
-    await expect(
-      withSpendCap(db, timedOut.provider, { dailyTokenCap: 10_000_000, guard, logger }).generateJson(args()),
-    ).rejects.toMatchObject({ code: 'timeout' });
-    // Nothing was spent and nothing is still held.
+    const refusals = [
+      () => new LlmError('budget', 'The daily language-model cap of 1000 tokens is reached.'),
+      // No credit, a rejected key, a request the API will not accept.
+      () => new LlmError('unavailable', 'The language model will not serve this request (401): invalid key'),
+      // A rate limit, as each adapter reports one.
+      () => httpError(429, 'Rate limit reached for gpt-5.', 'test-key'),
+    ];
+    for (const refusal of refusals) expect(await failing(guard, refusal)).toBeInstanceOf(LlmError);
     expect(await rows()).toEqual([]);
-    await expect(guard.reserve(SONNET)).resolves.toBeDefined();
+    await expect(guard.reserve(SONNET)).resolves.toBeDefined(); // nothing is still held
   });
 
   it('prices and records a failed call that used tokens, counting the most searches', async () => {

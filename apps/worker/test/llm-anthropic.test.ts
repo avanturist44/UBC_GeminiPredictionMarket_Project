@@ -190,6 +190,33 @@ describe('createAnthropicProvider', () => {
     });
   });
 
+  it('sends each request once: a timed-out or failed request is never sent again', async () => {
+    // Past the wrapper's deadline nobody waits for a resent request's answer, but it is billed.
+    let sent = 0;
+    const counting = ((url: string | URL | Request, init?: RequestInit) => {
+      sent += 1;
+      return hangingFetch(url, init);
+    }) as typeof globalThis.fetch;
+    const slow = createAnthropicProvider({ model: 'claude-sonnet-5-5', apiKey: KEY, fetch: counting });
+    expect(await failure(slow.complete(request({ timeoutMs: 20 })))).toMatchObject({ code: 'timeout' });
+    expect(sent).toBe(1);
+
+    // A server error the API says may be retried.
+    const { fetch, calls } = fakeFetch(() => json(500, { type: 'error', error: { type: 'api_error', message: 'boom' } }));
+    const failing = createAnthropicProvider({ model: 'claude-sonnet-5-5', apiKey: KEY, fetch });
+    expect(await failure(failing.complete(request()))).toMatchObject({ code: 'provider' });
+    expect(calls).toHaveLength(1);
+  });
+
+  it('says when a request was turned away by a rate limit, which did no work', async () => {
+    const { fetch } = fakeFetch(() => json(429, { type: 'error', error: { type: 'rate_limit_error', message: 'slow down' } }));
+    const claude = createAnthropicProvider({ model: 'claude-sonnet-5-5', apiKey: KEY, fetch });
+    expect(await failure(claude.complete(request()))).toMatchObject({ code: 'provider', rateLimited: true });
+    const { fetch: down } = fakeFetch(() => apiError(500, 'internal error'));
+    const failed = await failure(createAnthropicProvider({ model: 'claude-sonnet-5-5', apiKey: KEY, fetch: down }).complete(request()));
+    expect(failed).toMatchObject({ code: 'provider', rateLimited: false });
+  });
+
   it('a first request that fails carries no usage: nothing was answered', async () => {
     const { fetch } = queued([apiError(500, 'internal error')]);
     const claude = createAnthropicProvider({ model: 'claude-sonnet-5-5', apiKey: KEY, fetch });

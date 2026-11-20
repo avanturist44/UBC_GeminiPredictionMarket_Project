@@ -200,7 +200,10 @@ describe('createGoogleProvider', () => {
         },
       }),
     );
-    expect(await failure(gemini(fetch).complete(request({ useSearch: true })))).toMatchObject({ code: 'provider' });
+    expect(await failure(gemini(fetch).complete(request({ useSearch: true })))).toMatchObject({
+      code: 'provider',
+      rateLimited: true,
+    });
   });
 
   it('stops waiting after timeoutMs', async () => {

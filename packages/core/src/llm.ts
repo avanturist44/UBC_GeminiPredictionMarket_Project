@@ -59,14 +59,22 @@ export interface LlmProvider {
 export type LlmErrorCode = 'timeout' | 'invalid_output' | 'refused' | 'budget' | 'unavailable' | 'provider' | 'ungrounded';
 
 export class LlmError extends Error {
+  /**
+   * The provider turned the request away with a rate limit (a 429 that is not about credit),
+   * before doing any work, so it billed nothing. The code is still `provider`: worth retrying.
+   */
+  readonly rateLimited: boolean;
+
   constructor(
     readonly code: LlmErrorCode,
     message: string,
     /** Tokens the failed call had already used, when the provider knows. They still cost money. */
     readonly usage?: LlmUsage,
+    options: { rateLimited?: boolean } = {},
   ) {
     super(message);
     this.name = 'LlmError';
+    this.rateLimited = options.rateLimited === true;
   }
 }
 

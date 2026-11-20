@@ -33,6 +33,13 @@ export interface LlmSettings {
 
 const startOfUtcDay = (now: Date) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
+/**
+ * A call that was turned away before the provider did any work, so nothing was billed: refused
+ * by a cap here, by the provider for the account or the request (`unavailable`), or by a rate limit.
+ */
+const refusedBeforeWork = (error: unknown) =>
+  error instanceof LlmError && (error.code === 'budget' || error.code === 'unavailable' || error.rateLimited);
+
 /** Wraps a provider with the spend caps and the usage log. Tests pass their own provider. */
 export function withSpendCap(
   db: Db,
@@ -109,9 +116,15 @@ export function withSpendCap(
         costUsd = await record(purpose, completion.model, completion.usage, completion.searches ?? unsaidSearches);
         return completion;
       } catch (error) {
-        // A refusal or a cut-off reply was still paid for.
         if (error instanceof LlmError && error.usage) {
+          // A refusal or a cut-off reply was still paid for.
           costUsd = await record(purpose, provider.model, error.usage, unsaidSearches);
+        } else if (!refusedBeforeWork(error)) {
+          // A timeout, a server error or a dropped connection says nothing of what was used, but
+          // the provider may have done the work and billed it: it goes on with a request after the
+          // client stops waiting. Counted at the most a call can cost, the safe side of the cap.
+          const worst = { inputTokens: WORST_CALL.inputTokens, outputTokens: WORST_CALL.outputTokens };
+          costUsd = await record(purpose, provider.model, worst, WORST_CALL.searches);
         }
         throw error;
       } finally {

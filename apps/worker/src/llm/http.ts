@@ -65,7 +65,7 @@ export function httpError(
 
   if (status >= 500) return new LlmError('provider', `The language model returned an error (${status}).`);
   if (status === 429 && !outOfCredit) {
-    return new LlmError('provider', 'The language model is rate limited. Try again shortly.');
+    return new LlmError('provider', 'The language model is rate limited. Try again shortly.', undefined, { rateLimited: true });
   }
   // No credit, a rejected key, or a request the API will not accept: none of these gets
   // better by retrying, and the provider's own words say which it is.

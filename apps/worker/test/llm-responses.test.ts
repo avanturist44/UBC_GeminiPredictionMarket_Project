@@ -164,8 +164,9 @@ describe('createResponsesProvider', () => {
     expect(rejected).toBeInstanceOf(LlmError);
     expect(rejected).toMatchObject({ code: 'unavailable' });
     expect(rejected!.message).toContain('401');
-    expect(await failure(provider.complete(request()))).toMatchObject({ code: 'provider' });
-    expect(await failure(provider.complete(request()))).toMatchObject({ code: 'provider' });
+    // A rate limit turned the request away before any work, which the spend cap needs to know.
+    expect(await failure(provider.complete(request()))).toMatchObject({ code: 'provider', rateLimited: true });
+    expect(await failure(provider.complete(request()))).toMatchObject({ code: 'provider', rateLimited: false });
   });
 
   it('maps an account with no credit to unavailable, even on 429', async () => {

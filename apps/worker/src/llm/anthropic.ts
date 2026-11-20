@@ -94,7 +94,9 @@ export function createAnthropicProvider(options: AnthropicProviderOptions): LlmP
       ...(input.useSearch ? { tools: [searchTool(searchAllowance)] } : {}),
       ...(withFallbacks ? { betas: [FALLBACK_BETA], fallbacks: 'default' } : {}),
     });
-    const requestOptions = { timeout: input.timeoutMs, maxRetries: 1 };
+    // Never resent by the SDK. The wrapper's deadline is this same timeout, so a resent request's
+    // answer could never be used, and the provider bills a request it goes on running unwatched.
+    const requestOptions = { timeout: input.timeoutMs, maxRetries: 0 };
     try {
       return await client.beta.messages.create(body(useFallbacks), requestOptions);
     } catch (error) {
@@ -191,7 +193,9 @@ export function createAnthropicProvider(options: AnthropicProviderOptions): LlmP
           throw new LlmError('timeout', 'The language model did not answer in time.', answered);
         }
         if (error instanceof Anthropic.RateLimitError) {
-          throw new LlmError('provider', 'The language model is rate limited. Try again shortly.', answered);
+          throw new LlmError('provider', 'The language model is rate limited. Try again shortly.', answered, {
+            rateLimited: true,
+          });
         }
         // No credit, a rejected key, or a request the API will not accept: none of these
         // gets better by retrying, and the provider's own words say which it is.
