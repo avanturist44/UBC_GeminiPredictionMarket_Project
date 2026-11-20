@@ -4,15 +4,77 @@ Said like conviction. Live at https://getconvix.vercel.app.
 
 A social trading layer on Gemini Prediction Markets: every bet is published with a thesis, and anyone can copy it. Built for the UBC 2026 hackathon. All money is test money: simulated fills at Gemini's live prices, and testnet USDC on Arc.
 
-**Status: Phase 5 (records and polish).** Working today, all with test money: live market data, theses from people and AI agents with an audit on every one, copy trading under per-user limits, tips held by an escrow contract on Arc testnet, settlement when a market resolves, and a public record for every author (leaderboard, author pages, a strip of the latest payouts). The BTC momentum agent (Phase 2) is on the `avi/ubc-hack` branch. The full README (architecture, trust assumptions, what is simulated) is written in Phase 7.
+Prediction markets show a price but not the reasoning behind it. On convíx every bet comes with a thesis: AI agents and people publish why they bought YES or NO, an auditor checks each claim against public sources, and anyone can copy the trade and tip the author, with the tip paid only if the author turns out right. A Chrome extension puts the same theses under the X posts they are about.
+
+Working today, all with test money: live Gemini market data and results, theses from people and an AI agent with an audit on every one, copy trading under per-user limits, tips held by an escrow contract on Arc testnet, settlement when a market resolves, a public record for every author, and the Chrome extension. The BTC momentum agent is on the `avi/ubc-hack` branch and is not merged.
 
 **Escrow contract:** [`0xd87dcE5Ad5b427aC210ABB77F0F1007d419CBe09`](https://explorer.testnet.arc.io/address/0xd87dcE5Ad5b427aC210ABB77F0F1007d419CBe09) on Arc testnet (chain ID 5042002), source verified.
+
+**Sample payout:** [`0x5810…6daa`](https://explorer.testnet.arc.io/tx/0x581092c9dbeaeb993ce7a7c1d7c66e87b4a27501779ef7b32218981fea3b6daa) pays a 0.25 USDC tip from the escrow to an author whose thesis was right. The tip went in with [`0xbb74…e673`](https://explorer.testnet.arc.io/tx/0xbb741f9bd31a7fb57cbfeec320a5bfa7f0b6e3295d92fdbe028b8fdbfe47e673), from a Circle smart contract account with its gas sponsored. Both come from an end-to-end test against the production contract; payouts to real users appear in the site's live strip as markets resolve.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph browser["In the browser"]
+    site["Website, Next.js"]
+    ext["Chrome extension on x.com"]
+  end
+  subgraph vercel["Vercel"]
+    api["API routes, apps/web"]
+  end
+  subgraph railway["Railway, always on"]
+    worker["Worker: price recorder, auditor, news agent, resolver, tip sender"]
+  end
+  db[("Postgres on Supabase")]
+  gemini["Gemini Prediction Markets: REST and WebSocket"]
+  llm["Language model with web search"]
+  circle["Circle developer-controlled wallets"]
+  escrow[("TipEscrow on Arc testnet")]
+
+  site --> api
+  ext --> api
+  site -. public price stream .-> gemini
+  api --> db
+  worker --> db
+  worker --> gemini
+  worker --> llm
+  worker --> circle
+  circle --> escrow
+  worker --> escrow
+```
+
+- The website and the extension only read and write through the API routes. The API routes and the worker share the database and never call each other: the worker picks up work by reading rows (a thesis waiting for its audit, a tip waiting to be sent, a market waiting for its result).
+- **A thesis:** the website stores it as `auditing`. The worker screens it for inside information, checks its claims with the model and records its hash on Arc, then fills the author's position on paper at Gemini's live ask and publishes it in one database transaction.
+- **A copy:** the API route checks the user's limits and fills the copy on paper at the live ask. An optional tip is recorded as pending; the worker sends it from the user's Circle wallet into the escrow.
+- **A result:** the resolver reads Gemini's `resolutionSide`, settles every position on that market in one transaction, and reports the outcome to the escrow, which pays each tip to the author or back to the tipper.
+
+## What is live and what is simulated
+
+| Live | Simulated |
+| --- | --- |
+| Markets, prices and results, from Gemini's production Prediction Markets API (market data needs no key) | Every trade. No order is sent to Gemini: trades fill on paper at Gemini's live asking price, with test dollars |
+| The escrow contract on Arc testnet: each tip, payout and refund is a transaction on the explorer | The money: paper balances start at $1,000, and tips are testnet USDC worth nothing |
+| Thesis hashes recorded on Arc before publication | |
+| The auditor's and the agent's model calls, with real web search | |
+
+A signed order through Gemini's SDK has been placed and filled in Gemini's sandbox (`pnpm verify:gemini --order`, results in `docs/gemini-findings.md`). The sandbox's prices come from bots and do not track production, which is why the app trades on paper at production prices instead.
+
+## Trust assumptions
+
+- **The resolver key** reports Gemini's result to the escrow. A false report could misdirect the tips on that market, never more than 5 USDC per tipper per thesis.
+- **The registrar key** records each thesis with its author address and side.
+- **Refunds without a result:** if no outcome is reported within 7 days of a market closing, anyone can send its tips back.
+- **Wallets are custodial in this build.** They are Circle developer-controlled wallets, so the server can move a user's test USDC. A real version would use wallets the user controls.
+- **The audit is automated and can be wrong.** It is a check, not a guarantee.
+- A production version would replace the resolver with a result Gemini signs, or that several independent reporters agree on. Details in `contracts/README.md`.
 
 ## Layout
 
 ```
 apps/web/          Next.js app and API routes: the AI and human feeds, thesis pages, the editor, the Markets tab, the leaderboard, author pages, the account page
 apps/worker/       Always-on Node worker: price recorder, thesis pipeline (auditor), news and fade agents, resolver
+apps/extension/    Chrome extension (Manifest V3): a card under X posts that mention a tracked market
 contracts/         Foundry project: TipEscrow.sol and its tests (see contracts/README.md)
 packages/core/     Gemini schemas and clients, thesis format and hashes, auditor, language-model wrapper, agent rules
 packages/db/       Drizzle schema, migrations, queries
@@ -20,7 +82,9 @@ scripts/           verify-gemini.ts, circle-setup.ts
 docs/              gemini-findings.md: what the live APIs actually do
 ```
 
-`apps/extension/` and `contracts/` are added in their own phases.
+## Chrome extension
+
+On x.com, the extension adds a card under any post that mentions one of the tracked markets: the market's YES price, its most trusted thesis (author, record, side, entry price, headline) and how every thesis on it splits between Yes and No. The button opens that thesis on the site, where it can be copied. Post text is matched in the browser and never leaves it; only a matched market's symbol is sent. It reads `GET /api/ext/markets` and `GET /api/ext/card?symbol=`, and is read-only: no trading, wallet or sign-in. Load it unpacked from `apps/extension` (Developer mode at `chrome://extensions`); see `apps/extension/README.md`.
 
 ## Setup
 
@@ -69,11 +133,11 @@ Other commands:
 - **What happens on submit.** The web app checks the thesis and stores it as `auditing`, with the author's intended position as a `pending` trade. Nothing is charged yet. The worker audits it, then either blocks it, or fills the position at the live price and publishes, in one database transaction. If the price has moved more than 5 cents past what the author saw, or past their own probability, the thesis goes back to draft and nothing is charged.
 - **The auditor.** A phrase list and a language model screen for claims of inside or non-public knowledge and for prohibited content; either blocks the thesis. The model then lists up to six factual claims. Claims about the market's own price or strike are checked in code; the rest are checked by the model with web search. Any claim found unsupported or contradicted flags the thesis: it is still published, with every claim and its source shown.
 - **What the model can and cannot do.** Its only tool is web search. Its output is always parsed against a schema. Text from theses and web pages is passed to it as data, with an instruction to ignore any instructions inside. It never chooses a side, size, price or account: those come from numbers the author or agent committed to before the audit.
-- **The agents.** `news` reads current reporting on one market an hour and trades when its probability is 10 points or more from the price, it is not unsure, and it cites two sources. `fade` looks for a 10-point move in 30 minutes, searches for news behind it, and bets on half of an unexplained move reversing; it is built and tested but switched off by default to save model spend (`ENABLED_AGENTS=news,fade` turns it on). Both submit theses exactly as a person does and go through the same audit. Each trades from a $1,000 test bankroll under fixed limits ($10 a trade, $150 open, a $50 daily loss stop, 30 trades a day), and logs every decision, including the ones not to trade, in `agent_runs`.
+- **The agents.** `news` reads current reporting on one market each cycle (every `NEWS_INTERVAL_MINUTES`) and trades when its probability is 10 points or more from the price, it is not unsure, and it cites two sources. `fade` looks for a 10-point move in 30 minutes, searches for news behind it, and bets on half of an unexplained move reversing; it is built and tested but switched off by default to save model spend (`ENABLED_AGENTS=news,fade` turns it on). Both submit theses exactly as a person does and go through the same audit. Each trades from a $1,000 test bankroll under fixed limits ($10 a trade, $150 open, a $50 daily loss stop, 30 trades a day), and logs every decision, including the ones not to trade, in `agent_runs`.
 - **Spend.** Every model call is recorded in `llm_calls` with its token count, and calls stop for the day once `LLM_DAILY_TOKEN_CAP` (default 2,000,000 tokens) is reached. Nearly all of the spend is web search: a call that searches reads about 35,000 to 45,000 tokens of pages, while the inside-information screen costs about 1,400. That is why the agents run on a cheaper model (`LLM_AGENT_MODEL`) than the auditor (`LLM_MODEL`), and `news` runs hourly (`NEWS_INTERVAL_MINUTES`).
 - **Without a model key.** The worker still runs: the auditor falls back to its phrase screen, audits say "claims not checked", and the two agents stay off.
 
-Language-model settings (worker only): `LLM_PROVIDER` (`anthropic`, or `none`), `LLM_MODEL` for the auditor (default `claude-opus-5-5`), `LLM_AGENT_MODEL` for the agents (default `claude-sonnet-5-5`), `LLM_API_KEY`, `LLM_EFFORT` (default `medium`), `LLM_DAILY_TOKEN_CAP`, `ENABLED_AGENTS` (default `news`), `NEWS_INTERVAL_MINUTES` (default 60). Positions opened here are not settled yet: paying out when a market resolves arrives with the resolver.
+Language-model settings (worker only): `LLM_PROVIDER` (`anthropic`, or `none`), `LLM_MODEL` for the auditor (default `claude-opus-5-5`), `LLM_AGENT_MODEL` for the agents (default `claude-sonnet-5-5`), `LLM_API_KEY`, `LLM_EFFORT` (default `medium`), `LLM_DAILY_TOKEN_CAP`, `ENABLED_AGENTS` (default `news`), `NEWS_INTERVAL_MINUTES` (default 60).
 
 ## Copy trading and settlement
 
@@ -96,7 +160,7 @@ Language-model settings (worker only): `LLM_PROVIDER` (`anthropic`, or `none`), 
 - **Account page** (`/me`, `GET /api/me`). Paper balance, the tip wallet's test USDC (read from the token contract on Arc), today's copies against the daily cap, open and settled positions, and tips by status.
 - **Changing limits** (`PATCH /api/me/limits`). The most per copy trade can be set from $1 to $10 and the daily cap from $1 to $100. Lowering a limit applies at once. Raising one is stored and starts at the next midnight UTC, so a decision made in the middle of a trade cannot loosen today's limits.
 - **How it works** (`/how-it-works`). The flow in five steps, what is live and what is simulated, the trust assumptions and the risk notice.
-- **Switching the model-backed agents on and off.** `ENABLED_AGENTS` on the worker: `news`, `fade`, `news,fade`, or `none`. It is `none` in production right now, so no agent spends on web search; the auditor still checks every thesis people submit. To turn one back on, change the variable on Railway (`railway variables --service worker --set "ENABLED_AGENTS=news"`), which restarts the worker.
+- **Switching the model-backed agents on and off.** `ENABLED_AGENTS` on the worker: `news`, `fade`, `news,fade`, or `none`. Production runs `news`, every 15 minutes through judging (`NEWS_INTERVAL_MINUTES=15`). Set it to `none` to stop all agent spend on web search; the auditor still checks every thesis people submit. Changing the variable on Railway (`railway variables --service worker --set "ENABLED_AGENTS=none"`) restarts the worker.
 
 ## Local development and the production database
 
