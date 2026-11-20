@@ -71,14 +71,19 @@ export function createResponsesProvider(options: ResponsesProviderOptions): LlmP
 
 /**
  * The most searches one call may run. OpenAI's `max_tool_calls` caps calls to built-in tools
- * ("any further attempts to call a tool by the model will be ignored"). xAI lists
- * `max_tool_calls` only in the response, and documents `max_turns` for requests instead: it caps
- * the agentic turns, after which the model answers from what it has, but a turn may run several
- * searches in parallel, so for Grok this bounds turns rather than searches.
+ * ("any further attempts to call a tool by the model will be ignored"). xAI documents
+ * `max_turns` for requests: it caps the agentic turns, but a turn may run several searches in
+ * parallel, so on its own it does not bound searches (a Grok call ran 16 under max_turns 5).
+ * Grok is therefore sent both: `max_tool_calls` (listed in xAI's Responses reference, enforcement
+ * undocumented) and a tight `max_turns`, so that either one limits the cost.
  */
 function searchBound(vendor: ResponsesProviderOptions['vendor']): Record<string, number> {
-  return vendor === 'openai' ? { max_tool_calls: WORST_CALL.searches } : { max_turns: WORST_CALL.searches };
+  return vendor === 'openai'
+    ? { max_tool_calls: WORST_CALL.searches }
+    : { max_tool_calls: WORST_CALL.searches, max_turns: GROK_MAX_TURNS };
 }
+
+const GROK_MAX_TURNS = 2;
 
 /**
  * The schema without its root `$schema` and `$id`, which describe the document rather than the

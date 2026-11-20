@@ -121,9 +121,33 @@ function usageOf(usage: GenerateContentReply['usageMetadata']): LlmUsage {
 }
 
 function failed(status: number, reply: unknown, apiKey: string): LlmError {
-  // Google sends { error: { code, message, status } }. It answers 400 for a rejected key, and
-  // 429 for a per-minute rate limit and a daily quota alike, in the same words: no code says
-  // an account is out of credit, so only its words can.
-  const message = (reply as { error?: { message?: unknown } } | null)?.error?.message;
+  // Google sends { error: { code, message, status, details } }. It answers 400 for a rejected
+  // key, and 429 for a per-minute rate limit and an exhausted quota alike. A quota that is
+  // per-day, free-tier or zero will not recover within a retry, so it is told apart by its
+  // quotaId and message and reported as unavailable.
+  const error = (reply as { error?: { message?: unknown; details?: unknown } } | null)?.error;
+  const message = error?.message;
+  if (status === 429 && staysExhausted(error)) {
+    const why = typeof message === 'string' ? message : 'no reason given';
+    return httpError(status, `The project's quota or billing does not allow this model: ${why}`, apiKey, {
+      outOfCredit: true,
+    });
+  }
   return httpError(status, message, apiKey);
+}
+
+/** A 429 whose quota will not recover within the call: per-day, free-tier, or a limit of zero. */
+function staysExhausted(error: { message?: unknown; details?: unknown } | undefined): boolean {
+  if (typeof error?.message === 'string' && error.message.includes('limit: 0')) return true;
+  const details = Array.isArray(error?.details) ? error.details : [];
+  return details.some((detail) => {
+    const violations = (detail as { violations?: unknown } | null)?.violations;
+    return (
+      Array.isArray(violations) &&
+      violations.some((v) => {
+        const id = (v as { quotaId?: unknown } | null)?.quotaId;
+        return typeof id === 'string' && (id.includes('PerDay') || id.includes('FreeTier'));
+      })
+    );
+  });
 }

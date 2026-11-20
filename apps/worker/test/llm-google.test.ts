@@ -149,6 +149,42 @@ describe('createGoogleProvider', () => {
     expect(calls[0]!.url).not.toContain(KEY);
   });
 
+  it('a free-tier quota of zero is unavailable, not a rate limit', async () => {
+    const { fetch } = fakeFetch(() =>
+      json(429, {
+        error: {
+          code: 429,
+          message: `You exceeded your current quota. Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro ${KEY}`,
+          status: 'RESOURCE_EXHAUSTED',
+          details: [
+            {
+              '@type': 'type.googleapis.com/google.rpc.QuotaFailure',
+              violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier' }],
+            },
+          ],
+        },
+      }),
+    );
+    const error = await failure(gemini(fetch).complete(request({ useSearch: true })));
+    expect(error).toMatchObject({ code: 'unavailable' });
+    expect(error!.message).toMatch(/quota|billing/i);
+    expect(error!.message).not.toContain(KEY);
+  });
+
+  it('a per-minute rate limit is still a provider error', async () => {
+    const { fetch } = fakeFetch(() =>
+      json(429, {
+        error: {
+          code: 429,
+          message: 'Resource has been exhausted (e.g. check quota).',
+          status: 'RESOURCE_EXHAUSTED',
+          details: [{ violations: [{ quotaId: 'GenerateRequestsPerMinutePerProjectPerModel' }] }],
+        },
+      }),
+    );
+    expect(await failure(gemini(fetch).complete(request({ useSearch: true })))).toMatchObject({ code: 'provider' });
+  });
+
   it('stops waiting after timeoutMs', async () => {
     expect(await failure(gemini(hangingFetch).complete(request({ timeoutMs: 20 })))).toMatchObject({ code: 'timeout' });
   });

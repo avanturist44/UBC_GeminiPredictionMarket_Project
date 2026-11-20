@@ -49,16 +49,22 @@ describe('createResponsesProvider', () => {
     expect(calls[1]!.body).not.toHaveProperty('max_tool_calls');
   });
 
-  it("bounds xAI's search with max_turns, the field xAI documents, instead of max_tool_calls", async () => {
+  it('Grok asks for at most 5 tool calls in 2 turns', async () => {
+    const { fetch, calls } = fakeFetch(() => json(200, completed({ model: 'grok-4.7' })));
+    await grok(fetch).complete(request({ useSearch: true }));
+    expect(calls[0]!.body).toMatchObject({ max_tool_calls: 5, max_turns: 2, reasoning: { effort: 'low' } });
+  });
+
+  it("bounds xAI's search turns with max_turns, and keeps it off calls without search", async () => {
     const { fetch, calls } = fakeFetch(() => json(200, completed({ model: 'grok-4.7' })));
     const provider = grok(fetch);
     await provider.complete(request({ useSearch: true }));
     await provider.complete(request({ useSearch: false }));
 
     expect(calls[0]!.body.tools).toEqual([{ type: 'web_search' }]);
-    expect(calls[0]!.body.max_turns).toBe(5);
-    expect(calls[0]!.body).not.toHaveProperty('max_tool_calls');
+    expect(calls[0]!.body.max_turns).toBe(2);
     expect(calls[1]!.body).not.toHaveProperty('max_turns');
+    expect(calls[1]!.body).not.toHaveProperty('max_tool_calls');
   });
 
   it('asks Grok to reason at low effort, and GPT is unchanged', async () => {
