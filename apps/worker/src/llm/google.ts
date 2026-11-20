@@ -1,4 +1,13 @@
-import { LlmError, WORST_CALL, type LlmCompletion, type LlmProvider, type LlmRequest, type LlmUsage } from '@thesis/core';
+import {
+  DATA_RULE,
+  LlmError,
+  WORST_CALL,
+  dataBlock,
+  type LlmCompletion,
+  type LlmProvider,
+  type LlmRequest,
+  type LlmUsage,
+} from '@thesis/core';
 import { httpError, postJson } from './http';
 
 /**
@@ -6,17 +15,33 @@ import { httpError, postJson } from './http';
  *
  * - The only tool a call is ever given is Grounding with Google Search. Nothing the model
  *   returns can run code here, place a trade or read the database.
+ * - A call with search is two requests. Gemini 3 rarely searches when the same request asks for
+ *   a JSON answer (measured live: 1 grounded reply in 4), and reliably when asked only to
+ *   research (7 in 7). So the first request researches: the question, Google Search, a prose
+ *   summary. The second answers: the caller's prompt, the research and the sources it read, no
+ *   tools, and JSON mode. Research that ran no search ends the call with an empty answer and
+ *   `searches: 0`, which the wrapper treats as ungrounded. A call without search is one request.
  * - The JSON Schema goes to Gemini as its own structured-output setting, and the wrapper leaves
  *   the JSON rule out of the prompt (`enforcesJsonSchema`): with the schema pasted into the
  *   prompt, Gemini almost never searched. The wrapper still validates every reply.
  * - A grounded answer comes with Google's Search Suggestions, which Google's terms require
- *   to be shown with it. They are returned as `searchSuggestionsHtml`.
+ *   to be shown with it. They come from the research and are returned as `searchSuggestionsHtml`.
  * - A blocked prompt or reply is reported as a refusal, never read as an answer. Errors never
- *   carry the key or the request; the key travels in a header, not the address.
- * - Every reply is capped at WORST_CALL.outputTokens (`generationConfig.maxOutputTokens`).
+ *   carry the key or the request; the key travels in a header, not the address. An answer that
+ *   fails after the research was answered carries the research's tokens, which were paid for.
+ * - Every reply is capped at WORST_CALL.outputTokens (`generationConfig.maxOutputTokens`). The
+ *   two requests share the call's timeout.
  * - Gemini 3 bills grounding per search query, so a grounded answer counts one search for each
- *   query it lists in `webSearchQueries`, and at least one.
+ *   query the research lists in `webSearchQueries`, and at least one.
  */
+
+/** The research request's own instructions, ahead of DATA_RULE. */
+export const RESEARCH_SYSTEM =
+  'You research prediction market questions. Search the web for current, reliable reporting and data on the question, then summarize what you found in a few sentences, citing the sources you read.';
+
+/** Ends the answer request's message, after the research. */
+export const ANSWER_NOTE =
+  'The research above is what your web search found. Base your estimate on it, and cite as evidence only sources listed under "Sources read", with their web addresses exactly as listed.';
 
 export interface GoogleProviderOptions {
   apiKey: string;
@@ -28,6 +53,8 @@ export interface GoogleProviderOptions {
 interface GroundingMetadata {
   webSearchQueries?: string[];
   searchEntryPoint?: { renderedContent?: string };
+  /** The pages the grounded reply drew on. */
+  groundingChunks?: Array<{ web?: { uri?: string; title?: string } }>;
 }
 
 interface GenerateContentReply {
@@ -53,30 +80,82 @@ const BLOCKED = new Set(['SAFETY', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII', 'I
 export function createGoogleProvider(options: GoogleProviderOptions): LlmProvider {
   const send = options.fetch ?? fetch;
   const url = `${ENDPOINT}/${encodeURIComponent(options.model)}:generateContent`;
+  const headers = { 'x-goog-api-key': options.apiKey };
+
+  /** One generateContent request, read by the rules in `read`. */
+  async function generate(body: unknown, timeoutMs: number): Promise<{ reply: GenerateContentReply; completion: LlmCompletion }> {
+    const { status, reply } = await postJson(send, url, headers, body, timeoutMs);
+    if (status < 200 || status >= 300) throw failed(status, reply, options.apiKey);
+    const parsed = (reply ?? {}) as GenerateContentReply;
+    return { reply: parsed, completion: read(parsed, options.model) };
+  }
 
   return {
     model: options.model,
     enforcesJsonSchema: true,
 
     async complete(input: LlmRequest): Promise<LlmCompletion> {
-      const body = {
+      const answerBody = (user: string) => ({
         systemInstruction: { parts: [{ text: input.system }] },
-        contents: [{ role: 'user', parts: [{ text: input.user }] }],
-        ...(input.useSearch ? { tools: [{ google_search: {} }] } : {}),
+        contents: [{ role: 'user', parts: [{ text: user }] }],
         generationConfig: {
           maxOutputTokens: WORST_CALL.outputTokens,
           ...(input.jsonSchema == null
             ? {}
             : { responseMimeType: 'application/json', responseJsonSchema: input.jsonSchema }),
         },
-      };
+      });
+      if (!input.useSearch) return (await generate(answerBody(input.user), input.timeoutMs)).completion;
 
-      const headers = { 'x-goog-api-key': options.apiKey };
-      const { status, reply } = await postJson(send, url, headers, body, input.timeoutMs);
-      if (status < 200 || status >= 300) throw failed(status, reply, options.apiKey);
-      return read((reply ?? {}) as GenerateContentReply, options.model);
+      const deadline = Date.now() + input.timeoutMs;
+      const research = await generate(
+        {
+          systemInstruction: { parts: [{ text: `${RESEARCH_SYSTEM}\n\n${DATA_RULE}` }] },
+          contents: [{ role: 'user', parts: [{ text: input.user }] }],
+          tools: [{ google_search: {} }],
+          generationConfig: { maxOutputTokens: WORST_CALL.outputTokens },
+        },
+        input.timeoutMs,
+      );
+      const grounding = research.reply.candidates?.[0]?.groundingMetadata;
+      // No search ran, so there is nothing to answer from: the wrapper asks again, or gives up.
+      if (!grounding) return { text: '', model: research.completion.model, usage: research.completion.usage, searches: 0 };
+
+      const spent = research.completion.usage;
+      let answer: LlmCompletion;
+      try {
+        const user = `${input.user}\n\n${dataBlock('research', notesOf(research.completion.text, grounding))}\n\n${ANSWER_NOTE}`;
+        // Whatever is left of the call's time: past it, nobody waits for the answer.
+        answer = (await generate(answerBody(user), Math.max(1, deadline - Date.now()))).completion;
+      } catch (error) {
+        // The research was answered and paid for, so its tokens go with the error.
+        if (error instanceof LlmError) {
+          throw new LlmError(error.code, error.message, plus(spent, error.usage), { rateLimited: error.rateLimited });
+        }
+        throw new LlmError('provider', error instanceof Error ? error.message : String(error), spent);
+      }
+      const suggestions = research.completion.searchSuggestionsHtml;
+      return {
+        text: answer.text,
+        model: answer.model,
+        usage: plus(spent, answer.usage),
+        searches: research.completion.searches,
+        ...(suggestions ? { searchSuggestionsHtml: suggestions } : {}),
+      };
     },
   };
+}
+
+const plus = (a: LlmUsage, b: LlmUsage | undefined): LlmUsage => ({
+  inputTokens: a.inputTokens + (b?.inputTokens ?? 0),
+  outputTokens: a.outputTokens + (b?.outputTokens ?? 0),
+});
+
+/** What the research found, with the pages it read numbered, for the answer request. */
+function notesOf(text: string, grounding: GroundingMetadata): string {
+  const pages = (grounding.groundingChunks ?? []).flatMap((chunk) => (chunk.web?.uri ? [chunk.web] : []));
+  const sources = pages.map((page, i) => `[${i + 1}] ${page.title ?? 'Untitled'}: ${page.uri}`);
+  return [text, '', 'Sources read:', ...sources].join('\n');
 }
 
 function read(reply: GenerateContentReply, requested: string): LlmCompletion {
