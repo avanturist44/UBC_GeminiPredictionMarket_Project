@@ -8,7 +8,13 @@
 // spend cannot be read from, it refuses to call any model.
 // It exits 1 when a configured model fails: no answer, a served model other than the roster's,
 // no web search, or no llm_calls row. A model without its key is listed as not configured.
-import { ARENA_ROSTER, NewsEstimateSchema, type ArenaEntrant, type LlmCompletion } from '@thesis/core';
+//
+// Then it checks each sandbox account in GEMINI_AGENT_KEYS, read only: whether Gemini accepts its
+// key, whether its prediction market terms are accepted (never accepted here) and its available
+// test USD. An account whose key is rejected or whose terms are not accepted fails the run; a
+// model with no account is listed, not failed. Several models sharing an account show it once.
+//   pnpm --filter @thesis/worker verify:arena -- --accounts   the account checks only, no model calls
+import { ARENA_ROSTER, NewsEstimateSchema, arenaEntrant, type ArenaEntrant, type LlmCompletion } from '@thesis/core';
 import { createDb, eq, llmCalls, llmCostSince, sql, type Db, type MarketRecord } from '@thesis/db';
 import { NEWS_SYSTEM, errorText, newsQuestion } from './agent-kit';
 import type { ArenaContender } from './arena';
@@ -16,6 +22,10 @@ import { ARENA_KEY_VARS, checkServedModel, createArenaContenders } from './arena
 import { loadEnv, type WorkerEnv } from './env';
 import { createSpendGuard } from './llm/spend-guard';
 import type { Logger } from './recorder';
+import { accountGroups, createSandboxAccounts } from './sandbox-account';
+import { SandboxRefused } from './sandbox-mirror';
+
+type Say = (line: string) => void;
 
 const verifyPurpose = (entrant: ArenaEntrant) => `arena:${entrant.id}:verify`;
 
@@ -99,25 +109,8 @@ async function check({ entrant, llm }: ArenaContender, user: string): Promise<Ou
   }
 }
 
-(async () => {
-  let env: WorkerEnv;
-  try {
-    // The worker's own settings, from the repo-root .env as the worker reads them.
-    env = loadEnv();
-  } catch (error) {
-    console.error(
-      'verify:arena will not call any model: each call must be checked against the daily dollar cap and recorded, ' +
-        `which needs the database. ${errorText(error)}`,
-    );
-    process.exit(1);
-  }
-
-  // Belt and braces: the adapters already keep keys out of their errors.
-  const keys = Object.values(ARENA_KEY_VARS)
-    .map((variable) => env[variable])
-    .filter((key): key is string => Boolean(key));
-  const say = (line: string) => console.log(keys.reduce((text, key) => text.split(key).join('[key]'), line));
-
+/** Every model the arena has a key for: one billed search call each, all at once. */
+async function verifyModels(env: WorkerEnv, say: Say): Promise<void> {
   const { db, close } = createDb(env.DATABASE_URL, { max: 1 });
   try {
     const now = new Date();
@@ -203,4 +196,69 @@ async function check({ entrant, llm }: ArenaContender, user: string): Promise<Ou
   } finally {
     await close();
   }
+}
+
+/**
+ * Each sandbox account once, with the models that use it. Read only: nothing is ordered and the
+ * terms are never accepted here. Returns false when an account's key is rejected, its terms are
+ * not accepted, or it could not be checked.
+ */
+async function verifyAccounts(env: WorkerEnv, say: Say): Promise<boolean> {
+  const accounts = await createSandboxAccounts(env.GEMINI_AGENT_KEYS);
+  if (accounts.size === 0) {
+    say('sandbox accounts are not configured (GEMINI_AGENT_KEYS is not set), so arena trades are not mirrored');
+    return true;
+  }
+  const groups = accountGroups(accounts);
+  say(`\nchecking ${groups.length} Gemini sandbox ${groups.length === 1 ? 'account' : 'accounts'}, read only`);
+  let failed = 0;
+  for (const { account, agentKeys } of groups) {
+    const models = agentKeys.map((key) => arenaEntrant(key)?.id ?? key).join(', ');
+    const name = `sandbox account for ${models}${agentKeys.length > 1 ? ` (shared by ${agentKeys.length} models)` : ''}`;
+    try {
+      const status = await account.check();
+      if (!status.termsAccepted) failed += 1;
+      say(`${name}: ${status.termsAccepted ? 'ok' : 'FAILED'}`);
+      say('   key: accepted');
+      say(
+        `   prediction market terms: ${status.termsAccepted ? 'accepted' : 'NOT accepted; a person must accept them on exchange.sandbox.gemini.com'}`,
+      );
+      say(`   available USD: ${status.availableUsd ?? `could not be read (${status.balanceError})`}`);
+    } catch (error) {
+      failed += 1;
+      say(`${name}: FAILED`);
+      say(error instanceof SandboxRefused ? `   key: REJECTED (${error.code})` : `   could not be checked: ${errorText(error)}`);
+    }
+  }
+  const without = ARENA_ROSTER.filter((entrant) => !accounts.has(entrant.agentKey));
+  for (const entrant of without) say(`${entrant.id} (${entrant.displayName}): no sandbox account`);
+  say(`${groups.length - failed} ok, ${failed} failed, ${without.length} ${without.length === 1 ? 'model' : 'models'} without an account`);
+  return failed === 0;
+}
+
+(async () => {
+  const accountsOnly = process.argv.slice(2).includes('--accounts');
+  let env: WorkerEnv;
+  try {
+    // The worker's own settings, from the repo-root .env as the worker reads them.
+    env = loadEnv();
+  } catch (error) {
+    console.error(
+      accountsOnly
+        ? `verify:arena cannot read the worker's settings: ${errorText(error)}`
+        : 'verify:arena will not call any model: each call must be checked against the daily dollar cap and recorded, ' +
+            `which needs the database. ${errorText(error)}`,
+    );
+    process.exit(1);
+  }
+
+  // Belt and braces: the adapters and the SDK already keep keys out of their errors.
+  const secrets = [
+    ...Object.values(ARENA_KEY_VARS).map((variable) => env[variable]),
+    ...Object.values(env.GEMINI_AGENT_KEYS).flatMap(({ apiKey, apiSecret }) => [apiKey, apiSecret]),
+  ].filter((key): key is string => Boolean(key));
+  const say: Say = (line) => console.log(secrets.reduce((text, key) => text.split(key).join('[key]'), line));
+
+  if (!accountsOnly) await verifyModels(env, say);
+  if (!(await verifyAccounts(env, say))) process.exitCode = 1;
 })();

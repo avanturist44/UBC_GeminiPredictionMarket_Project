@@ -14,6 +14,8 @@ import { createOnchain, type Onchain } from './onchain';
 import { createQuoteRecorder } from './quotes';
 import { runRecorderCycle, type Logger } from './recorder';
 import { runResolverCycle } from './resolver';
+import { accountGroups, createSandboxAccounts } from './sandbox-account';
+import { createSandboxMirror } from './sandbox-mirror';
 import { createPriceStream } from './stream';
 import { createThesisPipeline, type BookQuote } from './thesis-pipeline';
 
@@ -23,6 +25,8 @@ import { createThesisPipeline, type BookQuote } from './thesis-pipeline';
  * - the thesis pipeline: audits every waiting thesis, fills its author's position, publishes;
  * - the resolver: when Gemini reports a result, marks theses right or wrong and pays positions;
  * - the model arena: one trading agent per AI model whose key is set, all looking at the same market;
+ * - the sandbox mirror, when GEMINI_AGENT_KEYS is set: each arena trade also placed as a real
+ *   order from that model's own Gemini sandbox account;
  * - the `news` and `fade` agents, if switched on, when a language model is configured.
  * The on-chain registrar and tip settlement are added once the escrow is deployed.
  */
@@ -91,6 +95,13 @@ const agents = [
   ...(arena.length > 0 ? ['arena'] : []),
 ];
 const tradingEnabled = () => env.TRADING_ENABLED;
+
+/**
+ * Each arena model's Gemini sandbox account, by agent key. Models that share a key share one
+ * account. With none configured the mirror does not run.
+ */
+const sandboxAccounts = await createSandboxAccounts(env.GEMINI_AGENT_KEYS, { logger });
+const sandboxMirror = sandboxAccounts.size > 0 ? createSandboxMirror({ db, accounts: sandboxAccounts, logger }) : null;
 
 // The on-chain jobs run only when the contract, both keys and Circle are all configured.
 let onchain: Onchain | null = null;
@@ -175,7 +186,14 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 }
 
 log('info', 'worker started', {
-  jobs: ['price-recorder', 'thesis-pipeline', 'resolver', ...agents, ...(onchain ? ['tips', 'tip-settlement'] : [])],
+  jobs: [
+    'price-recorder',
+    'thesis-pipeline',
+    'resolver',
+    ...agents,
+    ...(sandboxMirror ? ['sandbox-mirror'] : []),
+    ...(onchain ? ['tips', 'tip-settlement'] : []),
+  ],
   agentModel: agents.some((name) => name !== 'arena') ? env.LLM_AGENT_MODEL : 'no news or fade agent running',
   arena:
     arena.length > 0
@@ -187,6 +205,10 @@ log('info', 'worker started', {
       : enabledAgents.has('arena')
         ? 'not running: no arena model has its API key set'
         : 'not enabled (ENABLED_AGENTS)',
+  // Agent keys only, grouped by the account they share; never the keys themselves.
+  sandboxAccounts: sandboxMirror
+    ? accountGroups(sandboxAccounts).map(({ agentKeys }) => agentKeys.join(', '))
+    : 'not configured (GEMINI_AGENT_KEYS): arena trades are not mirrored in the sandbox',
   escrow: env.ESCROW_ADDRESS ?? 'not configured: theses are published without an on-chain record, and tips are off',
   // Hosts only: a dedicated endpoint's path holds its access token.
   arcRpc: arcRpcUrls(env.ARC_RPC_URL).map((url) => new URL(url).host),
@@ -222,6 +244,26 @@ if (arena.length > 0) {
   // Every model on the same market with the same prompt, then each trades on its own.
   every('arena', env.ARENA_INTERVAL_MINUTES * 60_000, 60_000, async () => {
     log('info', 'arena', { ...(await runArenaCycle({ db, contenders: arena, tradingEnabled, logger })) });
+  });
+}
+if (sandboxMirror) {
+  // Read only: an account that has not accepted the prediction market terms has every order
+  // refused until a person accepts them on exchange.sandbox.gemini.com. Never accepted here.
+  for (const { account, agentKeys } of accountGroups(sandboxAccounts)) {
+    account.check().then(
+      ({ termsAccepted }) => {
+        if (!termsAccepted) {
+          log('warn', 'sandbox account has not accepted the prediction market terms; its orders will be refused', {
+            agents: agentKeys,
+          });
+        }
+      },
+      (error: unknown) => log('warn', 'sandbox account check failed', { agents: agentKeys, error: errorText(error) }),
+    );
+  }
+  every('sandbox mirror', 10_000, 10_000, async () => {
+    const summary = await sandboxMirror.runCycle();
+    if (summary.placed > 0 || summary.recorded > 0) log('info', 'sandbox mirror', { ...summary });
   });
 }
 if (agentLlm) {

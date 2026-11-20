@@ -17,7 +17,8 @@ import {
 } from 'drizzle-orm/pg-core';
 
 /**
- * The eleven tables from the build plan's data model, plus llm_calls for the spend cap. UUID primary keys, timestamptz
+ * The eleven tables from the build plan's data model, plus llm_calls for the spend cap and
+ * sandbox_orders for the arena's sandbox mirror. UUID primary keys, timestamptz
  * for times, numeric for prices and money (never floats). The chain holds only tips,
  * thesis hashes and market outcomes; everything else lives here.
  *
@@ -375,6 +376,42 @@ export const likes = pgTable(
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.thesisId, t.userId] }), index('likes_user_idx').on(t.userId)],
+).enableRLS();
+
+/**
+ * Mirror lifecycle. `pending` is written before the sandbox is called (it claims the trade), the
+ * rest after it: `unfilled` when the sandbox had no seller or the order filled none, `failed`
+ * when it could not be placed at all (`error_code` says why).
+ */
+export type SandboxOrderStatus = 'pending' | 'filled' | 'partial' | 'unfilled' | 'failed';
+
+/**
+ * An arena model's paper trade, also placed as a real immediate-or-cancel order from that model's
+ * own Gemini sandbox account. The sandbox price sits beside the paper one and never changes the
+ * score: sandbox books are made by bots and do not track production.
+ */
+export const sandboxOrders = pgTable(
+  'sandbox_orders',
+  {
+    tradeId: uuid()
+      .primaryKey()
+      .references(() => trades.id),
+    agentKey: text().notNull(),
+    /** The trade id, sent with the order so a retry can find it in the sandbox's history. */
+    clientOrderId: text().notNull(),
+    status: text().$type<SandboxOrderStatus>().notNull().default('pending'),
+    orderId: text(),
+    /** The sandbox's average fill price for the side bought. */
+    sandboxPrice: price(),
+    filledQuantity: quantity(),
+    errorCode: text(),
+    createdAt: createdAt(),
+    updatedAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('sandbox_orders_client_order_id_unique').on(t.clientOrderId),
+    check('sandbox_orders_status', sql`${t.status} in ('pending', 'filled', 'partial', 'unfilled', 'failed')`),
+  ],
 ).enableRLS();
 
 /** A comment on a public thesis. Plain text; screened for inside-information claims on the way in. */

@@ -1,9 +1,50 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { ARENA_ROSTER } from '@thesis/core';
 import { z } from 'zod';
 
 /** An empty value in .env means "not set", so the default applies. */
 const blank = <T extends z.ZodType>(schema: T) => z.preprocess((value) => (value === '' ? undefined : value), schema);
+
+const ARENA_AGENT_KEYS: readonly string[] = ARENA_ROSTER.map((entrant) => entrant.agentKey);
+const SandboxKeysSchema = z.object({ apiKey: z.string().min(1), apiSecret: z.string().min(1) });
+const AGENT_KEYS_SHAPE = 'a JSON object from arena agent key to { "apiKey": "account-…", "apiSecret": "…" }';
+
+/**
+ * GEMINI_AGENT_KEYS: each arena model's Gemini sandbox API key and secret. Several models may
+ * share one key. The value holds secrets, so a problem with it is described without quoting it:
+ * not even a JSON parse error, whose message quotes the text.
+ */
+const AgentKeysSchema = z
+  .string()
+  .optional()
+  .transform((raw, ctx): Record<string, z.infer<typeof SandboxKeysSchema>> => {
+    const refuse = (problem: string) => {
+      ctx.addIssue({ code: 'custom', message: `${problem}; it should be ${AGENT_KEYS_SHAPE}` });
+      return z.NEVER;
+    };
+    if (raw === undefined) return {};
+    let value: unknown;
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      return refuse('is not valid JSON');
+    }
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return refuse('is not a JSON object');
+    const keys: Record<string, z.infer<typeof SandboxKeysSchema>> = {};
+    const secretOf = new Map<string, string>();
+    for (const [agentKey, entry] of Object.entries(value)) {
+      // The unknown key itself is not quoted: it could be a key or secret pasted in the wrong place.
+      if (!ARENA_AGENT_KEYS.includes(agentKey)) return refuse(`has an entry that is not an arena agent key (${ARENA_AGENT_KEYS.join(', ')})`);
+      const parsed = SandboxKeysSchema.safeParse(entry);
+      if (!parsed.success) return refuse(`${agentKey} needs a non-empty apiKey and apiSecret`);
+      const { apiKey, apiSecret } = parsed.data;
+      if ((secretOf.get(apiKey) ?? apiSecret) !== apiSecret) return refuse(`${agentKey} shares an apiKey with another model but not its apiSecret`);
+      secretOf.set(apiKey, apiSecret);
+      keys[agentKey] = { apiKey, apiSecret };
+    }
+    return keys;
+  });
 
 const EnvSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
@@ -36,6 +77,9 @@ const EnvSchema = z.object({
   ARENA_INTERVAL_MINUTES: blank(z.coerce.number().int().min(15).default(60)),
   /** Input plus output tokens each arena model may use per UTC day, apart from the auditor's budget. */
   ARENA_DAILY_TOKEN_CAP_PER_MODEL: blank(z.coerce.number().int().positive().default(1_000_000)),
+  // Each arena model's own Gemini sandbox account, where its paper trades are also placed as real
+  // orders. Absent or {} means no accounts, and the sandbox mirror does not run.
+  GEMINI_AGENT_KEYS: blank(AgentKeysSchema),
   // The escrow on Arc testnet and the Circle wallets that tip into it. All test money.
   // With any of these missing the worker runs without the on-chain jobs.
   ARC_RPC_URL: blank(z.string().url().default('https://rpc.testnet.arc.io')),
