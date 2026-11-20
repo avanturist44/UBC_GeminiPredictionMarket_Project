@@ -1,13 +1,19 @@
 import {
+  AGENT_RULES,
   ARENA_ROSTER,
   ARENA_STRATEGY,
   LlmError,
   NewsEstimateSchema,
+  checkAgentAccount,
+  checkAgentMarket,
+  fromUnits,
+  sideAsk,
   windowOpensAt,
   type ArenaEntrant,
   type Llm,
   type ModelId,
   type NewsEstimate,
+  type RuleResult,
 } from '@thesis/core';
 import {
   agentRuns,
@@ -37,6 +43,7 @@ import {
   type AgentCycle,
 } from './agent-kit';
 import type { Logger } from './recorder';
+import { agentLedger } from './thesis-pipeline';
 
 /**
  * The model arena: one trading agent per AI model, every one on the News strategy. In a
@@ -114,7 +121,8 @@ export async function runArenaCycle(deps: ArenaDeps): Promise<ArenaCycle> {
 
 /**
  * Among markets the News rules allow (not a short window, at least an hour to run, a
- * two-sided book), the one no arena model has looked at for longest.
+ * two-sided book) and every fill rule could accept, the one no arena model has looked at for
+ * longest.
  */
 async function chooseMarket(db: Db, now: Date): Promise<MarketRecord | undefined> {
   const [open, ...looks] = await Promise.all([
@@ -124,8 +132,47 @@ async function chooseMarket(db: Db, now: Date): Promise<MarketRecord | undefined
   const lastLook = (marketId: string) => Math.max(0, ...looks.map((seen) => seen.get(marketId) ?? 0));
   return open
     .filter((m) => windowOpensAt(m.eventTicker, m.expiryAt) === null)
-    .filter((m) => m.yesBid !== null && m.yesAsk !== null)
+    .filter((m) => fillable(m, now))
     .sort((a, b) => lastLook(a.id) - lastLook(b.id))[0];
+}
+
+/**
+ * Whether the fill's market rules (price band, spread, time to expiry) could accept a trade here
+ * on either side, at the price now: the model picks the side, so both must pass. A one-sided
+ * book cannot.
+ */
+function fillable(market: MarketRecord, now: Date): boolean {
+  if (market.yesBid === null || market.yesAsk === null) return false;
+  const spread = Number(market.yesAsk) - Number(market.yesBid);
+  const minutesToExpiry = market.expiryAt ? (market.expiryAt.getTime() - now.getTime()) / 60_000 : null;
+  return (['yes', 'no'] as const).every(
+    (side) => checkAgentMarket({ price: Number(sideAsk(side, market)), spread, minutesToExpiry }).ok,
+  );
+}
+
+/**
+ * Whether the author's account could take a stake of AGENT_RULES.stakeUsd under the fill's
+ * account rules, read from what the fill reads: the paper ledger and today's agent state.
+ */
+async function accountAllows(db: Db, author: AuthorRow, now: Date): Promise<RuleResult> {
+  const [ledger, [state]] = await Promise.all([
+    agentLedger(db, author.id),
+    db
+      .select()
+      .from(agentState)
+      .where(and(eq(agentState.agentKey, author.agentKey!), eq(agentState.day, now.toISOString().slice(0, 10)))),
+  ]);
+  return checkAgentAccount({
+    halted: state?.halted ?? false,
+    haltReason: state?.haltReason ?? null,
+    realizedPnlTodayUsd: Number(state?.realizedPnlUsd ?? 0),
+    openExposureUsd: Number(fromUnits(ledger.exposure)),
+    tradesToday: state?.tradeCount ?? 0,
+    // Checked by the look first, against the theses the model has waiting or live there.
+    hasPositionOnMarket: false,
+    balanceUsd: Number(fromUnits(ledger.balance)),
+    costUsd: AGENT_RULES.stakeUsd,
+  });
 }
 
 /**
@@ -160,6 +207,10 @@ async function look(
   if ((await marketsWithThesis(db, author.id)).has(market.id)) {
     return done(market, { decision: 'skip', reason: 'Already holds a position on this market.' });
   }
+  // A look whose trade the fill would refuse is not paid for: no model call, no audit, no
+  // registration. Like a halt, it is about the account, not this market, and is no model error.
+  const allowed = await accountAllows(db, author, now);
+  if (!allowed.ok) return done(null, { decision: 'skip', reason: allowed.message });
 
   const quote = { yesBid: market.yesBid, yesAsk: market.yesAsk };
   const served: Record<string, unknown> = {};

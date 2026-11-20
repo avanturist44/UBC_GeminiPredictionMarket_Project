@@ -1,5 +1,6 @@
 import {
   ARENA_ROSTER,
+  ARENA_STRATEGY,
   LlmError,
   createLlm,
   type GenerateJsonArgs,
@@ -13,6 +14,7 @@ import {
   agentRuns,
   agentState,
   authors,
+  ensureAgentAuthor,
   eq,
   theses,
   trades,
@@ -374,6 +376,79 @@ describe('runArenaCycle', () => {
     expect(result(third, 'gpt')!.reason).toContain('Already holds');
     expect(holding.map((c) => c.id)).not.toContain('gpt');
     expect(holding).toHaveLength(ARENA_ROSTER.length - 1);
+  });
+
+  /** The arena author for `id`, as the cycle creates it. */
+  const authorOf = (id: ModelId) => {
+    const e = ARENA_ROSTER.find((entrant) => entrant.id === id)!;
+    return ensureAgentAuthor(db, { agentKey: e.agentKey, displayName: e.displayName, strategySummary: ARENA_STRATEGY });
+  };
+  /** A paper trade by `authorId` on a closed market of its own, which no look picks. */
+  async function paperTrade(authorId: string, n: number, fields: { costUsd: string; status: 'filled' | 'settled'; payoutUsd?: string }) {
+    const other = await upsertMarket(db, market({ instrumentSymbol: `GEMI-PAST-${authorId.slice(0, 8)}-${n}`, marketState: 'closed' }));
+    await db.insert(trades).values({
+      authorId,
+      marketId: other.id,
+      side: 'yes',
+      quantity: '20',
+      price: '0.5',
+      mode: 'paper',
+      idempotencyKey: `past-${authorId}-${n}`,
+      ...fields,
+    });
+  }
+
+  it('a model whose account could not take a $10 stake is not asked, and the skip says which rule', async () => {
+    await upsertMarket(db, market());
+    // GPT has $145 open: another $10 would pass the $150 cap.
+    const gpt = await authorOf('gpt');
+    for (let i = 0; i < 14; i += 1) await paperTrade(gpt.id, i, { costUsd: '10', status: 'filled' });
+    await paperTrade(gpt.id, 14, { costUsd: '5', status: 'filled' });
+    // Grok lost $995 on a settled trade: $5 of bankroll is left.
+    await paperTrade((await authorOf('grok')).id, 0, { costUsd: '995', status: 'settled', payoutUsd: '0' });
+    await db.insert(agentState).values([
+      { agentKey: 'arena-claude', day: '2026-11-18', tradeCount: 30 },
+      { agentKey: 'arena-deepseek', day: '2026-11-18', realizedPnlUsd: '-50' },
+      // Yesterday's trades and losses do not count today.
+      { agentKey: 'arena-gemini', day: '2026-11-17', tradeCount: 30, realizedPnlUsd: '-80' },
+    ]);
+
+    const calls: Call[] = [];
+    const out = await cycle(arena({}, calls));
+    expect(calls.map((c) => c.id)).toEqual(['gemini']);
+    expect(result(out, 'gpt')).toEqual({ id: 'gpt', decision: 'skip', reason: 'Would take open exposure over $150.' });
+    expect(result(out, 'grok')!.reason).toBe('Not enough bankroll left.');
+    expect(result(out, 'claude')!.reason).toBe('Already made 30 trades today.');
+    expect(result(out, 'deepseek')!.reason).toBe('Daily loss stop: lost $50 or more today.');
+    const [run] = await runsOf('arena-gpt');
+    expect(run).toMatchObject({ decision: 'skip', error: null, marketId: null });
+  });
+
+  it('a skip on the account rules never counts toward the halt', async () => {
+    await upsertMarket(db, market());
+    await db.insert(agentState).values({ agentKey: 'arena-claude', day: '2026-11-18', tradeCount: 30 });
+    for (let i = 0; i < 6; i += 1) await cycle(arena(), new Date(NOW.getTime() + i * 60_000));
+    expect(await haltedKeys(db)).toEqual([]);
+    expect((await runsOf('arena-claude')).every((r) => r.error === null && r.reason === 'Already made 30 trades today.')).toBe(true);
+  });
+
+  it('only looks at a market every fill rule could accept, whichever side a model takes', async () => {
+    // A spread over 6 points, a NO price over 95¢ (YES bid under 5¢), a YES price over 95¢.
+    await upsertMarket(db, market({ instrumentSymbol: 'GEMI-WIDE', yesBid: '0.50', yesAsk: '0.57' }));
+    await upsertMarket(db, market({ instrumentSymbol: 'GEMI-NO-DEAR', yesBid: '0.04', yesAsk: '0.07' }));
+    await upsertMarket(db, market({ instrumentSymbol: 'GEMI-YES-DEAR', yesBid: '0.93', yesAsk: '0.96' }));
+    const calls: Call[] = [];
+    const none = await cycle(arena({}, calls));
+    expect(none.market).toBeNull();
+    expect(calls).toHaveLength(0);
+    expect(none.results.every((r) => r.reason === 'No market is open for a look.')).toBe(true);
+
+    // At the limits: a 6-point spread, and a YES bid of 5¢ (NO at 95¢).
+    await upsertMarket(db, market({ instrumentSymbol: 'GEMI-AT-SPREAD', yesBid: '0.56', yesAsk: '0.62' }));
+    await upsertMarket(db, market({ instrumentSymbol: 'GEMI-AT-BAND', yesBid: '0.05', yesAsk: '0.08' }));
+    const looked = new Set<string | null>();
+    for (let i = 1; i <= 4; i += 1) looked.add((await cycle(arena(), new Date(NOW.getTime() + i * 60_000))).market);
+    expect([...looked].sort()).toEqual(['GEMI-AT-BAND', 'GEMI-AT-SPREAD']);
   });
 
   it('picks the market any arena model looked at least recently', async () => {

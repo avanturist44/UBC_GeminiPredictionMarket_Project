@@ -36,6 +36,7 @@ import {
   type Db,
   type MarketRecord,
   type ThesisRow,
+  type TradeRow,
 } from '@thesis/db';
 import type { Logger } from './recorder';
 
@@ -121,6 +122,21 @@ type Outcome =
   | { kind: 'gone' };
 
 const dayOf = (now: Date) => now.toISOString().slice(0, 10);
+
+/**
+ * An agent's paper account as the fill reads it: its paper trades, what its open positions cost,
+ * and the bankroll left (the starting bankroll plus settled profit, minus what is tied up), both
+ * in units. The arena reads it too, to skip a look whose trade the fill would refuse.
+ */
+export async function agentLedger(db: Db, authorId: string): Promise<{ trades: TradeRow[]; exposure: bigint; balance: bigint }> {
+  const mine = await db.select().from(trades).where(and(eq(trades.authorId, authorId), eq(trades.mode, 'paper')));
+  const open = mine.filter((t) => t.status === 'filled' || t.status === 'partial');
+  const exposure = open.reduce((sum, t) => sum + toUnits(t.costUsd), 0n);
+  const settledPnl = mine
+    .filter((t) => t.status === 'settled')
+    .reduce((sum, t) => sum + toUnits(t.payoutUsd ?? '0') - toUnits(t.costUsd), 0n);
+  return { trades: mine, exposure, balance: toUnits(String(AGENT_RULES.bankrollUsd)) + settledPnl - exposure };
+}
 
 function auditInput(row: Waiting, now: Date) {
   return {
@@ -306,13 +322,7 @@ export function createThesisPipeline(deps: PipelineDeps): ThesisPipeline {
       }
 
       if (isAgent) {
-        const mine = await tx.select().from(trades).where(and(eq(trades.authorId, row.author.id), eq(trades.mode, 'paper')));
-        const open = mine.filter((t) => t.status === 'filled' || t.status === 'partial');
-        const exposure = open.reduce((sum, t) => sum + toUnits(t.costUsd), 0n);
-        const settledPnl = mine
-          .filter((t) => t.status === 'settled')
-          .reduce((sum, t) => sum + toUnits(t.payoutUsd ?? '0') - toUnits(t.costUsd), 0n);
-        const balance = toUnits(String(AGENT_RULES.bankrollUsd)) + settledPnl - exposure;
+        const { trades: mine, exposure, balance } = await agentLedger(tx, row.author.id);
         const day = dayOf(at);
         const key = row.author.agentKey!;
         await tx.insert(agentState).values({ agentKey: key, day }).onConflictDoNothing();
