@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>convíx</title>
+<style>
+  @font-face { font-family: "convix serif"; src: url("fonts/InstrumentSerif-Regular.woff2") format("woff2"); }
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; width: 300px; padding: 20px; box-sizing: border-box; background: #0f0f10; color: #ededed;
+    font: 400 13px/18px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .name { font-family: "convix serif", Georgia, serif; font-size: 32px; line-height: 1; letter-spacing: 0; }
+  .i { position: relative; display: inline-block; }
+  .acc { position: absolute; width: 0.28em; height: 0.28em; left: calc(50% - 0.13em); bottom: 0.66em; overflow: visible; }
+  p { margin: 12px 0 0; color: #b4b4b9; }
+  .actions { display: flex; align-items: center; gap: 16px; margin-top: 20px; }
+  a { -webkit-tap-highlight-color: transparent; }
+  a:focus-visible { outline: 2px solid #6d8bff; outline-offset: 2px; }
+  .open {
+    display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border-radius: 18px;
+    background: linear-gradient(180deg, #8ba3ff, #6d8bff); color: #0b0d14; font-size: 14px; font-weight: 600;
+    text-decoration: none; box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
+  }
+  .open:hover { background: linear-gradient(180deg, #9cb0ff, #7d97ff); }
+  .x { color: #b4b4b9; text-decoration: none; font-size: 13px; }
+  .x:hover { color: #ededed; }
+  .note { margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(237,237,237,.09); color: #98989d; font-size: 12px; line-height: 16px; }
+</style>
+</head>
+<body>
+  <div class="name" aria-label="convíx">conv<span class="i" aria-hidden="true">ı<svg class="acc" viewBox="0 0 100 100"><polygon points="92,18 51,71 56,43 28,38" fill="currentColor"/></svg></span>x</div>
+  <p>Under an X post about a Gemini prediction market, a card shows its price, the most trusted thesis on it and how the theses split.</p>
+  <div class="actions">
+    <a class="open" id="site" href="https://getconvix.vercel.app">Open convíx</a>
+    <a class="x" id="x" href="https://x.com/explore">Go to X</a>
+  </div>
+  <p class="note">Test funds only. Post text stays in your browser; only a matched market's name is sent.</p>
+  <script src="constants.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

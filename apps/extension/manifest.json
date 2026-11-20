@@ -1,8 +1,22 @@
 {
   "manifest_version": 3,
   "name": "convíx",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "The reasoning behind prediction market bets, under the X posts they are about",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "convíx",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
   "permissions": [
     "storage"
   ],

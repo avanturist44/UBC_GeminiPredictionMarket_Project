@@ -6,7 +6,7 @@ A Chrome extension (Manifest V3) that adds a card under X posts that mention a t
 
 1. Open `chrome://extensions` and turn on Developer mode.
 2. Click "Load unpacked" and choose this folder (`apps/extension`). There is no build step.
-3. Open x.com and search for "bitcoin" or "recession".
+3. Open x.com and search for a market's topic, such as "LMArena" or "CLARITY Act". Clicking the convíx icon in the toolbar says what the extension does and opens the site.
 
 A card appears only for a market that has at least one published thesis.
 
@@ -16,6 +16,7 @@ A card appears only for a market that has at least one published thesis.
 
 ## How it works
 
+- `popup.html` and `popup.js` are the toolbar popup; `icons/` holds the toolbar and store icons, the í with its arrowhead.
 - `background.js` is the only part that talks to the API: `GET /api/ext/markets` (cached 5 minutes) and `GET /api/ext/card?symbol=` (cached 30 seconds).
 - `content.js` reads posts, matches them in the browser with `match.js`, and mounts `card.js`. Post text never leaves the browser; only a matched market's symbol is sent.
 - Keyword groups come from `packages/core/src/tracked.ts`, through `markets.keywords`.

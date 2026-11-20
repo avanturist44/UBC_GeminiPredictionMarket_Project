@@ -59,8 +59,10 @@ const TMCard = (() => {
   a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   .top { display: flex; align-items: center; gap: 8px; height: 24px; }
-  .brand { display: inline-flex; align-items: center; gap: 6px; color: var(--fg); }
-  .brand svg { width: 12px; height: 12px; flex: none; }
+  .brand { display: inline-flex; align-items: center; color: var(--fg); }
+  /* As on the site: the accent on the í is a notched arrowhead, sized in em to the name. */
+  .wordmark .i { position: relative; display: inline-block; }
+  .wordmark .acc { position: absolute; width: 0.28em; height: 0.28em; left: calc(50% - 0.13em); bottom: 0.66em; overflow: visible; }
   .wordmark { font-family: var(--serif); font-size: 18px; line-height: 1; font-weight: 400; font-synthesis: none; }
   .note { margin-left: auto; font-size: 12px; line-height: 16px; color: var(--fg3); white-space: nowrap; }
   .close {
@@ -165,7 +167,19 @@ const TMCard = (() => {
   }
 
   // The site's mark: a ring, the same one that marks an author's entry on every odds line.
-  const ring = () => icon("0 0 16 16", [["circle", { cx: 8, cy: 8, r: 5.5, fill: "none", stroke: "#6d8bff", "stroke-width": 2.5 }]]);
+  // The site's mark: the name, with the accent on the í drawn as a notched arrowhead over a
+  // dotless ı, in the letters' own color.
+  function wordmark() {
+    const mark = el("span", "wordmark");
+    mark.setAttribute("role", "img");
+    mark.setAttribute("aria-label", "convíx");
+    const head = icon("0 0 100 100", [["polygon", { points: "92,18 51,71 56,43 28,38", fill: "currentColor" }]]);
+    head.setAttribute("class", "acc");
+    const i = el("span", "i", "ı");
+    i.append(head);
+    mark.append("conv", i, "x");
+    return mark;
+  }
   const cross = () => icon("0 0 10 10", [["path", { d: "M1.5 1.5l7 7M8.5 1.5l-7 7", stroke: "currentColor", "stroke-width": 1.6, "stroke-linecap": "round" }]]);
   const chevron = () => icon("0 0 12 12", [["path", { d: "M4.5 2.5L8 6l-3.5 3.5", fill: "none", stroke: "currentColor", "stroke-width": 1.6, "stroke-linecap": "round", "stroke-linejoin": "round" }]]);
 
@@ -223,7 +237,7 @@ const TMCard = (() => {
   function header(card, onClose) {
     const top = el("div", "top");
     const brand = el("span", "brand");
-    brand.append(ring(), el("span", "wordmark", "convíx"));
+    brand.append(wordmark());
     const close = el("button", "close");
     close.type = "button";
     close.title = "Hide cards for this market";
